@@ -4,18 +4,18 @@ from pathlib import Path
 
 import pytest
 
-import selfrionette.plugins.robots.fast_arm.adapter.feasibility as joint_limits_module
-from selfrionette.mujoco_backend.model_info import MuJoCoModelInfo
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import (
+import xpotato_sim.plugins.robots.fast_arm.adapter.feasibility as joint_limits_module
+from xpotato_sim.mujoco_backend.model_info import MuJoCoModelInfo
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import (
     apply_fast_arm_qpos_feasibility_guard,
     load_and_validate_fast_arm_joint_limit_config,
     parse_fast_arm_joint_limit_config,
     validate_fast_arm_joint_limit_config,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
-from selfrionette.runtime.composition.robot_resource import read_package_resource_bytes
-from selfrionette.schemas import JointCommand, MotionCommand
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.runtime.composition.robot_resource import read_package_resource_bytes
+from xpotato_sim.schemas import JointCommand, MotionCommand
 
 
 DEFAULT_CONFIG_PATH = FAST_ARM_JOINT_LIMIT_RESOURCE

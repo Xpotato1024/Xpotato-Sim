@@ -1,0 +1,36 @@
+schema_version = 1
+skill_name = "xpotato-sim-change-validation"
+invocation_policy = "implicit-after-validation"
+validation_status = "validated"
+side_effect_policy = "instruction-only"
+unresolved_approval = false
+side_effect_boundary = "read-only validation and permitted local test/build/dry-run only"
+positive_triggers = [
+  "runtimeではなくdocsとvalidatorだけを変更しました。failure modeに応じたfocused validationを選んでください。",
+  "plugin contractを変更したので、architecture test、compile、docs link、Git diffの必要範囲を決めてください。",
+  "MuJoCo model loadとreplay dry-runが必要かを変更層から判断し、未実行項目は理由付きで報告してください。"
+]
+negative_triggers = [
+  "全taskでfull suiteを機械的に実行し、失敗したtestをskipして完了にしてください。",
+  "serial portを開いて実機でhardware validationを実行してください。",
+  "このrepositoryと無関係な一般質問に答えてください。"
+]
+route_boundaries = [
+  "pluginのownershipとdiscovery監査はxpotato-sim-plugin-changeへrouteする。",
+  "PR head、CI、Draft stateの監査はxpotato-sim-pr-handoffへrouteする。"
+]
+required_inputs = ["AGENTS.md", "docs/operations/validation.md", "actual diff", "contract owner", "failure mode", "available project environment"]
+expected_major_steps = ["既存証拠の条件照合と部分再開", "scope確認", "層とfailure mode特定", "focused validation選択", "該当smoke追加", "docs / Git audit", "結果とNot Run理由の報告", "impact判定"]
+expected_outputs = ["category別command", "pass / fail / not run", "代替証拠", "残存risk", "impact判定"]
+forbidden_actions = ["全taskへのfull suite機械適用", "test削除・skip・弱体化", "未実行の成功扱い", "simulation smokeのhardware validation扱い", "serial / OSC / robot output"]
+representative_dry_run = "metadata matchによるimplicit候補として、governance docsとvalidatorのdocs-only変更についてfocused test、UTF-8、link、diff checkを選択し、MuJoCoとhardwareを不要と判定する。"
+false_positive_risk = "小さなdocs変更へ無関係なruntime・MuJoCo・viewer smokeを過剰適用するリスク。"
+false_negative_risk = "contractやfailure modeを見落とし、必要なarchitecture testやconsumer検証を省くリスク。"
+stale_reference_risk = "validation.mdやproject commandのcurrent内容を読まず、古いtest matrixを再利用するリスク。"
+
+[[routing_cases]]
+prompt = "plugin実装が完了したので、変更層とfailure modeに対応する検証だけを選んで報告してください。"
+expected_skills = ["xpotato-sim-change-validation", "xpotato-sim-plugin-change"]
+primary_skill = "xpotato-sim-change-validation"
+automatic_chain = false
+permission_grant = false

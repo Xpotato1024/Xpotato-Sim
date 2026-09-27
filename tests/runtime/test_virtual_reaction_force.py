@@ -5,14 +5,14 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.runtime.contact.evidence import (
+from xpotato_sim.runtime.contact.evidence import (
     ContactEvidence,
     ContactEvidenceStatus,
     ContactForceAggregate,
     ContactPairClassification,
     ContactRecord,
 )
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     ContactCubeObject,
     ContactMaterial,
     ContactResetState,
@@ -23,8 +23,8 @@ from selfrionette.runtime.contact.manifest import (
     ScenePresentationIdentity,
     contact_manifest_digest,
 )
-from selfrionette.runtime.contact.task_contract import ContactTrialIdentity
-from selfrionette.runtime.contact import (
+from xpotato_sim.runtime.contact.task_contract import ContactTrialIdentity
+from xpotato_sim.runtime.contact import (
     VirtualReactionForceConfig,
     VirtualReactionForceError,
     VirtualReactionForceFrame,
@@ -34,7 +34,7 @@ from selfrionette.runtime.contact import (
     decode_virtual_reaction_force_manifest,
     encode_virtual_reaction_force_manifest,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     ROLE_ATTRIBUTE_WILDCARD,
     SemanticRole,

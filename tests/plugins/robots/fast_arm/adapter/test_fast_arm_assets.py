@@ -1,8 +1,8 @@
-from selfrionette.plugins.robots.fast_arm.adapter.resources import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import (
     FAST_ARM_MESH_RESOURCES,
     FAST_ARM_SCENE_RESOURCE,
 )
-from selfrionette.runtime.composition.robot_resource import read_package_resource_bytes
+from xpotato_sim.runtime.composition.robot_resource import read_package_resource_bytes
 
 
 def test_fast_arm_assets_exist() -> None:

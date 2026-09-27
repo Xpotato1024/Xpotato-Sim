@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     run_fast_arm_endpoint_motion_sanity,
     run_fast_arm_joint_axis_mapping_diagnostics,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 def _results_by_label():

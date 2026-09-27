@@ -17,7 +17,7 @@ related:
 
 ## Runtime owner map
 
-`src/selfrionette/runtime/`はflat facadeではなく、次の責務ownerへ分ける。
+`src/xpotato_sim/runtime/`はflat facadeではなく、次の責務ownerへ分ける。
 
 | owner | canonical responsibility |
 |---|---|
@@ -82,7 +82,7 @@ startup keyframe、IK / FK、motion policy、qpos feasibility guardの整合を�
 zero solver、退役したPlanar solverへ暗黙fallbackしない。
 
 production concrete registrationは、固定namespace直下の`plugin.py` / `ROBOT_PLUGIN`を読むbounded
-discoveryから`selfrionette.plugins.robots.catalog`へ投影する。catalogは具体robot importや具体IDを持たず、
+discoveryから`xpotato_sim.plugins.robots.catalog`へ投影する。catalogは具体robot importや具体IDを持たず、
 discovered `RobotBundle`をknown IDでresolveし、ProfileとRuntime Plugin resolverは同じBundle objectの
 `profile` / `runtime_plugin`へprojectionする。application compositionはBundleから必要なtyped providerを
 assembly時に取得してconsumerへ渡し、処理中にBundleへ問い合わせるservice locatorにはしない。
@@ -264,7 +264,7 @@ legacy messageはsourceでcanonical sampleへ変換され、別のlegacy mapping
 source-owned implementationを`plugins/input_sources/`へ集約した。C3ではproduction/internal consumerを
 catalog、typed mapping selection、`ControlMappedRuntimePipeline`へ収束させた。
 public compatibility evidenceの監査後、C4はimmediate removalを採用した。
-`src/selfrionette/input_sources/`、`input_interpreters/`、interpreter-based `RuntimePipeline`、old-path helper、
+`src/xpotato_sim/input_sources/`、`input_interpreters/`、interpreter-based `RuntimePipeline`、old-path helper、
 compatibility scriptを退役した。canonical CLIの`--robot` requirement、validation wording、runtime behaviorへ
 wrapper parityを逆流させない。
 
@@ -381,3 +381,10 @@ outputを結ぶ。`runtime/contact/robot_view.py`は単一sceneのRobot joint vi
 `runtime/runners/fast_arm_input_runtime.py`が既存のresolved input planとdisarmed physical sessionを専有し、
 明示start、有限tick、受信/expiry、P5 submit、stop/cleanupを接続する。生成や判定のownerを移さない。
 出力requestのhost clockとSource/MuJoCo時刻は別々に記録する。詳細は`docs/contracts/physical-output.md`を正本とする。
+
+## 共同armの診断実行
+
+[共同実行契約](../contracts/coordinated-arm-runtime.md) に従い、compositionがSource/Mapping/assembly providerを結ぶ。
+`execution/coordinated.py` は候補の一括反映と全体latch、`output/coordinated.py` は全側の既存prepare/dispatchを監督する。
+`schemas/coordinated.py` は名前付き複数手先と時計を分離する。旧単腕v1のrouteを暗黙に双腕へ拡張しない。
+`runners/coordinated_gamepad.py` は有限な保存入力の診断入口であり、participant Task/metricの第二SoTではない。

@@ -1,10 +1,10 @@
 """Typed provider assembly for the test-only fixture robot."""
 
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     JOINT_POSITION_COMMAND_V1,
     VersionedIdentity,
 )
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1,
     ENDPOINT_POSE_V1,
     QPOS_FEASIBILITY_V1,
@@ -15,7 +15,7 @@ from selfrionette.runtime.composition.robot_bundle import (
     RobotCommandSemanticProviderBinding,
     RobotBundle,
 )
-from selfrionette.runtime.composition.robot_provider_adapters import (
+from xpotato_sim.runtime.composition.robot_provider_adapters import (
     NamedKeyframeInitialStateProvider,
     ProfileEndpointSceneRoleProvider,
     RuntimeEndpointCommandProvider,

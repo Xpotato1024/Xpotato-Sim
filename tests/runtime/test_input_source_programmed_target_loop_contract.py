@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 
 
 def _programmed_target_parameters(**overrides: object) -> dict[str, object]:

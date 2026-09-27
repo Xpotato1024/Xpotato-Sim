@@ -12,16 +12,16 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.plugins.robots.fast_arm.endpoint import extract_fast_arm_tip_site_endpoint_from_state
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.robots.fast_arm.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.schemas import ViewerControlKeyboardMessage, ViewerControlMessage
-from selfrionette.transport.payload import mujoco_state_to_payload
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.schemas import ViewerControlKeyboardMessage, ViewerControlMessage
+from xpotato_sim.transport.payload import mujoco_state_to_payload
 
 
 def _message(timestamp_s: float, *keys: str, zero: bool = False) -> ViewerControlMessage:

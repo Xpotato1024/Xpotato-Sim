@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.composition.robot_resource import (
+from xpotato_sim.runtime.composition.robot_resource import (
     PackageResource,
     package_resource_traversable,
 )

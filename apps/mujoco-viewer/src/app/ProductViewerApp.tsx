@@ -1,3 +1,4 @@
+import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
@@ -184,6 +185,7 @@ export function ProductViewerApp() {
   const inputSelection = useMemo(() => readViewerInputSelection(
     typeof window === "undefined" ? "" : window.location.search,
   ), []);
+  const gamepadNeutralHeartbeat = state.inputOverlay?.gamepadPlaneControl != null;
   const liveInputEnabled = !inputPaused && inputSelection.error === null && isProductViewerLiveInputEnabled(state);
 
   useEffect(() => {
@@ -272,6 +274,7 @@ export function ProductViewerApp() {
 
     const inputLifecycle = createViewerInputLifecycle({
       providerIds: inputSelection.providerIds,
+      gamepadNeutralHeartbeat,
       window,
       document,
       url: endpointConfig.websocketUrl,
@@ -286,7 +289,7 @@ export function ProductViewerApp() {
     });
     inputLifecycle.setLiveInputEnabled(liveInputEnabled);
     return () => inputLifecycle.dispose();
-  }, [endpointConfig.websocketUrl, liveInputEnabled, inputSelection]);
+  }, [endpointConfig.websocketUrl, liveInputEnabled, inputSelection, gamepadNeutralHeartbeat]);
 
   const onContactTaskLogChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     setDiagnosticSnapshot(null);
@@ -428,6 +431,7 @@ export function ProductViewerApp() {
             <div className="inspector-heading"><h2>入力</h2><span className="section-kicker">INPUT</span></div>
             <p className="inspector-primary">{overlay?.sourceKind ?? "入力情報なし"}</p>
             <InputInstruments state={state} numbers={numbers} />
+            <GamepadPlaneStatus value={overlay?.gamepadPlaneControl ?? null} live={liveInputEnabled && connection.tone === "positive"} />
             <div className="inspector-row"><span>取得</span><strong>{inputPaused ? "一時停止" : liveInputEnabled ? "有効" : "停止"}</strong></div>
             <div className="inspector-row"><span>backend状態</span><strong>{overlay === null ? "未取得" : overlay.sourceActive ? "入力あり" : "待機 / 保持"}</strong></div>
             <div className="inspector-row"><span>入力age</span><strong>{overlay?.commandAgeMs === null || overlay?.commandAgeMs === undefined ? "—" : overlay.commandAgeMs + " ms"}</strong></div>

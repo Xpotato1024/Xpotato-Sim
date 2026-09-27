@@ -6,10 +6,10 @@ import json
 from pathlib import Path
 import socket
 import pytest
-from selfrionette.runtime.runners.signal_contact import capture_signal_contact, canonical, strict_json, validate_scenario
-from selfrionette.runtime.runners.signal_contact_artifact import decode_signal_trace
-from selfrionette.runtime.contact.log import decode_contact_task_log
-from selfrionette.plugins.tasks.contact_press_hold_task import implementation as task_impl
+from xpotato_sim.runtime.runners.signal_contact import capture_signal_contact, canonical, strict_json, validate_scenario
+from xpotato_sim.runtime.runners.signal_contact_artifact import decode_signal_trace
+from xpotato_sim.runtime.contact.log import decode_contact_task_log
+from xpotato_sim.plugins.tasks.contact_press_hold_task import implementation as task_impl
 
 ROOT=Path(__file__).resolve().parents[2]
 REVISION='test-only-integration'

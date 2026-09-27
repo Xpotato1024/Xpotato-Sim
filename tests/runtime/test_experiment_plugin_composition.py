@@ -5,22 +5,22 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.composition.robot_profile import (
+from xpotato_sim.runtime.composition.robot_profile import (
     CoordinateUnitContract,
     EndpointReference,
     RobotProfile,
 )
-from selfrionette.runtime.composition.robot_provider_adapters import NamedKeyframeInitialStateProvider
-from selfrionette.plugins.mappings._command_routes import (
+from xpotato_sim.runtime.composition.robot_provider_adapters import NamedKeyframeInitialStateProvider
+from xpotato_sim.plugins.mappings._command_routes import (
     joint_position_command_route,
 )
-from selfrionette.runtime.execution.command_routes import (
+from xpotato_sim.runtime.execution.command_routes import (
     JointPositionCommandExecutionBinding,
     JointPositionCommandRouteExecutionStrategy,
     NativeEndpointVelocityCommandRouteExecutionStrategy,
     ResolvedCommandExecution,
 )
-from selfrionette.runtime.experiment.composition import (
+from xpotato_sim.runtime.experiment.composition import (
     EvidenceProducerBinding,
     ExperimentPluginManifest,
     ExperimentPluginRegistries,
@@ -28,7 +28,7 @@ from selfrionette.runtime.experiment.composition import (
     compose_experiment,
     resolve_command_execution,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     CanonicalEvidence,
     CanonicalEvidenceSet,
     CommandSemanticsRoute,
@@ -57,14 +57,14 @@ from selfrionette.runtime.experiment.contracts import (
     VersionedIdentity,
     NATIVE_ENDPOINT_VELOCITY_PASSTHROUGH_V1,
 )
-from selfrionette.runtime.experiment.registry import VersionedPluginRegistry
+from xpotato_sim.runtime.experiment.registry import VersionedPluginRegistry
 from tests.support.input_source_plugin_doubles import (
     CONFORMANCE_INPUT_SOURCE,
     CONFORMANCE_SAMPLE_SCHEMA,
     build_conformance_input_source,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import FAST_ARM_RUNTIME_PLUGIN
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import FAST_ARM_RUNTIME_PLUGIN
+from xpotato_sim.runtime.composition.robot_bundle import (
     CAPABILITY_PROVIDER_TYPES,
     CONTACT_EVIDENCE_V1,
     ENDPOINT_COMMAND_V1,
@@ -79,13 +79,13 @@ from selfrionette.runtime.composition.robot_bundle import (
     RobotCommandSemanticProviderBinding,
     RobotBundle,
 )
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.schemas import (
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.schemas import (
     EndpointVelocityCommand,
     JointPositionCommand,
     MotionCommand,
 )
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import (
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import (
     build_concrete_mujoco_pipeline,
 )
 
@@ -188,7 +188,7 @@ class _SceneRoleProvider:
     capability_identity = SCENE_ROLE_BINDING_V1
 
     def semantic_role_bindings(self):
-        from selfrionette.runtime.composition.robot_bundle import SemanticRoleBinding
+        from xpotato_sim.runtime.composition.robot_bundle import SemanticRoleBinding
 
         return (
             SemanticRoleBinding(
@@ -695,7 +695,7 @@ def test_discovered_logical_v2_fixture_uses_plugin_selection_in_resolved_composi
     import importlib
     import sys
 
-    from selfrionette.plugins.robots.discovery import (
+    from xpotato_sim.plugins.robots.discovery import (
         RobotDiscoveryRoot,
         discover_robot_plugins,
     )
@@ -1007,7 +1007,7 @@ def test_exact_versioned_cross_plugin_compatibility_accepts_v1() -> None:
 
 
 def test_command_semantic_identities_are_versioned_and_distinct() -> None:
-    from selfrionette.runtime.experiment.contracts import (
+    from xpotato_sim.runtime.experiment.contracts import (
         ENDPOINT_POSITION_COMMAND_V1,
         JOINT_VELOCITY_COMMAND_V1,
     )

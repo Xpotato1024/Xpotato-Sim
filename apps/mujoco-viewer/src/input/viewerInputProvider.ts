@@ -51,6 +51,7 @@ export interface ViewerKeyboardEventLike {
 }
 
 export interface ViewerInputProviderOptions {
+  gamepadNeutralHeartbeat?: boolean;
   window: ViewerInputProviderWindowLike;
   document: ViewerInputProviderDocumentLike;
   url: string | null;
@@ -198,6 +199,7 @@ function createGamepadProvider(options: ViewerInputProviderOptions): ViewerInput
       sender = createViewerGamepadControlSender({
         url: options.url,
         WebSocketCtor: options.gamepadWebSocketCtor,
+        providerSessionId: globalThis.crypto.randomUUID(),
       });
       lifecycle = createViewerGamepadLifecycle({
         window: options.window,
@@ -210,6 +212,7 @@ function createGamepadProvider(options: ViewerInputProviderOptions): ViewerInput
           removeEventListener: (type, listener) => options.document.removeEventListener(type, listener),
         },
         getGamepads: options.getGamepads,
+        neutralHeartbeat: options.gamepadNeutralHeartbeat,
         publish(snapshot) {
           sender?.publish(snapshot);
         },

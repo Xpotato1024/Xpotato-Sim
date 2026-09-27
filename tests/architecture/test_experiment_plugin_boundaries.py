@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME = ROOT / "src" / "selfrionette" / "runtime"
+RUNTIME = ROOT / "src" / "xpotato_sim" / "runtime"
 
 
 def test_generic_experiment_contracts_do_not_import_robot_specific_implementations() -> None:
@@ -81,7 +81,7 @@ def test_viewer_remains_outside_task_contact_and_metric_ownership() -> None:
 
 
 def test_environment_task_evaluation_plugins_do_not_cross_import_concrete_axes() -> None:
-    plugin_root = ROOT / "src" / "selfrionette" / "plugins"
+    plugin_root = ROOT / "src" / "xpotato_sim" / "plugins"
     forbidden = {
         "environments": ("plugins.tasks.", "plugins.evaluations.", "fast_arm"),
         "tasks": ("plugins.environments.", "plugins.evaluations.", "fast_arm"),
@@ -95,7 +95,7 @@ def test_environment_task_evaluation_plugins_do_not_cross_import_concrete_axes()
 
 
 def test_runtime_public_surface_is_minimal_and_catalog_aware() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert set(runtime.__all__) == {
         "RuntimeConfig",

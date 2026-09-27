@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm import bundle as compatibility_bundle
-from selfrionette.plugins.robots.fast_arm import kinematics as compatibility_kinematics
-from selfrionette.plugins.robots.fast_arm.adapter import bundle as adapter_bundle
-from selfrionette.plugins.robots.fast_arm.adapter import kinematics as adapter_kinematics
+from xpotato_sim.plugins.robots.fast_arm import bundle as compatibility_bundle
+from xpotato_sim.plugins.robots.fast_arm import kinematics as compatibility_kinematics
+from xpotato_sim.plugins.robots.fast_arm.adapter import bundle as adapter_bundle
+from xpotato_sim.plugins.robots.fast_arm.adapter import kinematics as adapter_kinematics
 
 
 ROOT = Path(__file__).resolve().parents[2]
-FAST_ARM_ROOT = ROOT / "src/selfrionette/plugins/robots/fast_arm"
+FAST_ARM_ROOT = ROOT / "src/xpotato_sim/plugins/robots/fast_arm"
 CORE_PROJECT = FAST_ARM_ROOT / "core"
 CORE_SOURCE = CORE_PROJECT / "src/fast_arm_core"
 
@@ -43,21 +43,21 @@ def test_fast_arm_core_is_an_independent_distribution() -> None:
     package_find = root_project["tool"]["setuptools"]["packages"]["find"]
     assert root_project["tool"]["setuptools"]["include-package-data"] is False
     assert package_find["namespaces"] is False
-    assert "selfrionette.plugins.robots.fast_arm.core*" in package_find["exclude"]
+    assert "xpotato_sim.plugins.robots.fast_arm.core*" in package_find["exclude"]
     assert not (CORE_PROJECT / "__init__.py").exists()
     assert (ROOT / "MANIFEST.in").read_text(encoding="utf-8").strip() == (
-        "prune src/selfrionette/plugins/robots/fast_arm/core"
+        "prune src/xpotato_sim/plugins/robots/fast_arm/core"
     )
 
 
 def test_fast_arm_core_has_no_selfrionette_dependency() -> None:
     violations = {
         str(path.relative_to(ROOT)): sorted(
-            name for name in _imports(path) if name == "selfrionette" or name.startswith("selfrionette.")
+            name for name in _imports(path) if name == "xpotato_sim" or name.startswith("xpotato_sim.")
         )
         for path in CORE_SOURCE.rglob("*.py")
         if any(
-            name == "selfrionette" or name.startswith("selfrionette.")
+            name == "xpotato_sim" or name.startswith("xpotato_sim.")
             for name in _imports(path)
         )
     }
@@ -69,11 +69,11 @@ def test_plugin_entrypoint_only_assembles_the_adapter() -> None:
     concrete_imports = {
         name
         for name in imports
-        if name.startswith("selfrionette.plugins.robots.fast_arm")
+        if name.startswith("xpotato_sim.plugins.robots.fast_arm")
     }
     assert concrete_imports
     assert all(
-        name.startswith("selfrionette.plugins.robots.fast_arm.adapter")
+        name.startswith("xpotato_sim.plugins.robots.fast_arm.adapter")
         for name in concrete_imports
     )
 
@@ -81,7 +81,7 @@ def test_plugin_entrypoint_only_assembles_the_adapter() -> None:
 def test_generic_resource_manifest_tooling_contains_no_fast_arm_inventory() -> None:
     generic_sources = (
         ROOT
-        / "src/selfrionette/runtime/composition/viewer_package_resource_manifest.py"
+        / "src/xpotato_sim/runtime/composition/viewer_package_resource_manifest.py"
     ).read_text(encoding="utf-8") + (
         ROOT / "apps/mujoco-viewer/tooling/viewerPackageResources.ts"
     ).read_text(encoding="utf-8")
@@ -148,10 +148,10 @@ def test_compatibility_modules_preserve_all_and_export_identities(
     module_suffix: str,
 ) -> None:
     compatibility = importlib.import_module(
-        f"selfrionette.plugins.robots.fast_arm.{module_suffix}"
+        f"xpotato_sim.plugins.robots.fast_arm.{module_suffix}"
     )
     adapter = importlib.import_module(
-        f"selfrionette.plugins.robots.fast_arm.adapter.{module_suffix}"
+        f"xpotato_sim.plugins.robots.fast_arm.adapter.{module_suffix}"
     )
     assert compatibility.__all__ == adapter.__all__
     for name in adapter.__all__:
@@ -178,7 +178,7 @@ def test_fast_arm_core_test_tree_has_no_selfrionette_imports() -> None:
     violations: list[str] = []
     for path in (ROOT / "tests/plugins/robots/fast_arm/core").rglob("*.py"):
         if any(
-            name == "selfrionette" or name.startswith("selfrionette.")
+            name == "xpotato_sim" or name.startswith("xpotato_sim.")
             for name in _imports(path)
         ):
             violations.append(str(path.relative_to(ROOT)))

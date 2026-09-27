@@ -5,20 +5,20 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.environments.catalog import ENVIRONMENT_REGISTRY
-from selfrionette.plugins.environments.discovery import (
+from xpotato_sim.plugins.environments.catalog import ENVIRONMENT_REGISTRY
+from xpotato_sim.plugins.environments.discovery import (
     EnvironmentDiscoveryRoot,
     EnvironmentPluginDiscoveryError,
     discover_environment_plugins,
 )
-from selfrionette.plugins.evaluations.catalog import EVALUATION_REGISTRY
-from selfrionette.plugins.evaluations.discovery import (
+from xpotato_sim.plugins.evaluations.catalog import EVALUATION_REGISTRY
+from xpotato_sim.plugins.evaluations.discovery import (
     EvaluationDiscoveryRoot,
     EvaluationPluginDiscoveryError,
     discover_evaluation_plugins,
 )
-from selfrionette.plugins.tasks.catalog import TASK_REGISTRY
-from selfrionette.plugins.tasks.discovery import (
+from xpotato_sim.plugins.tasks.catalog import TASK_REGISTRY
+from xpotato_sim.plugins.tasks.discovery import (
     TaskDiscoveryRoot,
     TaskPluginDiscoveryError,
     discover_task_plugins,
@@ -48,8 +48,8 @@ def _namespace(
 def _environment_export(plugin_id: str) -> str:
     return f"""
 from dataclasses import replace
-from selfrionette.plugins.environments.free_space_environment import FREE_SPACE_ENVIRONMENT_PLUGIN
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.plugins.environments.free_space_environment import FREE_SPACE_ENVIRONMENT_PLUGIN
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 ENVIRONMENT_PLUGIN = replace(
     FREE_SPACE_ENVIRONMENT_PLUGIN,
     identity=VersionedIdentity("{plugin_id}", 1),
@@ -60,8 +60,8 @@ ENVIRONMENT_PLUGIN = replace(
 def _task_export(plugin_id: str) -> str:
     return f"""
 from dataclasses import replace
-from selfrionette.plugins.tasks.endpoint_reach_task import ENDPOINT_REACH_TASK_PLUGIN
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.plugins.tasks.endpoint_reach_task import ENDPOINT_REACH_TASK_PLUGIN
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 TASK_PLUGIN = replace(
     ENDPOINT_REACH_TASK_PLUGIN,
     identity=VersionedIdentity("{plugin_id}", 1),
@@ -72,8 +72,8 @@ TASK_PLUGIN = replace(
 def _evaluation_export(plugin_id: str) -> str:
     return f"""
 from dataclasses import replace
-from selfrionette.plugins.evaluations.success_within_timeout import SUCCESS_WITHIN_TIMEOUT_PLUGIN
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.plugins.evaluations.success_within_timeout import SUCCESS_WITHIN_TIMEOUT_PLUGIN
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 EVALUATION_PLUGIN = replace(
     SUCCESS_WITHIN_TIMEOUT_PLUGIN,
     identity=VersionedIdentity("{plugin_id}", 1),

@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.runtime.composition.production_experiment import (
+from xpotato_sim.runtime.composition.production_experiment import (
     PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
 )
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_POSE_V1,
     EndpointPoseProvider,
 )
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.evaluation.manifest import (
     SoftwareExecutionIdentity,
     build_evaluation_readiness,
 )
-from selfrionette.runtime.evaluation.r7_g_free_space import (
+from xpotato_sim.runtime.evaluation.r7_g_free_space import (
     build_r7_g_free_space_manifest_pair,
 )
-from selfrionette.runtime.experiment.contracts import TaskTerminalClassification
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     EndpointReachObservation,
     decode_endpoint_reach_trajectory_evidence,
 )
@@ -34,7 +34,7 @@ def test_production_task_accepts_actual_mujoco_home_measurement_as_origin() -> N
         pair.world,
         PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
         execution_identity=SoftwareExecutionIdentity(
-            repository_identity="Xpotato1024/Selfrionette-mujoco",
+            repository_identity="Xpotato1024/Xpotato-Sim",
             software_revision_identity=SOFTWARE_REVISION,
         ),
     )

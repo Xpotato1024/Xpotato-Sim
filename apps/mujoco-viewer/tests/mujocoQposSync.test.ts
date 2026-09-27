@@ -55,7 +55,7 @@ describe("canonical product qpos fixture", () => {
       "..",
       "..",
       "src",
-      "selfrionette",
+      "xpotato_sim",
       "plugins",
       "robots",
       "fast_arm",

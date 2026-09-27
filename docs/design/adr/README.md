@@ -29,3 +29,5 @@ ADRはdesign decisionを、その時点のcontextとprovenanceを含めて記録
 - [ADR 0009: 有限SILの対応範囲とtrace整合検証](0009-bounded-sil-validation.md)
 
 - [ADR 0010: 入力とphysical sessionの有限owner](0010-bounded-physical-runtime-owner.md)
+
+- [ADR 0011: シミュレーション主経路と左右共通scope](0011-simulation-first-bimanual-scope.md)

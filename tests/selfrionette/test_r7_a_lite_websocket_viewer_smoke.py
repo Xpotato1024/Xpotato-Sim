@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from selfrionette.runtime.runners.selfrionette_serial_dry_run import (
+from xpotato_sim.runtime.runners.selfrionette_serial_dry_run import (
     run_selfrionette_serial_dry_run_smoke as _run_canonical_selfrionette_smoke,
 )
-from selfrionette.plugins.input_sources.selfrionette import LoadcellNormalizationConfig
-from selfrionette.plugins.mappings.loadcell_endpoint_mapping import build_r7_a_lite_smoke_endpoint_mapping_config
-from selfrionette.plugins.mappings.catalog import resolve_control_mapping_plugin
-from selfrionette.runtime.experiment.contracts import PluginSelection
-from selfrionette.schemas import MuJoCoState
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.plugins.input_sources.selfrionette import LoadcellNormalizationConfig
+from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping import build_r7_a_lite_smoke_endpoint_mapping_config
+from xpotato_sim.plugins.mappings.catalog import resolve_control_mapping_plugin
+from xpotato_sim.runtime.experiment.contracts import PluginSelection
+from xpotato_sim.schemas import MuJoCoState
+from xpotato_sim.transport import mujoco_state_to_payload
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "r7_a_lite_serial_frames"

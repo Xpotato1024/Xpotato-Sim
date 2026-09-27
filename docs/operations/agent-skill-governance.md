@@ -16,7 +16,7 @@ related:
 
 # repository-local Skill governance
 
-この文書は、`Selfrionette-mujoco`のrepository-local Codex Skillに関するlifecycle、
+この文書は、`Xpotato-Sim`のrepository-local Codex Skillに関するlifecycle、
 evidence、autonomy boundary、validationの正本である。現在のtaskを完了することを
 Skill改善より優先し、Skill systemは既存の編集、Git、GitHub、external service、
 production、hardware権限を拡張しない。

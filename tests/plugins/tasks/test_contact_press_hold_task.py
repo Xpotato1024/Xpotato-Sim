@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.evaluations.contact_outcome import CONTACT_OUTCOME_PLUGIN
-from selfrionette.plugins.tasks.contact_press_hold_task import (
+from xpotato_sim.plugins.evaluations.contact_outcome import CONTACT_OUTCOME_PLUGIN
+from xpotato_sim.plugins.tasks.contact_press_hold_task import (
     CONTACT_PRESS_HOLD_TASK_PLUGIN,
     CONTACT_TASK_OUTCOME_EVIDENCE,
     CONTACT_TASK_TERMINAL_EVIDENCE,
@@ -18,14 +18,14 @@ from selfrionette.plugins.tasks.contact_press_hold_task import (
     ContactTrialIdentity,
     run_contact_task_fixture,
 )
-from selfrionette.runtime.contact.evidence import (
+from xpotato_sim.runtime.contact.evidence import (
     ContactEvidence,
     ContactEvidenceStatus,
     ContactForceAggregate,
     ContactPairClassification,
     ContactRecord,
 )
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     ContactCubeObject,
     ContactMaterial,
     ContactResetState,
@@ -36,7 +36,7 @@ from selfrionette.runtime.contact.manifest import (
     ScenePresentationIdentity,
     contact_manifest_digest,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     EvidenceStatus,
     PluginSelection,
     SemanticRole,

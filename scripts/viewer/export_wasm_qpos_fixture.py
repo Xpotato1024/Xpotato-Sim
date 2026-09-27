@@ -8,11 +8,11 @@ import tempfile
 from pathlib import Path
 from typing import Sequence
 
-from selfrionette.plugins.robots.fast_arm.adapter.resources import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import (
     FAST_ARM_VIEWER_FIXTURE_RESOURCE,
 )
-from selfrionette.runtime.composition.robot_resource import package_resource_traversable
-from selfrionette.runtime.runners.dry_run import run_replay_mujoco_dry_run
+from xpotato_sim.runtime.composition.robot_resource import package_resource_traversable
+from xpotato_sim.runtime.runners.dry_run import run_replay_mujoco_dry_run
 
 FIXTURE_MODEL_PATH = "assets/mujoco/fast_arm/scene.xml"
 FIXTURE_SOURCE = "python-native-mujoco"

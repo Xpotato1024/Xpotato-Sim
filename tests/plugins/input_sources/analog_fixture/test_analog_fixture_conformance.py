@@ -1,5 +1,5 @@
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
 from tests.plugins.input_sources.contract.conformance import (
     InputSourceConformanceCase,
     InputSourceHealthTransitionCase,

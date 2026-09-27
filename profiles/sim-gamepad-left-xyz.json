@@ -1,0 +1,65 @@
+{
+  "schema_version": "xpotato-sim-launch-profile/v1",
+  "name": "sim-gamepad-left-xyz",
+  "workspace": "..",
+  "mode": "simulation",
+  "robot": {
+    "name": "fast_arm",
+    "version": 1
+  },
+  "input": {
+    "plugin": {
+      "name": "viewer",
+      "version": 1
+    },
+    "provider": "gamepad/v1",
+    "preset": null
+  },
+  "mapping": {
+    "plugin": {
+      "name": "viewer_keyboard_gamepad_mapping",
+      "version": 1
+    },
+    "parameters": {
+      "gamepad_plane_control": {
+        "schema": "gamepad-plane-control/v1",
+        "output_side": "left",
+        "neutral_threshold": 0.1,
+        "left": {
+          "axes": [
+            0,
+            1
+          ],
+          "signs": [
+            1,
+            -1
+          ],
+          "mode_button": 4
+        },
+        "right": {
+          "axes": [
+            2,
+            3
+          ],
+          "signs": [
+            1,
+            -1
+          ],
+          "mode_button": 5
+        }
+      }
+    }
+  },
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5173,
+    "websocket_port": 8766,
+    "open_browser": true
+  }
+}

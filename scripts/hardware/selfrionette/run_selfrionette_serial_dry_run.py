@@ -9,7 +9,7 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from selfrionette.runtime.runners.selfrionette_serial_dry_run import (
+from xpotato_sim.runtime.runners.selfrionette_serial_dry_run import (
     main as run_selfrionette_serial_dry_run_main,
 )
 

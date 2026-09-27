@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.plugins.input_sources.selfrionette import (
     SerialFrameParseError,
     SerialInputSource,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "r7_a_lite_serial_frames"

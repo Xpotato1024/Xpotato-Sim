@@ -12,10 +12,10 @@ related:
 
 Current ownership: serial parsing、diagnostic accumulation、7-channel acquisition、intrinsic calibration /
 normalization、sensor clamp、health、lifecycleは
-`src/selfrionette/plugins/input_sources/selfrionette/`が所有する。operational deadzone、channel-axis
+`src/xpotato_sim/plugins/input_sources/selfrionette/`が所有する。operational deadzone、channel-axis
 weights、gain、sign、endpoint delta、MotionCommand conversionは
-`src/selfrionette/plugins/mappings/loadcell_endpoint_mapping/`が所有する。offline dry-run orchestrationは
-`src/selfrionette/runtime/runners/selfrionette_serial_dry_run.py`が所有し、versioned Mappingを明示する。
+`src/xpotato_sim/plugins/mappings/loadcell_endpoint_mapping/`が所有する。offline dry-run orchestrationは
+`src/xpotato_sim/runtime/runners/selfrionette_serial_dry_run.py`が所有し、versioned Mappingを明示する。
 
 current architectureではserial parserと7-channel `RawInputFrame` acquisitionを
 `selfrionette/v1`へ接続する。recorded / injected linesは別production identityではなく、同じdevice

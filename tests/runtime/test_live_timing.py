@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from selfrionette.runtime.execution.live_timing import AbsoluteDeadlinePacer, LiveRuntimeTimingMetrics
+from xpotato_sim.runtime.execution.live_timing import AbsoluteDeadlinePacer, LiveRuntimeTimingMetrics
 
 
 class FakeClock:

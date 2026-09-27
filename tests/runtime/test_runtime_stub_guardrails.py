@@ -7,26 +7,26 @@ from pathlib import Path
 
 import pytest
 
-import selfrionette.runtime.runners.websocket_publisher as websocket_runner_module
-from selfrionette.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
-from selfrionette.plugins.input_sources.replay import ReplayInputSource
+import xpotato_sim.runtime.runners.websocket_publisher as websocket_runner_module
+from xpotato_sim.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.plugins.input_sources.replay import ReplayInputSource
 from tests.support.input_source_doubles import StaticInputSource
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import FastArmEndpointInverseKinematicsSolver
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import FastArmEndpointInverseKinematicsSolver
 from tests.support.kinematics_solver_doubles import ZeroInverseKinematicsSolver
-from selfrionette.motion import TargetToJointMotionGenerator
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.motion import TargetToJointMotionGenerator
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
 from tests.support.mujoco_doubles import NoOpMuJoCoSimulator
-from selfrionette.runtime.evaluation.endpoint_metrics import EndpointEvaluationStatePublisher
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
-from selfrionette.runtime.runners.dry_run import run_replay_mujoco_dry_run
-from selfrionette.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
-from selfrionette.schemas import JointCommand, MuJoCoState
-from selfrionette.transport import WebSocketStatePublisher
+from xpotato_sim.runtime.evaluation.endpoint_metrics import EndpointEvaluationStatePublisher
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+from xpotato_sim.runtime.runners.dry_run import run_replay_mujoco_dry_run
+from xpotato_sim.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
+from xpotato_sim.schemas import JointCommand, MuJoCoState
+from xpotato_sim.transport import WebSocketStatePublisher
 from tests.support.transport_doubles import NoOpStatePublisher
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PRODUCTION_SOURCE_MODULES = tuple((ROOT / "src" / "selfrionette").rglob("*.py"))
+PRODUCTION_SOURCE_MODULES = tuple((ROOT / "src" / "xpotato_sim").rglob("*.py"))
 FORBIDDEN_RUNTIME_SYMBOLS = (
     "StaticInputSource",
     "NoOpMotionGenerator",

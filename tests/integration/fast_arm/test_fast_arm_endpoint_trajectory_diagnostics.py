@@ -3,8 +3,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import run_fast_arm_endpoint_trajectory_diagnostics
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import run_fast_arm_endpoint_trajectory_diagnostics
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     write_fast_arm_endpoint_trajectory_log_csv,
 )
 

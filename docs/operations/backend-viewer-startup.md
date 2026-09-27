@@ -26,6 +26,8 @@ MuJoCo backendがsimulation stateを所有し、browserは受信qposの描画と
 
 リポジトリrootで実行する。依存のinstallと毎回の起動を分ける。
 
+基盤名の移行後は `xpotato-sim` CLIを使う。旧形式のprofile JSONも引き続き検証して読み込める。
+
 ```powershell
 uv sync --frozen --group dev
 npm --prefix apps/mujoco-viewer ci
@@ -36,9 +38,9 @@ npm --prefix apps/mujoco-viewer ci
 同じrootから一つのコマンドで起動する。別terminalや別directoryへの移動は不要。
 
 ```powershell
-uv run selfrionette app --profile sim-gamepad
-uv run selfrionette app --profile sim-keyboard
-uv run selfrionette app --profile replay-sweep
+uv run xpotato-sim app --profile sim-gamepad
+uv run xpotato-sim app --profile sim-keyboard
+uv run xpotato-sim app --profile replay-sweep
 ```
 
 上のコマンドは用途に応じて一つを選ぶ。Webとbackendの起動完了後に、接続先と入力providerを
@@ -54,10 +56,10 @@ backend完了に伴いWebも終了する。終了後の画面に残った姿勢�
 ## 設定検査と起動確認
 
 ```powershell
-uv run selfrionette profile sim-gamepad
-uv run selfrionette app --profile sim-gamepad --check
-uv run selfrionette app --profile sim-gamepad --startup-check
-uv run selfrionette app --profile sim-gamepad --no-browser --web-port 5178 --backend-port 8768
+uv run xpotato-sim profile sim-gamepad
+uv run xpotato-sim app --profile sim-gamepad --check
+uv run xpotato-sim app --profile sim-gamepad --startup-check
+uv run xpotato-sim app --profile sim-gamepad --no-browser --web-port 5178 --backend-port 8768
 ```
 
 `profile`はJSONと既存resolverの検査・表示だけを行う。`app --check`はさらにsource checkoutとの
@@ -83,8 +85,8 @@ LAN/TLS/auth/deploymentは対象外で、必要な手動配信は次の低位手
 backendだけを使う既存CLIは維持する。
 
 ```powershell
-uv run selfrionette replay --robot fast_arm --steps 3 --preset sweep_x
-uv run selfrionette viewer --robot fast_arm --input-source viewer --steps 18000 --interval-s 0.016667 --grace-period-s 60
+uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
+uv run xpotato-sim viewer --robot fast_arm --input-source viewer --steps 18000 --interval-s 0.016667 --grace-period-s 60
 npm --prefix apps/mujoco-viewer run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
@@ -100,3 +102,8 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 同じlauncherへ委譲する。独自process管理は行わない。`-NoBrowser`はstartup-check、`-OpenBrowser`は
 明示openに対応する。v1のloopback、正の時間値などの検査に従い、旧版の広いhost/zero間隔を
 無検証で通さない。LAN配信は上記低位CLIへ明示的に分ける。
+
+## 左右独立の1スティックXYZ操作
+
+新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
+[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。

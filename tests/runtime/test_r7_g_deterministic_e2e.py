@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import selfrionette.runtime.experiment.r7_g_e2e as e2e
-from selfrionette.runtime.evaluation.manifest import SoftwareExecutionIdentity
-from selfrionette.runtime.experiment.r7_g_e2e import (
+import xpotato_sim.runtime.experiment.r7_g_e2e as e2e
+from xpotato_sim.runtime.evaluation.manifest import SoftwareExecutionIdentity
+from xpotato_sim.runtime.experiment.r7_g_e2e import (
     R7_G_E2E_MOTION_LOG_NAME,
     R7_G_E2E_REPOSITORY_IDENTITY,
     R7_G_E2E_TOOL_ARTIFACT_NAME,

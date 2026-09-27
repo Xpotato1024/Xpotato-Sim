@@ -48,7 +48,7 @@ supporting文書であり、規則本文の正本ではない。判断に迷う�
 
 - [ ] READMEはplugin root / axis / concrete pluginのlocal responsibilityを守り、second SoTを作っていない。
   ([正本](../architecture/code-documentation-policy.md#readmeの責務))
-- [ ] `src/selfrionette/plugins/`をREADME rootとし、axis固有semanticを該当しないpluginへ要求していない。
+- [ ] `src/xpotato_sim/plugins/`をREADME rootとし、axis固有semanticを該当しないpluginへ要求していない。
   ([正本](../architecture/code-documentation-policy.md#readmeの責務))
 - [ ] 日本語本文とcanonical Englishのidentifier / literal境界を守り、errorやcontractを変更していない。
   ([正本](../architecture/code-documentation-policy.md#言語境界))

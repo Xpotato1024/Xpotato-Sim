@@ -5,37 +5,37 @@ from math import sqrt
 
 import pytest
 
-from selfrionette.runtime.composition.production_experiment import (
+from xpotato_sim.runtime.composition.production_experiment import (
     PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
 )
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_POSE_V1,
     EndpointPoseProvider,
 )
-from selfrionette.runtime.control.input_source_state import RuntimeInputSourceState
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.control.input_source_state import RuntimeInputSourceState
+from xpotato_sim.runtime.evaluation.manifest import (
     EvaluationReadinessError,
     SoftwareExecutionIdentity,
     build_evaluation_readiness,
 )
-from selfrionette.runtime.evaluation.r7_g_free_space import (
+from xpotato_sim.runtime.evaluation.r7_g_free_space import (
     build_r7_g_free_space_manifest_pair,
 )
-from selfrionette.runtime.experiment.composition import PluginParameters
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.composition import PluginParameters
+from xpotato_sim.runtime.experiment.contracts import (
     PluginAxis,
     PluginParameterOwner,
     TaskTerminalClassification,
 )
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     EndpointReachMotionStatus,
 )
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
     InputSourcePlugin,
 )
-from selfrionette.runtime.experiment.world_tool_runner import (
+from xpotato_sim.runtime.experiment.world_tool_runner import (
     ExperimentRunnerError,
     ExperimentStopReason,
     _immutable_execution_fact,
@@ -44,13 +44,13 @@ from selfrionette.runtime.experiment.world_tool_runner import (
     run_r7_g_world_tool_experiment,
     run_experiment_condition,
 )
-from selfrionette.runtime.safety.input_safety import RuntimeInputSafetyResult
-from selfrionette.schemas import InputIntent, MotionCommand
+from xpotato_sim.runtime.safety.input_safety import RuntimeInputSafetyResult
+from xpotato_sim.schemas import InputIntent, MotionCommand
 
 
 REVISION = "test-revision:issue-406-runner"
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity=REVISION,
 )
 
@@ -181,7 +181,7 @@ def test_production_entry_rejects_actual_revision_mismatch() -> None:
         run_r7_g_world_tool_experiment(
             manifest_software_revision_identity=REVISION,
             execution_identity=SoftwareExecutionIdentity(
-                repository_identity="Xpotato1024/Selfrionette-mujoco",
+                repository_identity="Xpotato1024/Xpotato-Sim",
                 software_revision_identity="test-revision:different-actual-revision",
             ),
         )
@@ -420,7 +420,7 @@ def test_source_failure_becomes_task_owned_technical_invalid() -> None:
 def test_explicit_step_bound_returns_running_task_as_bounded_stop(monkeypatch) -> None:
     readiness = _world_readiness()
     monkeypatch.setattr(
-        "selfrionette.runtime.experiment.world_tool_runner._bounded_step_count",
+        "xpotato_sim.runtime.experiment.world_tool_runner._bounded_step_count",
         lambda _: 1,
     )
 

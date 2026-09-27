@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from selfrionette.plugins import (
+from xpotato_sim.plugins import (
     environments,
     evaluations,
     input_sources,
@@ -11,16 +11,16 @@ from selfrionette.plugins import (
     robots,
     tasks,
 )
-from selfrionette.plugins.bounded_discovery import direct_child_package_names
-from selfrionette.plugins.environments.catalog import ENVIRONMENT_REGISTRY
-from selfrionette.plugins.evaluations.catalog import EVALUATION_REGISTRY
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
-from selfrionette.plugins.tasks.catalog import TASK_REGISTRY
+from xpotato_sim.plugins.bounded_discovery import direct_child_package_names
+from xpotato_sim.plugins.environments.catalog import ENVIRONMENT_REGISTRY
+from xpotato_sim.plugins.evaluations.catalog import EVALUATION_REGISTRY
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
+from xpotato_sim.plugins.tasks.catalog import TASK_REGISTRY
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "selfrionette"
+SRC = ROOT / "src" / "xpotato_sim"
 PLUGINS = SRC / "plugins"
 
 
@@ -111,20 +111,20 @@ def test_catalogs_and_generic_registration_do_not_list_concrete_plugins() -> Non
         }
         assert not set(concrete_ids) & string_literals, path
         allowed_axis_infrastructure = {
-            "selfrionette.plugins.input_sources.discovery",
-            "selfrionette.plugins.input_sources.registration",
-            "selfrionette.plugins.mappings.discovery",
-            "selfrionette.plugins.environments.discovery",
-            "selfrionette.plugins.tasks.discovery",
-            "selfrionette.plugins.evaluations.discovery",
+            "xpotato_sim.plugins.input_sources.discovery",
+            "xpotato_sim.plugins.input_sources.registration",
+            "xpotato_sim.plugins.mappings.discovery",
+            "xpotato_sim.plugins.environments.discovery",
+            "xpotato_sim.plugins.tasks.discovery",
+            "xpotato_sim.plugins.evaluations.discovery",
         }
         assert not any(
             (
-                module.startswith("selfrionette.plugins.input_sources.")
-                or module.startswith("selfrionette.plugins.mappings.")
-                or module.startswith("selfrionette.plugins.environments.")
-                or module.startswith("selfrionette.plugins.tasks.")
-                or module.startswith("selfrionette.plugins.evaluations.")
+                module.startswith("xpotato_sim.plugins.input_sources.")
+                or module.startswith("xpotato_sim.plugins.mappings.")
+                or module.startswith("xpotato_sim.plugins.environments.")
+                or module.startswith("xpotato_sim.plugins.tasks.")
+                or module.startswith("xpotato_sim.plugins.evaluations.")
             )
             and module not in allowed_axis_infrastructure
             for module in _imports(path)
@@ -191,7 +191,7 @@ def test_mapping_implementation_is_package_owned_without_cross_plugin_imports() 
             for module in _imports(path):
                 for other in plugin_ids - {plugin_id}:
                     assert not module.startswith(
-                        f"selfrionette.plugins.mappings.{other}"
+                        f"xpotato_sim.plugins.mappings.{other}"
                     ), f"{path}:{module}"
 
     shared = mapping_root / "_continuous_endpoint_velocity.py"
@@ -230,8 +230,8 @@ def test_generic_experiment_layer_has_no_concrete_plugin_imports() -> None:
     violations: list[str] = []
     for path in (SRC / "runtime" / "experiment").rglob("*.py"):
         for module in _imports(path):
-            if module.startswith("selfrionette.plugins.input_sources.") or (
-                module.startswith("selfrionette.plugins.mappings.")
+            if module.startswith("xpotato_sim.plugins.input_sources.") or (
+                module.startswith("xpotato_sim.plugins.mappings.")
             ):
                 violations.append(f"{path}:{module}")
     assert not violations

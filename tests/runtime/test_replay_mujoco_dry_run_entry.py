@@ -6,11 +6,11 @@ import math
 import mujoco
 import pytest
 
-import selfrionette.runtime.runners.dry_run as dry_run_module
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
-from selfrionette.runtime.runners.dry_run import run_replay_mujoco_dry_run
-from selfrionette.schemas import RawInputFrame
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+import xpotato_sim.runtime.runners.dry_run as dry_run_module
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.runtime.runners.dry_run import run_replay_mujoco_dry_run
+from xpotato_sim.schemas import RawInputFrame
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 from generic_qpos_test_doubles import RejectingGenericQposGuard
 
 

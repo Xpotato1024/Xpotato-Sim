@@ -3,12 +3,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import selfrionette.schemas as schemas
+import xpotato_sim.schemas as schemas
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_ROOT = ROOT / "src" / "selfrionette" / "schemas"
+SCHEMA_ROOT = ROOT / "src" / "xpotato_sim" / "schemas"
 DOMAIN_MODULES = {
+    "coordinated": set(),
     "command": {"types"},
     "endpoint": {"types"},
     "experiment_log": {"endpoint"},
@@ -39,7 +40,7 @@ def _direct_schema_imports(path: Path) -> set[str]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or node.module is None:
             continue
-        prefix = "selfrionette.schemas."
+        prefix = "xpotato_sim.schemas."
         if node.module.startswith(prefix):
             dependencies.add(node.module.removeprefix(prefix).split(".", 1)[0])
     return dependencies
@@ -63,7 +64,7 @@ def test_schema_domain_dependencies_are_one_way_and_explicit() -> None:
 
 
 def test_repository_has_no_import_consumers_of_retired_schema_modules() -> None:
-    retired_imports = {f"selfrionette.schemas.{name}" for name in RETIRED_MODULES}
+    retired_imports = {f"xpotato_sim.schemas.{name}" for name in RETIRED_MODULES}
     for root in (ROOT / "src", ROOT / "tests", ROOT / "scripts"):
         for path in root.rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -84,10 +85,10 @@ def test_repository_has_no_import_consumers_of_retired_schema_modules() -> None:
 def test_schema_package_public_surface_is_explicit_and_canonical() -> None:
     assert len(schemas.__all__) == len(set(schemas.__all__))
     assert all(hasattr(schemas, name) for name in schemas.__all__)
-    assert schemas.RawInputFrame.__module__ == "selfrionette.schemas.input"
-    assert schemas.InputIntent.__module__ == "selfrionette.schemas.input"
-    assert schemas.MotionCommand.__module__ == "selfrionette.schemas.command"
-    assert schemas.MuJoCoState.__module__ == "selfrionette.schemas.state"
-    assert schemas.EndpointMetadata.__module__ == "selfrionette.schemas.endpoint"
-    assert schemas.ViewerControlMessage.__module__ == "selfrionette.schemas.viewer_control"
-    assert schemas.ConfigurationRecord.__module__ == "selfrionette.schemas.experiment_log"
+    assert schemas.RawInputFrame.__module__ == "xpotato_sim.schemas.input"
+    assert schemas.InputIntent.__module__ == "xpotato_sim.schemas.input"
+    assert schemas.MotionCommand.__module__ == "xpotato_sim.schemas.command"
+    assert schemas.MuJoCoState.__module__ == "xpotato_sim.schemas.state"
+    assert schemas.EndpointMetadata.__module__ == "xpotato_sim.schemas.endpoint"
+    assert schemas.ViewerControlMessage.__module__ == "xpotato_sim.schemas.viewer_control"
+    assert schemas.ConfigurationRecord.__module__ == "xpotato_sim.schemas.experiment_log"

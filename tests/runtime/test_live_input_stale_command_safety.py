@@ -1,31 +1,31 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 from dataclasses import replace
 import asyncio
 
 import pytest
 
-from selfrionette.runtime.safety.input_safety import (
+from xpotato_sim.runtime.safety.input_safety import (
     DEFAULT_RUNTIME_INPUT_COMMAND_TIMEOUT_MS,
     build_runtime_input_safety_result,
 )
-from selfrionette.runtime.control.input_source_selection import (
+from xpotato_sim.runtime.control.input_source_selection import (
     RuntimeInputSourceSelection,
     select_runtime_input_source,
 )
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.input_source_state import build_runtime_input_source_state
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.control.input_source_state import build_runtime_input_source_state
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
 )
-from selfrionette.schemas import MotionCommand
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.schemas import MotionCommand
+from xpotato_sim.transport import mujoco_state_to_payload
 
 
 class RecordingPublisher:

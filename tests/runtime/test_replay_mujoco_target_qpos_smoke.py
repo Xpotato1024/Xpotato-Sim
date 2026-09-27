@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from selfrionette.mujoco_backend import snapshot_mujoco_state
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
-from selfrionette.schemas import JointCommand, MotionCommand, RawInputFrame
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.mujoco_backend import snapshot_mujoco_state
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
+from xpotato_sim.schemas import JointCommand, MotionCommand, RawInputFrame
+from xpotato_sim.transport import mujoco_state_to_payload
 
 
 class _ReplayJointMotionGenerator:

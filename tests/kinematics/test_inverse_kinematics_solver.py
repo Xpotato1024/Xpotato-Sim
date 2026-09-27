@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import (
     FastArmEndpointForwardKinematicsSolver,
     FastArmEndpointInverseKinematicsSolver,
 )
-from selfrionette.schemas import JointCommand
+from xpotato_sim.schemas import JointCommand
 
 
 def test_fast_arm_endpoint_inverse_kinematics_solver_returns_four_joint_angles() -> None:

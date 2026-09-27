@@ -9,7 +9,7 @@ related:
   - docs/contracts/kinematics-command-contract.md
   - docs/contracts/mujoco-model-name-contract.md
   - docs/architecture/runtime-composition.md
-  - src/selfrionette/runtime/evaluation/kinematics.py
+  - src/xpotato_sim/runtime/evaluation/kinematics.py
   - docs/reports/implementation/r7-e-followup-joint-convention-fast-arm-model-contract.md
   - docs/reports/implementation/r7-e-followup-viewer-backend-endpoint-separation.md
 ---

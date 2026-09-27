@@ -1,0 +1,36 @@
+schema_version = 1
+skill_name = "xpotato-sim-plugin-change"
+invocation_policy = "implicit-after-validation"
+validation_status = "validated"
+side_effect_policy = "instruction-only"
+unresolved_approval = false
+side_effect_boundary = "read-only taskはaudit only。明示されたwrite taskはIssue scopeとAGENTS.mdが許可するplugin implementation、registration / catalog、discovery、plugin-owned resources、directly required tests、README、related canonical docsだけを変更する。Skill自身はinstruction-onlyで、scope外runtime composition、unrelated viewer / simulation、hardware、serial、OSC、production、credentials、external mutationは停止・承認対象。"
+positive_triggers = [
+  "Input Source pluginを追加するので、contract、identity、registration、runtime composition、README、testsを監査してください。",
+  "Mapping pluginのregistrationとplugin-owned resourceを実装し、直接必要なtestsとREADMEを更新してください。",
+  "Robot pluginのresourceとcatalog変更について、Documentation、Research log、Experiment evidence impactを判定してください。"
+]
+negative_triggers = [
+  "pluginと無関係なREADMEのtypoだけを修正してください。",
+  "serial portを開き、hardware pluginを実機へdeployしてください。",
+  "このrepositoryと無関係な一般質問に答えてください。"
+]
+route_boundaries = [
+  "validation commandの選択はxpotato-sim-change-validationへrouteする。",
+  "branch、PR head、CI、Draft stateの突合はxpotato-sim-pr-handoffへrouteする。"
+]
+required_inputs = ["axis contract", "dependency boundaries", "runtime composition", "axis / plugin README", "catalog / discovery / registration", "actual diff", "tests"]
+expected_major_steps = ["modeとIssue / AGENTS権限確認", "axis限定", "contract / ownership確認", "discovery / identity確認", "registration / composition確認", "write taskならscoped implementationとdirectly required tests / docs、read-onlyならaudit結果確認", "3 impact判定", "validationへのroute"]
+expected_outputs = ["axis audit", "ownership map", "identity / registration result", "write taskのscoped diffまたはread-onlyの変更なし確認", "docs・test要否", "impact判定", "残存risk"]
+forbidden_actions = ["無関係なstub", "不要なcompat layer", "不要なparallel implementation", "暗黙fallback", "Issue scope外のpublic contract / schema変更", "runtime compositionのmaterial expansion", "unrelated viewer / simulation変更", "hardware / serial / OSC", "production / credentials", "external mutation"]
+representative_dry_run = "metadata matchによるimplicit候補として、write taskのInput Source pluginに必要なregistration、plugin-owned resource、directly required tests、plugin-local READMEだけを対象にし、Issue scope外のruntime composition、unrelated viewer / simulation、hardware変更は停止として記録する。"
+false_positive_risk = "単なるplugin documentation閲覧をmaterial plugin changeと誤認するリスク。"
+false_negative_risk = "identityやresource ownershipの小さな変更をREADMEだけの変更と誤認するリスク。"
+stale_reference_risk = "planned axis capabilityをcurrent implementationとして扱うリスク。"
+
+[[routing_cases]]
+prompt = "Input Source pluginを追加し、最後に変更層に応じたvalidationとPR handoffを行ってください。"
+expected_skills = ["xpotato-sim-plugin-change", "xpotato-sim-change-validation", "xpotato-sim-pr-handoff"]
+primary_skill = "xpotato-sim-plugin-change"
+automatic_chain = false
+permission_grant = false

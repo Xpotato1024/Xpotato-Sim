@@ -38,6 +38,7 @@ export interface ViewerGamepadControlSocketLike {
 export type ViewerGamepadControlSocketConstructorLike = new (url: string) => ViewerGamepadControlSocketLike;
 
 export interface ViewerGamepadControlSenderOptions {
+  providerSessionId?: string;
   url: string | null;
   WebSocketCtor?: ViewerGamepadControlSocketConstructorLike;
 }
@@ -49,6 +50,8 @@ export interface ViewerGamepadControlSender {
 }
 
 export interface ViewerGamepadPublicationControllerOptions {
+  /** 接続中の中立sampleも送り、平面切替の中立確認を有効に保つ。省略時は旧cadence。 */
+  neutralHeartbeat?: boolean;
   publish(snapshot: ViewerGamepadSnapshot): void;
   heartbeatIntervalMs?: number;
   setTimeoutFn?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
@@ -209,15 +212,18 @@ export function createViewerGamepadPublicationController(
     heartbeatTimeoutId = null;
   };
 
+  const heartbeatEligible = (snapshot: ViewerGamepadSnapshot): boolean =>
+    isActiveGamepadSnapshot(snapshot) || (options.neutralHeartbeat === true && snapshot.connected && !snapshot.stale);
+
   const scheduleHeartbeat = (): void => {
     cancelHeartbeat();
-    if (disposed || suspended || latestSnapshot === null || !isActiveGamepadSnapshot(latestSnapshot)) {
+    if (disposed || suspended || latestSnapshot === null || !heartbeatEligible(latestSnapshot)) {
       return;
     }
 
     heartbeatTimeoutId = setTimeoutFn(() => {
       heartbeatTimeoutId = null;
-      if (disposed || suspended || latestSnapshot === null || !isActiveGamepadSnapshot(latestSnapshot)) {
+      if (disposed || suspended || latestSnapshot === null || !heartbeatEligible(latestSnapshot)) {
         return;
       }
 
@@ -250,6 +256,7 @@ export function createViewerGamepadPublicationController(
       suspended = true;
       cancelHeartbeat();
       latestSnapshot = null;
+      latestSignature = null;
     },
     resume(): void {
       if (disposed) {
@@ -394,7 +401,9 @@ export function createViewerGamepadControlSender(
 
   return {
     publish(snapshot: ViewerGamepadSnapshot, timestampS = currentTimestampS()): void {
-      latestMessage = buildViewerGamepadControlMessage(snapshot, timestampS, { sequence });
+      latestMessage = buildViewerGamepadControlMessage(snapshot, timestampS, { sequence,
+        ...(options.providerSessionId === undefined ? {} : { metadata: { viewer_provider_session_id: options.providerSessionId } }),
+      });
       sequence += 1;
       attachSocket();
       flush();

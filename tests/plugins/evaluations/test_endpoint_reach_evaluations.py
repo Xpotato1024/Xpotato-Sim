@@ -2,25 +2,25 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.evaluations.completion_time import COMPLETION_TIME_PLUGIN
-from selfrionette.plugins.evaluations.final_endpoint_error import (
+from xpotato_sim.plugins.evaluations.completion_time import COMPLETION_TIME_PLUGIN
+from xpotato_sim.plugins.evaluations.final_endpoint_error import (
     FINAL_ENDPOINT_ERROR_PLUGIN,
 )
-from selfrionette.plugins.evaluations.off_axis_drift import OFF_AXIS_DRIFT_PLUGIN
-from selfrionette.plugins.evaluations.success_within_timeout import (
+from xpotato_sim.plugins.evaluations.off_axis_drift import OFF_AXIS_DRIFT_PLUGIN
+from xpotato_sim.plugins.evaluations.success_within_timeout import (
     SUCCESS_WITHIN_TIMEOUT_PLUGIN,
 )
-from selfrionette.plugins.evaluations._endpoint_reach_evidence import (
+from xpotato_sim.plugins.evaluations._endpoint_reach_evidence import (
     ENDPOINT_REACH_TERMINAL_EVIDENCE,
     ENDPOINT_REACH_TRAJECTORY_EVIDENCE,
 )
-from selfrionette.plugins.tasks.endpoint_reach_task import ENDPOINT_REACH_TASK_PLUGIN
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.plugins.tasks.endpoint_reach_task import ENDPOINT_REACH_TASK_PLUGIN
+from xpotato_sim.runtime.experiment.contracts import (
     CanonicalEvidence,
     CanonicalEvidenceSet,
     EvidenceStatus,
 )
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     ENDPOINT_REACH_TERMINAL_PROVENANCE,
     ENDPOINT_REACH_TRAJECTORY_PROVENANCE,
     EndpointReachObservation,

@@ -17,7 +17,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 # 既存のsmoke引数を起動profileへ投影し、process管理を共通ownerへ委譲する。
 # v1はloopback限定。LAN操作は明示した低位CLI手順を使用する。
 $profile = @{
-    schema_version = "selfrionette-launch-profile/v1"
+    schema_version = "xpotato-sim-launch-profile/v1"
     name = "browser-smoke"
     workspace = $repoRoot
     mode = "replay"
@@ -33,7 +33,7 @@ try {
     [System.IO.File]::WriteAllText($profilePath, ($profile | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
     Push-Location $repoRoot
     try {
-        $arguments = @("run", "selfrionette", "app", "--profile", $profilePath)
+        $arguments = @("run", "xpotato-sim", "app", "--profile", $profilePath)
         if ($NoBrowser) { $arguments += "--startup-check" }
         & uv @arguments
         $exitCode = $LASTEXITCODE

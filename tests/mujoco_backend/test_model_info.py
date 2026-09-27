@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
-from selfrionette.mujoco_backend import (
+from xpotato_sim.mujoco_backend import (
     inspect_mujoco_model,
     load_mujoco_model,
 )

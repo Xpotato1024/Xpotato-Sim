@@ -6,19 +6,19 @@ from inspect import signature
 
 import pytest
 
-from selfrionette.motion import InputIntentMotionGenerator
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import (
+from xpotato_sim.motion import InputIntentMotionGenerator
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import (
     FastArmJointLimitGuard,
 )
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.robot_bundle import RobotBundle
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
-from selfrionette.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
-from selfrionette.schemas import (
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.robot_bundle import RobotBundle
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.schemas import (
     JointPositionCommand,
     MotionCommand,
     MuJoCoState,

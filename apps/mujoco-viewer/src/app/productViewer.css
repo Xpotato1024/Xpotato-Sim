@@ -199,3 +199,9 @@ button[aria-pressed="true"] { background: #e4eee8; color: var(--accent); border-
 @media (max-width: 650px) { .strip-heading { flex-wrap: wrap; gap: 7px; } .instrument-heading-note { width: 100%; margin: 0; } }
 
 .input-instruments[data-stale="true"] .signal-track, .input-instruments[data-stale="true"] .stick-indicator { opacity: .5; }
+
+/* 左右modeはbackendの表示投影。入力処理や関節状態をCSSで変更しない。 */
+.gamepad-plane-status { margin-top: 12px; padding-top: 8px; border-top: 1px solid currentColor; }
+.gamepad-plane-row { display: grid; gap: 4px; margin: 9px 0; overflow-wrap: anywhere; }
+.gamepad-plane-row span { font-size: 0.85rem; }
+.gamepad-plane-row small { opacity: 0.75; }

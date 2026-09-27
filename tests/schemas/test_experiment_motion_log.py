@@ -5,7 +5,7 @@ from math import sqrt
 
 import pytest
 
-from selfrionette.schemas.experiment_log import (
+from xpotato_sim.schemas.experiment_log import (
     ConfigurationRecord,
     MotionSampleRecord,
     TrialOutcomeRecord,

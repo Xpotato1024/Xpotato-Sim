@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.motion import LocalEndpointMotionGenerator
-from selfrionette.schemas import InputIntent
+from xpotato_sim.motion import LocalEndpointMotionGenerator
+from xpotato_sim.schemas import InputIntent
 
 
 class LinearKinematics:

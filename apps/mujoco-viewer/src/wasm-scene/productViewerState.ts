@@ -10,6 +10,7 @@ import {
   type ContactTaskPresentationV1,
 } from "../contact/contactTaskLog.js";
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
+import { parseGamepadPlanePresentation, type GamepadPlanePresentation } from "../app/gamepadPlanePresentation.js";
 import type { JointDisplayLayout } from "./jointPresentation.js";
 import { formatQpos } from "./mujocoQposSync.js";
 import type { ViewerFrameTimingSnapshot } from "./viewerFrameTiming.js";
@@ -62,6 +63,7 @@ export interface ProductViewerInputOverlayState {
   keyboardFocusState: string | null;
   keyboardZeroState: boolean | null;
   keyboardKeyState: Record<string, boolean>;
+  gamepadPlaneControl?: GamepadPlanePresentation | null;
   gamepadConnected: boolean | null;
   gamepadIndex: number | null;
   gamepadId: string | null;
@@ -369,6 +371,7 @@ function parseInputOverlayState(
     keyboardFocusState: keyboard === null ? null : parseOptionalString(keyboard.focus_state),
     keyboardZeroState: keyboard === null ? null : parseOptionalBoolean(keyboard.zero_state),
     keyboardKeyState: keyboard === null ? {} : parseBooleanRecord(keyboard.key_state),
+    ...("gamepad_plane_control_v1" in metadata ? { gamepadPlaneControl: parseGamepadPlanePresentation(metadata.gamepad_plane_control_v1) } : {}),
     gamepadConnected: gamepad === null ? null : parseOptionalBoolean(gamepad.connected),
     gamepadIndex: gamepad === null ? null : parseOptionalInteger(gamepad.index),
     gamepadId: gamepad === null ? null : parseOptionalString(gamepad.id),

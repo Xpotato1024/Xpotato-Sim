@@ -32,9 +32,9 @@ channel-to-axis assignment、endpoint conversionを所有する。
 
 ## current implementation
 
-- `src/selfrionette/plugins/input_sources/selfrionette/`
-- `src/selfrionette/runtime/runners/selfrionette_serial_dry_run.py`
-- `src/selfrionette/plugins/mappings/loadcell_endpoint_mapping/`
+- `src/xpotato_sim/plugins/input_sources/selfrionette/`
+- `src/xpotato_sim/runtime/runners/selfrionette_serial_dry_run.py`
+- `src/xpotato_sim/plugins/mappings/loadcell_endpoint_mapping/`
 - `tests/fixtures/r7_a_lite_serial_frames/minimal_valid.txt`
 - `tests/fixtures/r7_a_lite_serial_frames/malformed.txt`
 - `scripts/hardware/selfrionette/run_selfrionette_serial_dry_run.py`

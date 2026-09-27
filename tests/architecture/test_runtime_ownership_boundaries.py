@@ -3,14 +3,15 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import selfrionette.runtime as runtime
-import selfrionette.runtime.safety.collision_policy as collision_policy
+import xpotato_sim.runtime as runtime
+import xpotato_sim.runtime.safety.collision_policy as collision_policy
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_ROOT = ROOT / "src" / "selfrionette" / "runtime"
+RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
     "composition": {
+        "fast_arm_coordinated",
         "launch_profile",
         "config",
         "concrete_mujoco_pipeline",
@@ -55,6 +56,7 @@ EXPECTED_MODULES = {
         "r7_g_free_space",
     },
     "execution": {
+        "coordinated",
         "command_routes",
         "input_step_loop",
         "input_source_adapters",
@@ -73,6 +75,7 @@ EXPECTED_MODULES = {
         "world_tool_runner",
     },
     "runners": {
+        "coordinated_gamepad",
         "application",
         "application_process",
         "fast_arm_input_runtime",
@@ -88,6 +91,7 @@ EXPECTED_MODULES = {
         "websocket_publisher",
     },
     "output": {
+        "coordinated",
         "fast_arm_adapter",
         "fast_arm_observation",
         "fast_arm_emulation",
@@ -151,7 +155,7 @@ def test_runtime_modules_have_one_responsibility_owner() -> None:
 
 
 def test_retired_flat_runtime_imports_have_no_repository_consumers() -> None:
-    retired_imports = {f"selfrionette.runtime.{name}" for name in RETIRED_FLAT_MODULES}
+    retired_imports = {f"xpotato_sim.runtime.{name}" for name in RETIRED_FLAT_MODULES}
     for root in (ROOT / "src", ROOT / "tests", ROOT / "scripts"):
         for path in root.rglob("*.py"):
             assert _imports(path).isdisjoint(retired_imports), path.relative_to(ROOT)
@@ -185,7 +189,7 @@ def test_production_experiment_runtime_has_no_concrete_robot_or_test_fixture_imp
     for name in ("world_tool_runner.py", "motion_log_recorder.py"):
         source = (RUNTIME_ROOT / "experiment" / name).read_text(encoding="utf-8")
         for forbidden in (
-            "selfrionette.plugins.robots.fast_arm",
+            "xpotato_sim.plugins.robots.fast_arm",
             "FAST_ARM_",
             "tests.",
             "ExperimentPluginRegistries(",

@@ -519,10 +519,10 @@ metric aggregation / artifact exportを行う。
 ## fast_arm migration
 
 production fast_armは独立package `fast_arm_core`でpure kinematics、model/name specification、joint-limit
-parse、canonical initial state、model/config resourceを所有する。`selfrionette.plugins.robots.fast_arm.adapter`は
+parse、canonical initial state、model/config resourceを所有する。`xpotato_sim.plugins.robots.fast_arm.adapter`は
 Profile、Runtime Plugin、Selfrionette kinematics/schema変換、MuJoCo validator / endpoint wrapper、feasibility guard、
 initial-state projection、diagnostics、scene/viewer resource、Robot Bundle assemblyを所有し、`fast_arm/v1` Bundleとして
-`selfrionette.plugins.robots.catalog`だけへ登録する。bundleは同packageの
+`xpotato_sim.plugins.robots.catalog`だけへ登録する。bundleは同packageの
 `FAST_ARM_ROBOT_PROFILE`と`FAST_ARM_RUNTIME_PLUGIN`の同一objectを参照し、generic
 `runtime.composition.robot_provider_adapters`を使って既存のmodel validation、endpoint IK/FK、target/local motion、
 qpos feasibility、endpoint state accessorへ委譲する。initial stateは既存`home` keyframe referenceと
@@ -562,12 +562,12 @@ generic pipelineのprofile-free behaviorは変更しない。fast_arm bundleは`
   reset、target、MuJoCo setting、canonical serializationは`docs/contracts/contact-task-manifest.md`を
   正本とし、このgeneric composition contractへ複製しない。
 - どちらもTask/Evaluationへfast_arm固有nameまたはsolver classを持ち込まず、viewerへ判定を追加しない。
-- #406のproduction compositionは`selfrionette.plugins.robots.catalog`の
+- #406のproduction compositionは`xpotato_sim.plugins.robots.catalog`の
   `resolve_robot_bundle()` / `resolve_robot_profile()` / `resolve_robot_runtime_plugin()` /
   `resolve_robot_runtime()`、または既存のresolved experiment compositionを使用する。runtime consumerには
   `RobotBundle.provider()`でassembly時に取得した`EndpointCommandProvider`、
   `QposFeasibilityProvider`、`InitialStateContractProvider`等の必要なtyped providerだけを渡す。
-- #406は`selfrionette.plugins.robots.fast_arm.*`や旧compatibility facadeを直接importして
+- #406は`xpotato_sim.plugins.robots.fast_arm.*`や旧compatibility facadeを直接importして
   concrete objectを組み立てない。Bundleをruntime service locatorとしてstepごとに参照しない。
 - #407は`ExperimentConditionExecutionResult`へ既存loop由来のimmutable step traceを保持し、別のruntime recorderが
   `WorldToolExperimentExecutionResult`とreadinessを既存`experiment-motion-log/v1` lifecycleへprojectionする。
@@ -619,3 +619,9 @@ continuous selectionの`normalize_runtime_parameters`はこの項目だけを後
 構築・context供給・world/tool解決のoptional capabilityは、既存routeを壊さず必要な処理を
 共有するためのものに限定する。新しいregistry、独立pipeline、汎用middlewareは設けない。
 legacy replay/absolute-targetは従来の明示builder契約を維持する。
+
+## 状態を持つMappingの実行session
+
+optionalな`ControlMappingPlugin.session_strategy_factory`はruntime pipelineごとのstrategyを生成する。
+省略した既存Mappingはstatelessな共有strategyを維持する。実行中の可変modeをcatalogや固定parameterへ保存しない。
+利用例とresetの責任は[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。

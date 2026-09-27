@@ -7,16 +7,16 @@ from math import dist
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import SelfrionetteInputSource, SerialFrameParseError
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.execution.command_routes import project_joint_position_command
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.plugins.input_sources.selfrionette import SelfrionetteInputSource, SerialFrameParseError
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.execution.command_routes import project_joint_position_command
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
-from selfrionette.schemas import JointPositionCommand
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.schemas import JointPositionCommand
 
 
 def _selection(lines: tuple[str, ...], *, axis: int = 1):

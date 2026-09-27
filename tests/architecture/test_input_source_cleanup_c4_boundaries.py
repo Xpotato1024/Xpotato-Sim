@@ -5,23 +5,23 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import (
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import (
     CONTROL_MAPPING_PLUGINS,
     CONTROL_MAPPING_REGISTRY,
 )
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
-from selfrionette.runtime.experiment.input_source import InputSourceMode
-from selfrionette.runtime.control.input_source_mapping_policy import (
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.runtime.experiment.input_source import InputSourceMode
+from xpotato_sim.runtime.control.input_source_mapping_policy import (
     default_control_mapping_selection,
 )
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "selfrionette"
+SRC = ROOT / "src" / "xpotato_sim"
 OLD_PACKAGE_PREFIXES = (
-    "selfrionette.input_sources",
-    "selfrionette.input_interpreters",
+    "xpotato_sim.input_sources",
+    "xpotato_sim.input_interpreters",
 )
 
 

@@ -1,6 +1,6 @@
 """Fixed entry point for the explicit test-only Robot Plugin."""
 
-from selfrionette.plugins.robots.registration import (
+from xpotato_sim.plugins.robots.registration import (
     ROBOT_ONBOARDING_CONTRACT_VERSION,
     RepositoryResource,
     RobotPluginRegistration,

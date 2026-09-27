@@ -13,8 +13,8 @@ related:
 # 記録済みanalog fixture mapping
 
 Current canonical mapping owner:
-`src/selfrionette/plugins/mappings/analog_fixture_mapping/`。sample parsingは
-`src/selfrionette/plugins/input_sources/analog_fixture/source.py`が所有し、退役済みflat facadeは
+`src/xpotato_sim/plugins/mappings/analog_fixture_mapping/`。sample parsingは
+`src/xpotato_sim/plugins/input_sources/analog_fixture/source.py`が所有し、退役済みflat facadeは
 current APIではない。
 
 P3では`AnalogFixtureSample`のstrict parsing、timestamp、raw values、active / inactive / stale state、

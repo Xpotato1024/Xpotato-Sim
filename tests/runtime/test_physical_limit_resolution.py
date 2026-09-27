@@ -12,17 +12,17 @@ from fast_arm_core.joint_limits import (
     FastArmJointLimitConfig,
 )
 
-from selfrionette.runtime.safety import limit_resolution as _limit_resolution_module
+from xpotato_sim.runtime.safety import limit_resolution as _limit_resolution_module
 
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import (
     parse_fast_arm_joint_limit_config,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.physical_limit_resolution import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.physical_limit_resolution import (
     build_fast_arm_resolved_bounds_provider,
     fast_arm_toml_limits_to_physical_limits,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
-from selfrionette.runtime.safety.limit_resolution import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
+from xpotato_sim.runtime.safety.limit_resolution import (
     DEFAULT_COMPARISON_TOLERANCE_RAD,
     FastArmResolvedBoundsProvider,
     JointSpaceConversion,
@@ -40,7 +40,7 @@ from selfrionette.runtime.safety.limit_resolution import (
     validate_limit_resolution_result,
     validate_resolved_joint_bound,
 )
-from selfrionette.runtime.safety.physical_limits import (
+from xpotato_sim.runtime.safety.physical_limits import (
     EvidenceStatus,
     effective_limit_status,
     LimitConversionProvenance,

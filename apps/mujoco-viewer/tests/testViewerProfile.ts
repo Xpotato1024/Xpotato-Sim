@@ -9,7 +9,7 @@ export const FAST_ARM_VIEWER_DECLARATION_DOCUMENT = JSON.parse(
       "..",
       "..",
       "src",
-      "selfrionette",
+      "xpotato_sim",
       "plugins",
       "robots",
       "fast_arm",

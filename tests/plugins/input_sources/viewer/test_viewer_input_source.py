@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import (
+from xpotato_sim.plugins.input_sources.viewer import (
     DEFAULT_VIEWER_INPUT_COMMAND_TIMEOUT_MS,
     DEFAULT_VIEWER_SAFE_ENDPOINT_M,
     ViewerInputSource,
     viewer_health,
 )
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
-from selfrionette.schemas import (
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.schemas import (
     ViewerControlGamepadButtonMessage,
     ViewerControlGamepadMessage,
     ViewerControlKeyboardMessage,

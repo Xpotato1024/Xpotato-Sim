@@ -539,3 +539,28 @@ testViewerGamepadPublicationControllerDisposeAndRecreateAvoidDuplicateHeartbeats
 testHeartbeatPublicationAdvancesSequenceAndTimestamp();
 
 console.log("gamepad input tests passed");
+
+// 平面操作だけがopt-inする中立heartbeat。旧modeの既存検査は変更しない。
+{
+  const timer = new FakeTimer();
+  const published: ReturnType<typeof zeroSnapshot>[] = [];
+  const controller = createViewerGamepadPublicationController({
+    neutralHeartbeat: true, publish: value => published.push(value),
+    setTimeoutFn: timer.setTimeoutFn, clearTimeoutFn: timer.clearTimeoutFn,
+  });
+  controller.update(zeroSnapshot());
+  assert.equal(timer.pendingCount, 1);
+  timer.runNext();
+  assert.equal(published.length, 2);
+  assert.ok(published.every(value => value.zero_state && value.connected));
+  controller.update(sampleViewerGamepadSnapshot(null));
+  assert.equal(timer.pendingCount, 0);
+  controller.update(zeroSnapshot());
+  controller.suspend();
+  assert.equal(timer.pendingCount, 0);
+  controller.resume();
+  controller.update(zeroSnapshot());
+  assert.equal(timer.pendingCount, 1);
+  controller.dispose();
+  assert.equal(timer.pendingCount, 0);
+}

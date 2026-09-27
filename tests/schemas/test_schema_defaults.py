@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     BodyTransform,
     InputIntent,
     JointCommand,

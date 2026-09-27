@@ -4,21 +4,21 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.runners.selfrionette_serial_dry_run import (
+from xpotato_sim.runtime.runners.selfrionette_serial_dry_run import (
     run_selfrionette_serial_dry_run_smoke as _run_canonical_selfrionette_smoke,
 )
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.plugins.input_sources.selfrionette import (
     LoadcellNormalizationConfig,
     SerialFrameParseError,
     SerialInputSource,
 )
-from selfrionette.plugins.mappings.loadcell_endpoint_mapping import (
+from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping import (
     LoadcellEndpointMotionCommandConverter,
     build_r7_a_lite_smoke_endpoint_mapping_config,
 )
-from selfrionette.plugins.mappings.catalog import resolve_control_mapping_plugin
-from selfrionette.runtime.experiment.contracts import PluginSelection
-from selfrionette.runtime.runners.selfrionette_serial_dry_run import (
+from xpotato_sim.plugins.mappings.catalog import resolve_control_mapping_plugin
+from xpotato_sim.runtime.experiment.contracts import PluginSelection
+from xpotato_sim.runtime.runners.selfrionette_serial_dry_run import (
     DEFAULT_FIXTURE_PATH,
     main as run_selfrionette_serial_dry_run_main,
 )
@@ -197,8 +197,8 @@ def test_r7_a_lite_serial_dry_run_cli_fixture_mode_outputs_endpoint_metadata(cap
 
 
 def test_default_endpoint_mapping_is_no_op_and_explicit_mapping_changes_desired_endpoint_m() -> None:
-    from selfrionette.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
-    from selfrionette.plugins.mappings.loadcell_endpoint_mapping import LoadcellEndpointMotionCommandConverter
+    from xpotato_sim.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
+    from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping import LoadcellEndpointMotionCommandConverter
 
     intent = NormalizedLoadcellInputIntent(
         source="selfrionette",

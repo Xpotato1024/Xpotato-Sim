@@ -14,11 +14,11 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from selfrionette.runtime.composition.launch_profile import load_launch_profile, override_launch_profile
-from selfrionette.runtime.runners import application as app
-from selfrionette.runtime.runners.application_process import OwnedApplicationWorkers
-from selfrionette.runtime.control.viewer_control_ingress import build_viewer_input_source, ingest_viewer_control_message
-from selfrionette.plugins.input_sources.viewer import viewer_health
+from xpotato_sim.runtime.composition.launch_profile import load_launch_profile, override_launch_profile
+from xpotato_sim.runtime.runners import application as app
+from xpotato_sim.runtime.runners.application_process import OwnedApplicationWorkers
+from xpotato_sim.runtime.control.viewer_control_ingress import build_viewer_input_source, ingest_viewer_control_message
+from xpotato_sim.plugins.input_sources.viewer import viewer_health
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -31,7 +31,7 @@ def test_check_has_no_network_process_or_browser(monkeypatch, capsys):
     monkeypatch.setattr(app.webbrowser, "open", forbidden)
     # CIのPython jobにfrontend node_modulesは不要。依存file検査は別testで検証。
     monkeypatch.setattr(app, "preflight_application", lambda profile: "node")
-    cli = importlib.import_module("selfrionette.cli.main")
+    cli = importlib.import_module("xpotato_sim.cli.main")
     assert cli.main(["app", "--profile", "sim-gamepad", "--check", "--web-port", "5197", "--no-browser"]) == 0
     output = json.loads(capsys.readouterr().out)
     assert output["configuration"]["web"]["port"] == 5197
@@ -98,7 +98,7 @@ def test_viewer_provider_mismatch_invalidates_previous_input():
 
 
 def test_selected_mapping_and_provider_reach_canonical_publisher(monkeypatch):
-    from selfrionette.runtime.runners import websocket_publisher as publisher
+    from xpotato_sim.runtime.runners import websocket_publisher as publisher
     profile = load_launch_profile("sim-gamepad")
     seen = []
     async def capture(**kwargs):
@@ -142,7 +142,7 @@ def _alive(pid):
 def test_owned_worker_and_descendant_cleanup_keeps_unrelated_process(tmp_path, fail):
     marker = tmp_path / "descendant.json"
     child_code = "import os,time,pathlib;pathlib.Path(" + repr(str(marker)) + ").write_text(str(os.getpid()));time.sleep(60)"
-    worker_code = ("import sys,subprocess,time;from selfrionette.runtime.runners.application_process import join_application_job;"
+    worker_code = ("import sys,subprocess,time;from xpotato_sim.runtime.runners.application_process import join_application_job;"
                    "assert sys.stdin.buffer.readline(16)==bytes([115,116,97,114,116,10]);join_application_job();"
                    "subprocess.Popen([sys.executable,'-c'," + repr(child_code) + "]);time.sleep(60)")
     sentinel = subprocess.Popen([sys._base_executable, "-c", "import time;time.sleep(60)"], stdin=subprocess.DEVNULL)

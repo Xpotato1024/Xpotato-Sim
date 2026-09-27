@@ -4,11 +4,11 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.runtime.experiment.composition import (
+from xpotato_sim.runtime.experiment.composition import (
     PluginParameters,
     compose_experiment,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     ParameterContract,
     ParameterField,
     PluginAxis,
@@ -16,7 +16,7 @@ from selfrionette.runtime.experiment.contracts import (
     PluginSelection,
     VersionedIdentity,
 )
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSource,
     InputSourceHealth,
     InputSourceHealthStatus,
@@ -28,9 +28,9 @@ from selfrionette.runtime.experiment.input_source import (
     ValidatedInputSourceReader,
     ValidatedManagedInputSourceReader,
 )
-from selfrionette.plugins.input_sources.registration import InputSourcePluginRegistration
-from selfrionette.runtime.experiment.registry import VersionedPluginRegistry
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.plugins.input_sources.registration import InputSourcePluginRegistration
+from xpotato_sim.runtime.experiment.registry import VersionedPluginRegistry
+from xpotato_sim.schemas import RawInputFrame
 from tests.runtime.test_experiment_plugin_composition import (
     build_test_manifest,
     build_test_mapping,
@@ -360,7 +360,7 @@ def test_registry_resolve_and_ids_are_deterministic() -> None:
 
 
 def test_registration_requires_typed_execution_adapter() -> None:
-    from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+    from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 
     registration = INPUT_SOURCE_CATALOG.resolve("replay")
     with pytest.raises(TypeError, match="typed execution adapter"):

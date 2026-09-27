@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from selfrionette.runtime.runners.live_viewer_smoke import (
+from xpotato_sim.runtime.runners.live_viewer_smoke import (
     build_live_viewer_smoke_parser,
     build_live_viewer_smoke_endpoint,
     build_live_viewer_smoke_report_lines,

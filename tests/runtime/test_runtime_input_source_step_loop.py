@@ -6,41 +6,41 @@ from math import dist
 
 import pytest
 
-import selfrionette.runtime.execution.input_step_loop as input_step_loop
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.plugins.robots.catalog import (
+import xpotato_sim.runtime.execution.input_step_loop as input_step_loop
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.robots.catalog import (
     registered_robot_bundle_ids,
     resolve_robot_bundle,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.initial_state import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.initial_state import (
     FAST_ARM_INITIAL_STATE_CONTRACT,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.experiment.contracts import (
     CommandSemanticsRoute,
     ENDPOINT_VELOCITY_COMMAND_V1,
     JOINT_POSITION_COMMAND_V1,
     NATIVE_ENDPOINT_VELOCITY_PASSTHROUGH_V1,
     VersionedIdentity,
 )
-from selfrionette.runtime.execution.command_routes import (
+from xpotato_sim.runtime.execution.command_routes import (
     JointPositionCommandExecutionBinding,
     NativeEndpointVelocityCommandRouteExecutionStrategy,
 )
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.robot_provider_adapters import (
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.robot_provider_adapters import (
     NamedKeyframeInitialStateProvider,
     RuntimeEndpointPoseProvider,
     RuntimeQposFeasibilityProvider,
 )
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1,
     ENDPOINT_POSE_V1,
     QPOS_FEASIBILITY_V1,
@@ -50,7 +50,7 @@ from selfrionette.runtime.composition.robot_bundle import (
     RobotBundle,
     RobotCommandSemanticProviderBinding,
 )
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     EndpointVelocityCommand,
     InputIntent,
     JointPositionCommand,
@@ -320,7 +320,7 @@ def test_native_endpoint_velocity_route_executes_provider_without_joint_path() -
 
         def build_qpos_feasibility_guard(self, **kwargs):
             _ = kwargs
-            from selfrionette.runtime.safety.qpos_feasibility import (
+            from xpotato_sim.runtime.safety.qpos_feasibility import (
                 NoOpQposFeasibilityGuard,
             )
 

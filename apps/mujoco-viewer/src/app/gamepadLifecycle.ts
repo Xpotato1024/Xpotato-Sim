@@ -23,6 +23,7 @@ export interface ViewerGamepadLifecycleDocumentLike {
 }
 
 export interface ViewerGamepadLifecycleOptions {
+  neutralHeartbeat?: boolean;
   window: ViewerGamepadLifecycleWindowLike;
   document: ViewerGamepadLifecycleDocumentLike;
   getGamepads(): ArrayLike<ViewerGamepadLike | null | undefined> | null;
@@ -40,6 +41,7 @@ export interface ViewerGamepadLifecycle {
 export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOptions): ViewerGamepadLifecycle {
   const publication = createViewerGamepadPublicationController({
     publish: options.publish,
+    neutralHeartbeat: options.neutralHeartbeat,
     heartbeatIntervalMs: options.heartbeatIntervalMs,
     setTimeoutFn: options.setTimeoutFn,
     clearTimeoutFn: options.clearTimeoutFn,

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.environments.free_space_environment import (
+from xpotato_sim.plugins.environments.free_space_environment import (
     FREE_SPACE_ENVIRONMENT_PLUGIN,
 )
-from selfrionette.plugins.environments.free_space_environment.implementation import (
+from xpotato_sim.plugins.environments.free_space_environment.implementation import (
     FreeSpaceSceneCondition,
 )
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 
 
 def test_free_space_environment_is_explicit_and_side_effect_free() -> None:

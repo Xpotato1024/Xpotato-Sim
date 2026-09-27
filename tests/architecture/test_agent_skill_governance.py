@@ -65,7 +65,7 @@ def _add_fixture_skill(
         'side_effect_boundary = "fixture内のread-only検証だけ"\n'
         'positive_triggers = ["fixture Skillを検証してください。", "新しいSkillのactive化を検証してください。", "candidateとの対応を検証してください。"]\n'
         'negative_triggers = ["外部mutationを実行してください。", "hardwareを操作してください。"]\n'
-        'route_boundaries = ["通常の変更検証はselfrionette-change-validationへrouteする。"]\n'
+        'route_boundaries = ["通常の変更検証はxpotato-sim-change-validationへrouteする。"]\n'
         'required_inputs = ["candidate", "eval", "policy"]\n'
         'expected_major_steps = ["対応確認", "threshold確認"]\n'
         'expected_outputs = ["fixture validation result"]\n'
@@ -76,7 +76,7 @@ def _add_fixture_skill(
         'stale_reference_risk = "fixture metadataが古くなるリスク。"\n\n'
         "[[routing_cases]]\n"
         'prompt = "新しいSkillと変更検証が候補になるfixtureを確認してください。"\n'
-        f'expected_skills = ["{skill_name}", "selfrionette-change-validation"]\n'
+        f'expected_skills = ["{skill_name}", "xpotato-sim-change-validation"]\n'
         f'primary_skill = "{skill_name}"\n'
         "automatic_chain = false\n"
         "permission_grant = false\n",
@@ -144,7 +144,7 @@ def test_duplicate_candidate_key_is_rejected(tmp_path: Path) -> None:
 
 def test_explicit_only_eval_rejects_implicit_policy(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-pr-handoff.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-pr-handoff.toml"
     text = eval_path.read_text(encoding="utf-8")
     eval_path.write_text(
         text.replace('invocation_policy = "implicit-after-validation"', 'invocation_policy = "explicit-only"'),
@@ -300,7 +300,7 @@ def test_active_candidate_without_realized_skill_is_rejected(tmp_path: Path) -> 
     )
     candidate.write_text(
         candidate.read_text(encoding="utf-8").replace(
-            'realized_by_skills = ["selfrionette-pr-handoff"]',
+            'realized_by_skills = ["xpotato-sim-pr-handoff"]',
             "realized_by_skills = []",
         ),
         encoding="utf-8",
@@ -319,7 +319,7 @@ def test_active_candidate_cannot_realize_explicit_only_skill(tmp_path: Path) -> 
         target
         / ".agents"
         / "skills"
-        / "selfrionette-pr-handoff"
+        / "xpotato-sim-pr-handoff"
         / "agents"
         / "openai.yaml"
     )
@@ -385,7 +385,7 @@ def test_candidate_realized_and_overlapping_skills_cannot_be_confused(
     candidate.write_text(
         candidate.read_text(encoding="utf-8").replace(
             "related_overlapping_skills = []",
-            'related_overlapping_skills = ["selfrionette-change-validation"]',
+            'related_overlapping_skills = ["xpotato-sim-change-validation"]',
         ),
         encoding="utf-8",
         newline="\n",
@@ -445,7 +445,7 @@ def test_isolated_skill_without_candidate_is_rejected(tmp_path: Path) -> None:
 
 def test_draft_skill_cannot_allow_implicit_invocation(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-pr-handoff.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-pr-handoff.toml"
     eval_path.write_text(
         eval_path.read_text(encoding="utf-8").replace(
             'validation_status = "validated"', 'validation_status = "draft"'
@@ -462,7 +462,7 @@ def test_draft_skill_cannot_allow_implicit_invocation(tmp_path: Path) -> None:
 
 def test_incomplete_validation_cannot_allow_implicit_invocation(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-pr-handoff.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-pr-handoff.toml"
     eval_path.write_text(
         eval_path.read_text(encoding="utf-8").replace(
             'validation_status = "validated"', 'validation_status = "pending"'
@@ -480,7 +480,7 @@ def test_incomplete_validation_cannot_allow_implicit_invocation(tmp_path: Path) 
 
 def test_unresolved_approval_cannot_allow_implicit_invocation(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-plugin-change.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-plugin-change.toml"
     eval_path.write_text(
         eval_path.read_text(encoding="utf-8").replace(
             "unresolved_approval = false", "unresolved_approval = true"
@@ -497,7 +497,7 @@ def test_unresolved_approval_cannot_allow_implicit_invocation(tmp_path: Path) ->
 
 def test_side_effectful_policy_cannot_allow_implicit_invocation(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-plugin-change.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-plugin-change.toml"
     eval_path.write_text(
         eval_path.read_text(encoding="utf-8").replace(
             'side_effect_policy = "instruction-only"', 'side_effect_policy = "side-effectful"'
@@ -532,7 +532,7 @@ def test_implicit_invocation_cannot_grant_permissions(tmp_path: Path) -> None:
 
 def test_policy_value_outside_policy_section_or_in_comment_is_not_adopted(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    policy = target / ".agents" / "skills" / "selfrionette-pr-handoff" / "agents" / "openai.yaml"
+    policy = target / ".agents" / "skills" / "xpotato-sim-pr-handoff" / "agents" / "openai.yaml"
     policy.write_text(
         policy.read_text(encoding="utf-8").replace(
             "\npolicy:\n",
@@ -551,7 +551,7 @@ def test_policy_value_outside_policy_section_or_in_comment_is_not_adopted(tmp_pa
 
 def test_unconditional_skill_chaining_fixture_is_rejected(tmp_path: Path) -> None:
     target = _copy_agents(tmp_path)
-    eval_path = target / ".agents" / "skill-evals" / "selfrionette-plugin-change.toml"
+    eval_path = target / ".agents" / "skill-evals" / "xpotato-sim-plugin-change.toml"
     eval_path.write_text(
         eval_path.read_text(encoding="utf-8").replace(
             "automatic_chain = false", "automatic_chain = true"
@@ -571,13 +571,13 @@ def test_routing_fixtures_select_the_narrow_skill_and_preserve_boundaries() -> N
         path.stem: tomllib.loads(path.read_text(encoding="utf-8"))
         for path in (ROOT / ".agents" / "skill-evals").glob("*.toml")
     }
-    plugin_case = evals["selfrionette-plugin-change"]["routing_cases"][0]
-    validation_case = evals["selfrionette-change-validation"]["routing_cases"][0]
-    handoff_case = evals["selfrionette-pr-handoff"]["routing_cases"][0]
+    plugin_case = evals["xpotato-sim-plugin-change"]["routing_cases"][0]
+    validation_case = evals["xpotato-sim-change-validation"]["routing_cases"][0]
+    handoff_case = evals["xpotato-sim-pr-handoff"]["routing_cases"][0]
 
-    assert plugin_case["primary_skill"] == "selfrionette-plugin-change"
-    assert validation_case["primary_skill"] == "selfrionette-change-validation"
-    assert handoff_case["primary_skill"] == "selfrionette-pr-handoff"
+    assert plugin_case["primary_skill"] == "xpotato-sim-plugin-change"
+    assert validation_case["primary_skill"] == "xpotato-sim-change-validation"
+    assert handoff_case["primary_skill"] == "xpotato-sim-pr-handoff"
     assert all(
         not case["automatic_chain"] and not case["permission_grant"]
         for data in evals.values()
@@ -592,19 +592,19 @@ def test_representative_metadata_routing_scenarios_are_bounded() -> None:
     }
     unrelated = "このrepositoryと無関係な一般質問に答えてください。"
 
-    assert any("docs" in prompt for prompt in evals["selfrionette-change-validation"]["positive_triggers"])
+    assert any("docs" in prompt for prompt in evals["xpotato-sim-change-validation"]["positive_triggers"])
     assert any(
         "pluginと無関係" in prompt
-        for prompt in evals["selfrionette-plugin-change"]["negative_triggers"]
+        for prompt in evals["xpotato-sim-plugin-change"]["negative_triggers"]
     )
     assert any(
-        "read-only" in prompt for prompt in evals["selfrionette-pr-handoff"]["positive_triggers"]
+        "read-only" in prompt for prompt in evals["xpotato-sim-pr-handoff"]["positive_triggers"]
     )
     assert all(unrelated in data["negative_triggers"] for data in evals.values())
     assert "Issue / PR mutation" in evals["skill-lifecycle-review"]["forbidden_actions"]
-    assert "serial / OSC / robot output" in evals["selfrionette-change-validation"]["forbidden_actions"]
-    assert "external mutation" in evals["selfrionette-plugin-change"]["forbidden_actions"]
-    assert "commit" in evals["selfrionette-pr-handoff"]["forbidden_actions"]
+    assert "serial / OSC / robot output" in evals["xpotato-sim-change-validation"]["forbidden_actions"]
+    assert "external mutation" in evals["xpotato-sim-plugin-change"]["forbidden_actions"]
+    assert "commit" in evals["xpotato-sim-pr-handoff"]["forbidden_actions"]
 
 
 def test_unimplemented_candidate_cannot_be_active(tmp_path: Path) -> None:
@@ -707,7 +707,7 @@ def test_related_overlapping_skill_does_not_realize_draft_candidate(tmp_path: Pa
     text = candidate.read_text(encoding="utf-8")
     candidate.write_text(
         text.replace('status = "candidate"', 'status = "draft"')
-        .replace('related_overlapping_skills = []', 'related_overlapping_skills = ["selfrionette-change-validation"]')
+        .replace('related_overlapping_skills = []', 'related_overlapping_skills = ["xpotato-sim-change-validation"]')
         .replace('proposed_action = "record"', 'proposed_action = "create-draft"'),
         encoding="utf-8",
         newline="\n",

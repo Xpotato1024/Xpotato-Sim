@@ -77,3 +77,40 @@ for (const search of ["?inputProvider=unknown", "?inputProvider=", "?inputProvid
   assert.deepEqual(result.providerIds, []);
   assert.notEqual(result.error, null);
 }
+
+// mode表示前の初回送信にもsession IDが必要。neutralHeartbeat=falseでも付与する。
+{
+  const messages: Array<Record<string, any>> = [];
+  class Socket {
+    readyState = 1;
+    constructor(_url: string) {}
+    addEventListener(_type: string, _listener: (event: Event) => void): void {}
+    removeEventListener(_type: string, _listener: (event: Event) => void): void {}
+    send(value: string): void { messages.push(JSON.parse(value)); }
+    close(): void { this.readyState = 3; }
+  }
+  const options = {
+    url: "ws://127.0.0.1:8766", gamepadWebSocketCtor: Socket,
+    gamepadNeutralHeartbeat: false,
+    window: { requestAnimationFrame: () => 1, cancelAnimationFrame: () => {},
+              addEventListener: () => {}, removeEventListener: () => {} },
+    document: { visibilityState: "visible", hasFocus: () => true,
+                addEventListener: () => {}, removeEventListener: () => {} },
+    getGamepads: () => [{ connected: true, id: "synthetic", index: 0, axes: [0,0,0,0],
+                         buttons: Array.from({length:6}, () => ({pressed:false,value:0})) }],
+  } as unknown as ViewerInputProviderOptions;
+  const registry = createDefaultViewerInputProviderRegistry();
+  const first = registry.create("gamepad/v1", options);
+  first.start();
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].sequence, 0);
+  const id = messages[0].metadata.viewer_provider_session_id;
+  assert.match(id, /^[a-zA-Z0-9_-]{1,128}$/);
+  first.dispose();
+  const second = registry.create("gamepad/v1", options);
+  second.start();
+  assert.equal(messages.length, 2);
+  assert.equal(messages[1].sequence, 0);
+  assert.notEqual(messages[1].metadata.viewer_provider_session_id, id);
+  second.dispose();
+}

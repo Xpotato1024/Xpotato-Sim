@@ -11,24 +11,24 @@ from types import ModuleType
 
 import pytest
 
-from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
-from selfrionette.plugins.robots.catalog import RobotCatalog
-from selfrionette.plugins.robots.discovery import (
+from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+from xpotato_sim.plugins.robots.catalog import RobotCatalog
+from xpotato_sim.plugins.robots.discovery import (
     RobotDiscoveryRoot,
     RobotPluginDiscoveryError,
     RobotPluginRegistry,
     discover_robot_plugins,
 )
-from selfrionette.plugins.robots.registration import (
+from xpotato_sim.plugins.robots.registration import (
     RepositoryResource,
     RobotResourceDeclaration,
     _resolved_resource,
     _validate_viewer_vfs_coverage,
 )
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
-from selfrionette.runtime.experiment.contracts import PluginSelection, VersionedIdentity
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+from xpotato_sim.runtime.experiment.contracts import PluginSelection, VersionedIdentity
+from xpotato_sim.runtime.composition.robot_bundle import (
     CapabilityProviderBinding,
     ENDPOINT_COMMAND_V1,
     ENDPOINT_POSE_V1,
@@ -119,7 +119,7 @@ def test_second_robot_discovery_resolution_resources_and_headless_step(
 def test_logical_v2_selection_reaches_public_catalog_and_runtime_composition(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
+    from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
 
     fixture_v2 = _discover_fixture(monkeypatch).resolve(
         "fixture_bot", robot_logical_version=2
@@ -323,7 +323,7 @@ def test_package_identity_missing_resource_and_path_escape_fail_closed(
         plugin_source=(
             "from dataclasses import replace\n"
             "from test_robot_plugins.fixture_bot.plugin import ROBOT_PLUGIN as BASE\n"
-            "from selfrionette.plugins.robots.registration import RepositoryResource, RobotResourceDeclaration\n"
+            "from xpotato_sim.plugins.robots.registration import RepositoryResource, RobotResourceDeclaration\n"
             "ROBOT_PLUGIN = replace(BASE, resources=RobotResourceDeclaration("
             "model=RepositoryResource('assets/mujoco/fixture_bot/missing.xml'), "
             "configurations=BASE.resources.configurations, "
@@ -419,7 +419,7 @@ def test_registration_rejects_viewer_and_resource_contract_mismatches(
 def test_onboarding_schema_version_is_independent_from_robot_logical_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
+    from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
 
     registration_v2 = _discover_fixture(monkeypatch).resolve(
         "fixture_bot", robot_logical_version=2
@@ -634,7 +634,7 @@ def test_viewer_resource_path_and_public_url_must_identify_the_same_file(
         replace(registration.viewer, model_url="/mujoco/fixture_bot/other.xml")
     with pytest.raises(ValueError, match="fixture resource path/URL mismatch"):
         replace(registration.viewer, fixture_url="/mujoco/fixture_bot/missing.json")
-    from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
+    from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN as FAST_ARM
 
     with pytest.raises(ValueError, match="VFS resource path/URL mismatch"):
         replace(
@@ -657,8 +657,8 @@ def test_viewer_resource_path_and_public_url_must_identify_the_same_file(
 
 
 def test_viewer_vfs_validation_rejects_missing_required_model_asset() -> None:
-    from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
-    from selfrionette.runtime.composition.robot_resource import read_package_resource_bytes
+    from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
+    from xpotato_sim.runtime.composition.robot_resource import read_package_resource_bytes
 
     incomplete_viewer = replace(
         ROBOT_PLUGIN.viewer,
@@ -678,9 +678,9 @@ def test_viewer_vfs_validation_rejects_missing_required_model_asset() -> None:
 
 
 def test_production_registration_identity_material_excludes_python_location() -> None:
-    from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
+    from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
 
     material = ROBOT_PLUGIN.canonical_identity_bytes()
-    assert b"selfrionette.plugins.robots.fast_arm" not in material
+    assert b"xpotato_sim.plugins.robots.fast_arm" not in material
     assert ROBOT_PLUGIN.bundle.runtime_plugin.__class__.__module__.encode() not in material
     assert ROBOT_PLUGIN.bundle.runtime_plugin.__class__.__name__.encode() not in material
