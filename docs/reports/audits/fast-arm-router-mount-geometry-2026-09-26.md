@@ -6,7 +6,7 @@ canonical_for: []
 related:
   - docs/contracts/fast-arm-assembly.md
   - docs/contracts/physical-output.md
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/575
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/575
 ---
 
 # fast-arm-router shoulder mount geometry audit (2026-09-26)
