@@ -73,6 +73,20 @@ def test_all_prepared_before_first_send_and_ack_remains_nonphysical(monkeypatch)
     assert g.poll(now_s=1.02).state=="active"
 
 
+def test_healthy_router_health_does_not_clear_command_ack(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    result=g.submit(ev,input=source(1,neutral=False),now_s=1.)
+    assert result.state=="active", result.reason
+    assert all(session.pending_acknowledgement.status=="pending" for session in ss.values())
+    evidence=g.observe_health(
+        "left",health(ss["left"].target_robot_id,state_age=.02),now_s=1.05,
+    )
+    assert evidence is not None and evidence.status=="healthy"
+    assert ss["left"].pending_acknowledgement.status=="pending"
+    assert ss["right"].pending_acknowledgement.status=="pending"
+    assert g.state=="active" and not stops
+
+
 def test_router_health_supervision_requires_all_targets_before_arm(monkeypatch):
     g,ss,senders,ev,stops,_,_=setup(
         monkeypatch,health_age=.2,initial_health=False,
