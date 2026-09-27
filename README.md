@@ -1,6 +1,8 @@
-# Selfrionette-mujoco
+# Xpotato-Sim
 
-`Selfrionette-mujoco` の docs 正本は `docs/README.md` です。
+ロボット操作・実験のためのシミュレーション中心の基盤。Selfrionetteは対応する入力装置の一つです。
+
+`Xpotato-Sim` の docs 正本は `docs/README.md` です。
 このルート README は、current architecture、plugin、backend / viewerの最初の入口だけをまとめます。
 
 ## まず読むもの
@@ -9,7 +11,7 @@
 - [docs/architecture/dependency-boundaries.md](docs/architecture/dependency-boundaries.md)
 - [docs/architecture/runtime-composition.md](docs/architecture/runtime-composition.md)
 - [docs/contracts/experiment-plugin-composition.md](docs/contracts/experiment-plugin-composition.md)
-- [src/selfrionette/plugins/README.md](src/selfrionette/plugins/README.md)
+- [src/xpotato_sim/plugins/README.md](src/xpotato_sim/plugins/README.md)
 - [docs/operations/backend-viewer-startup.md](docs/operations/backend-viewer-startup.md)
 - [docs/operations/websocket-host-port-contract.md](docs/operations/websocket-host-port-contract.md)
 - [docs/operations/runtime-to-viewer-e2e-smoke.md](docs/operations/runtime-to-viewer-e2e-smoke.md)
@@ -18,7 +20,7 @@
 ## current architecture
 
 MuJoCoがphysical stateのsource of truthであり、Three.js / browser viewerはrenderingと
-read-only diagnosticsを担当します。複数層のcompositionは`src/selfrionette/runtime/`だけが所有します。
+read-only diagnosticsを担当します。複数層のcompositionは`src/xpotato_sim/runtime/`だけが所有します。
 pluginはRobot、Environment、Mapping、Task、Evaluation、Input Sourceの6軸で独立選択しますが、
 現在のproduction診断・運用pathはRobot、Input Source、Mappingが中心です。
 Environment、Task、Evaluationにもfree-space/contactのproduction pluginと専用runnerがあります。
@@ -26,8 +28,8 @@ Environment、Task、Evaluationにもfree-space/contactのproduction pluginと�
 
 ## directory map
 
-- [`src/selfrionette/`](src/selfrionette/README.md): Python packageと各layerの入口
-- [`src/selfrionette/plugins/`](src/selfrionette/plugins/README.md): plugin hierarchyと追加方法
+- [`src/xpotato_sim/`](src/xpotato_sim/README.md): Python packageと各layerの入口
+- [`src/xpotato_sim/plugins/`](src/xpotato_sim/plugins/README.md): plugin hierarchyと追加方法
 - [`apps/mujoco-viewer/`](apps/mujoco-viewer/README.md): rendering-only browser viewer
 - [`scripts/`](scripts/README.md): repository / diagnostics / viewer / hardware script
 - [`tests/`](tests/README.md): test ownershipとvalidation入口
@@ -48,7 +50,7 @@ Environment、Task、Evaluationにもfree-space/contactのproduction pluginと�
 独立wheelの確認:
 
 ```bash
-uv build --wheel src/selfrionette/plugins/robots/fast_arm/core --out-dir dist
+uv build --wheel src/xpotato_sim/plugins/robots/fast_arm/core --out-dir dist
 uv build --wheel --out-dir dist
 ```
 
@@ -61,20 +63,20 @@ rootのpackage dataはadapter resourceだけを明示収集し、物理mount poi
 `npm --prefix apps/mujoco-viewer ci`で依存を揃えてください。
 
 ```powershell
-uv run selfrionette app --profile sim-gamepad
+uv run xpotato-sim app --profile sim-gamepad
 ```
 
 `sim-keyboard` / `replay-sweep`へprofileを切り替えられます。Webとbackendの両方を起動し、
 ブラウザを一度だけ開きます。終了はCtrl+Cまたはprofileの有限実行完了です。
-`uv run selfrionette app --profile sim-gamepad --check`は検査のみを行います。
+`uv run xpotato-sim app --profile sim-gamepad --check`は検査のみを行います。
 設定仕様は`docs/contracts/launch-profile.md`、操作の正本は`docs/operations/backend-viewer-startup.md`です。
 以下は低位の個別開発・診断用の入口です。
 
 ### backend / dry-run
 
 ```bash
-uv run selfrionette replay --robot fast_arm --steps 1
-uv run selfrionette replay --robot fast_arm --steps 3 --preset sweep_x
+uv run xpotato-sim replay --robot fast_arm --steps 1
+uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
 ```
 
 dry-run は NDJSON payload / backend path の確認用です。WebSocket server は起動せず、browser viewer にも直接接続しません。
@@ -82,7 +84,7 @@ dry-run は NDJSON payload / backend path の確認用です。WebSocket server 
 ### WebSocket publisher
 
 ```bash
-uv run selfrionette viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
+uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
 ```
 
 browser viewer に payload v0 を流す local/dev publisher です。標準的な loopback は `127.0.0.1:8766` です。
@@ -136,3 +138,5 @@ browser / viewer smoke の補助導線です。CLI は browser URL と WebSocket
 - [docs/operations/browser-visual-smoke.md](docs/operations/browser-visual-smoke.md)
 - [docs/reports/audits/r6-g-p3-startup-script-gap-audit.md](docs/reports/audits/r6-g-p3-startup-script-gap-audit.md)
 - [docs/reports/audits/r6-f-completion-audit.md](docs/reports/audits/r6-f-completion-audit.md)
+
+名称移行と起動方法: [Xpotato-Simへの名称移行](docs/operations/xpotato-sim-migration.md)。

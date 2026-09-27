@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     CONTACT_ENVIRONMENT_ROLE,
     CONTACT_MANIFEST_SCHEMA_VERSION,
     CONTACT_TASK_IDENTITY,
@@ -25,7 +25,7 @@ from selfrionette.runtime.contact.manifest import (
     decode_contact_manifest,
     encode_contact_manifest,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     ROLE_ATTRIBUTE_WILDCARD,
     SemanticRole,

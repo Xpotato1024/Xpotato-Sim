@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
     KeyboardBinding,
     KeyboardInputConfig,
     build_default_keyboard_input_config,
     build_keyboard_motion_command,
 )
-from selfrionette.runtime.control.desired_endpoint_resolver import resolve_desired_endpoint_from_motion_command
-from selfrionette.schemas import MotionCommand
+from xpotato_sim.runtime.control.desired_endpoint_resolver import resolve_desired_endpoint_from_motion_command
+from xpotato_sim.schemas import MotionCommand
 
 
 def test_default_keyboard_keybind_contract_matches_package_resource() -> None:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import pytest
 
 from tests.support.mujoco_doubles import NoOpMuJoCoSimulator
-from selfrionette.schemas import JointCommand, MotionCommand
+from xpotato_sim.schemas import JointCommand, MotionCommand
 
 
 def test_headless_simulator_reports_generic_model_joint_contract_mismatch() -> None:

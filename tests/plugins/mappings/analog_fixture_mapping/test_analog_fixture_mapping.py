@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.input_sources.analog_fixture import (
+from xpotato_sim.plugins.input_sources.analog_fixture import (
     AnalogFixtureSample,
     parse_analog_fixture_sample,
 )
-from selfrionette.plugins.mappings.analog_fixture_mapping import (
+from xpotato_sim.plugins.mappings.analog_fixture_mapping import (
     AnalogFixtureMappingConfig,
     map_analog_fixture_sample,
 )
-from selfrionette.schemas import MotionSampleRecord
+from xpotato_sim.schemas import MotionSampleRecord
 
 
 FIXTURE = Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "analog_input_samples.json"

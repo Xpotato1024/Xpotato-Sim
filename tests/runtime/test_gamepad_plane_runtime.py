@@ -3,12 +3,12 @@ import asyncio
 from dataclasses import replace
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.runtime.composition.launch_profile import load_launch_profile
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
-from selfrionette.schemas import ViewerControlMessage, ViewerControlKeyboardMessage
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
+from xpotato_sim.schemas import ViewerControlMessage, ViewerControlKeyboardMessage
 from tests.support.transport_doubles import NoOpStatePublisher
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message, parameters
 

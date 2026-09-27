@@ -5,28 +5,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Mapping
 
-from selfrionette.plugins.input_sources.catalog import InputSourceCatalog
-from selfrionette.plugins.input_sources.registration import (
+from xpotato_sim.plugins.input_sources.catalog import InputSourceCatalog
+from xpotato_sim.plugins.input_sources.registration import (
     InputSourcePluginRegistration,
     InputSourcePluginRequest,
 )
-from selfrionette.runtime.execution.input_source_adapters import (
+from xpotato_sim.runtime.execution.input_source_adapters import (
     InputSourceExecutionSemantics,
     RuntimeInputSourceExecutionAdapter,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     ParameterContract,
     ParameterField,
     PluginSelection,
     VersionedIdentity,
 )
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
     InputSourceMode,
     InputSourcePlugin,
 )
-from selfrionette.schemas import InputIntent, RawInputFrame
+from xpotato_sim.schemas import InputIntent, RawInputFrame
 
 
 DUMMY_INPUT_SOURCE_ID = VersionedIdentity("test_dummy_input_source", 1)

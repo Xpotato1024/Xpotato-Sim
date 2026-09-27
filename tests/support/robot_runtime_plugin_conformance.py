@@ -8,14 +8,14 @@ from math import isfinite
 from numbers import Real
 from pathlib import Path
 
-from selfrionette.mujoco_backend.model_info import inspect_mujoco_model
-from selfrionette.mujoco_backend.model_loader import load_mujoco_model
-from selfrionette.mujoco_backend.model_loader import ModelResourceBundle
-from selfrionette.runtime.composition.robot_resource import PackageResource
-from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
-from selfrionette.runtime.composition.robot_profile import RobotProfile
-from selfrionette.runtime.composition.robot_plugin import RobotRuntimePlugin
-from selfrionette.schemas import JointCommand, MotionCommand, MuJoCoState, Vector3
+from xpotato_sim.mujoco_backend.model_info import inspect_mujoco_model
+from xpotato_sim.mujoco_backend.model_loader import load_mujoco_model
+from xpotato_sim.mujoco_backend.model_loader import ModelResourceBundle
+from xpotato_sim.runtime.composition.robot_resource import PackageResource
+from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+from xpotato_sim.runtime.composition.robot_profile import RobotProfile
+from xpotato_sim.runtime.composition.robot_plugin import RobotRuntimePlugin
+from xpotato_sim.schemas import JointCommand, MotionCommand, MuJoCoState, Vector3
 
 
 QposApplier = Callable[[HeadlessMuJoCoSimulator, tuple[float, ...]], None]

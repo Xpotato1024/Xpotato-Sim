@@ -44,7 +44,7 @@ def _contains_japanese(value: str) -> bool:
 
 def test_architecture_sensitive_python_contracts_have_semantic_documentation() -> None:
     required_symbols = {
-        "src/selfrionette/runtime/experiment/contracts.py": {
+        "src/xpotato_sim/runtime/experiment/contracts.py": {
             "VersionedIdentity",
             "CommandSemanticsRoute",
             "EnvironmentPlugin",
@@ -52,19 +52,19 @@ def test_architecture_sensitive_python_contracts_have_semantic_documentation() -
             "TaskPlugin",
             "EvaluationPlugin",
         },
-        "src/selfrionette/runtime/experiment/composition.py": {
+        "src/xpotato_sim/runtime/experiment/composition.py": {
             "ResolvedExperimentComposition",
             "compose_experiment",
         },
-        "src/selfrionette/runtime/composition/robot_bundle.py": {
+        "src/xpotato_sim/runtime/composition/robot_bundle.py": {
             "RobotCommandSemanticProvider",
             "RobotBundle",
         },
-        "src/selfrionette/runtime/execution/command_routes.py": {
+        "src/xpotato_sim/runtime/execution/command_routes.py": {
             "ResolvedCommandExecution",
             "NativeEndpointVelocityCommandExecutionBinding",
         },
-        "src/selfrionette/runtime/control/endpoint_target_generator.py": {
+        "src/xpotato_sim/runtime/control/endpoint_target_generator.py": {
             "EndpointTargetGeneratorConfig",
             "EndpointTargetGeneratorState",
             "generate_endpoint_target",
@@ -79,37 +79,37 @@ def test_architecture_sensitive_python_contracts_have_semantic_documentation() -
 
 def test_r7_g_public_plugin_contracts_use_japanese_documentation() -> None:
     required_symbols = {
-        "src/selfrionette/plugins/environments/free_space_environment/implementation.py": {
+        "src/xpotato_sim/plugins/environments/free_space_environment/implementation.py": {
             "FreeSpaceSceneCondition",
             "FreeSpaceSceneProvider",
         },
-        "src/selfrionette/plugins/tasks/endpoint_reach_task/implementation.py": {
+        "src/xpotato_sim/plugins/tasks/endpoint_reach_task/implementation.py": {
             "EndpointReachTaskBinding",
             "EndpointReachTaskLifecycle",
             "EndpointReachTaskState",
         },
-        "src/selfrionette/plugins/evaluations/success_within_timeout/implementation.py": {
+        "src/xpotato_sim/plugins/evaluations/success_within_timeout/implementation.py": {
             "SuccessWithinTimeoutDeriver",
         },
-        "src/selfrionette/plugins/evaluations/off_axis_drift/implementation.py": {
+        "src/xpotato_sim/plugins/evaluations/off_axis_drift/implementation.py": {
             "OffAxisDriftDeriver",
         },
-        "src/selfrionette/plugins/evaluations/completion_time/implementation.py": {
+        "src/xpotato_sim/plugins/evaluations/completion_time/implementation.py": {
             "CompletionTimeDeriver",
         },
-        "src/selfrionette/plugins/evaluations/final_endpoint_error/implementation.py": {
+        "src/xpotato_sim/plugins/evaluations/final_endpoint_error/implementation.py": {
             "FinalEndpointErrorDeriver",
         },
-        "src/selfrionette/runtime/experiment/endpoint_reach_evidence.py": {
+        "src/xpotato_sim/runtime/experiment/endpoint_reach_evidence.py": {
             "EndpointReachObservation",
             "EndpointReachTaskContext",
             "decode_endpoint_reach_terminal_evidence",
             "decode_endpoint_reach_trajectory_evidence",
         },
-        "src/selfrionette/runtime/composition/production_experiment.py": {
+        "src/xpotato_sim/runtime/composition/production_experiment.py": {
             "resolve_production_experiment",
         },
-        "src/selfrionette/runtime/evaluation/r7_g_free_space.py": {
+        "src/xpotato_sim/runtime/evaluation/r7_g_free_space.py": {
             "build_r7_g_free_space_manifest_pair",
         },
     }
@@ -123,7 +123,7 @@ def test_r7_g_public_plugin_contracts_use_japanese_documentation() -> None:
 
 
 def test_schema_documentation_matches_current_field_and_owner_boundaries() -> None:
-    command_path = "src/selfrionette/schemas/command.py"
+    command_path = "src/xpotato_sim/schemas/command.py"
     endpoint_fields, endpoint_doc = _class_contract(
         command_path, "EndpointVelocityCommand"
     )
@@ -134,18 +134,18 @@ def test_schema_documentation_matches_current_field_and_owner_boundaries() -> No
     assert "exclusive" not in motion_doc
 
     raw_fields, raw_doc = _class_contract(
-        "src/selfrionette/schemas/input.py", "RawInputFrame"
+        "src/xpotato_sim/schemas/input.py", "RawInputFrame"
     )
     assert raw_fields == {"source", "timestamp_s", "values", "buttons", "metadata"}
     assert "JSON-compatibleなsnapshotへfreeze" not in raw_doc
 
     viewer_fields, viewer_doc = _class_contract(
-        "src/selfrionette/schemas/viewer_control.py", "ViewerControlMessage"
+        "src/xpotato_sim/schemas/viewer_control.py", "ViewerControlMessage"
     )
     assert {"sequence", "keyboard", "gamepad"} <= viewer_fields
     assert "monotonic sequence" not in viewer_doc
 
-    experiment_path = "src/selfrionette/schemas/experiment_log.py"
+    experiment_path = "src/xpotato_sim/schemas/experiment_log.py"
     configuration_fields, configuration_doc = _class_contract(
         experiment_path, "ConfigurationRecord"
     )
@@ -171,7 +171,7 @@ def test_schema_documentation_matches_current_field_and_owner_boundaries() -> No
 
 def test_fixed_plugin_entry_points_document_declaration_without_starting_lifecycle() -> None:
     entry_points = sorted(
-        (REPOSITORY_ROOT / "src/selfrionette/plugins").glob("**/plugin.py")
+        (REPOSITORY_ROOT / "src/xpotato_sim/plugins").glob("**/plugin.py")
     )
     assert entry_points
 

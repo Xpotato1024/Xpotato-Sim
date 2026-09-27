@@ -7,20 +7,20 @@ import sys
 from importlib.util import resolve_name
 from pathlib import Path
 
-import selfrionette.runtime as runtime
-from selfrionette.plugins.robots.catalog import (
+import xpotato_sim.runtime as runtime
+from xpotato_sim.plugins.robots.catalog import (
     resolve_robot_bundle,
     resolve_robot_profile,
     resolve_robot_runtime_plugin,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
-from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
+from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
+from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "selfrionette"
+SRC = ROOT / "src" / "xpotato_sim"
 FAST_ARM_PLUGIN_ROOT = SRC / "plugins" / "robots" / "fast_arm"
-FAST_ARM_PACKAGE = "selfrionette.plugins.robots.fast_arm"
+FAST_ARM_PACKAGE = "xpotato_sim.plugins.robots.fast_arm"
 FAST_ARM_PHYSICAL_OUTPUT_MODULE = f"{FAST_ARM_PACKAGE}.adapter.physical_output"
 FAST_ARM_RUNTIME_COMPOSITION_OWNER = SRC / "runtime" / "output" / "fast_arm_adapter.py"
 FAST_ARM_RUNTIME_COMPOSITION_IMPORTS = frozenset(
@@ -128,9 +128,9 @@ def _is_permitted_concrete_fast_arm_import(path: Path, imported: str) -> bool:
 
 
 def test_package_for_path_uses_containing_package_for_modules_and_initializers() -> None:
-    assert _package_for_path(SRC / "runtime" / "foo.py") == "selfrionette.runtime"
+    assert _package_for_path(SRC / "runtime" / "foo.py") == "xpotato_sim.runtime"
     assert _package_for_path(SRC / "plugins" / "robots" / "__init__.py") == (
-        "selfrionette.plugins.robots"
+        "xpotato_sim.plugins.robots"
     )
 
 
@@ -138,30 +138,30 @@ def test_relative_imports_resolve_from_a_normal_module_package() -> None:
     package = _package_for_path(SRC / "runtime" / "foo.py")
     imported = _imports_from_source(
         "from ..plugins.robots import fast_arm\n",
-        filename="src/selfrionette/runtime/foo.py",
+        filename="src/xpotato_sim/runtime/foo.py",
         package=package,
     )
-    assert "selfrionette.plugins.robots.fast_arm" in imported
+    assert "xpotato_sim.plugins.robots.fast_arm" in imported
 
 
 def test_relative_imports_resolve_from_a_package_initializer() -> None:
     package = _package_for_path(SRC / "plugins" / "robots" / "__init__.py")
     imported = _imports_from_source(
         "from . import fast_arm\n",
-        filename="src/selfrionette/plugins/robots/__init__.py",
+        filename="src/xpotato_sim/plugins/robots/__init__.py",
         package=package,
     )
-    assert "selfrionette.plugins.robots.fast_arm" in imported
+    assert "xpotato_sim.plugins.robots.fast_arm" in imported
 
 
 def test_relative_removed_compatibility_import_is_detected() -> None:
     package = _package_for_path(SRC / "runtime" / "__init__.py")
     imported = _imports_from_source(
         "from . import fast_arm_plugin\n",
-        filename="src/selfrionette/runtime/__init__.py",
+        filename="src/xpotato_sim/runtime/__init__.py",
         package=package,
     )
-    assert "selfrionette.runtime.fast_arm_plugin" in imported
+    assert "xpotato_sim.runtime.fast_arm_plugin" in imported
     assert imported & REMOVED_IMPORT_MODULES
 
 
@@ -196,7 +196,7 @@ def test_concrete_fast_arm_imports_are_limited_to_plugin_and_exact_runtime_owner
 def test_plugin_discovery_does_not_eagerly_load_diagnostics() -> None:
     code = (
         "import sys;sys.path.insert(0, 'src');"
-        "from selfrionette.plugins.robots.discovery import discover_production_robot_plugins;"
+        "from xpotato_sim.plugins.robots.discovery import discover_production_robot_plugins;"
         "discover_production_robot_plugins();"
         "assert not any('.diagnostics' in name for name in sys.modules), "
         "sorted(name for name in sys.modules if '.diagnostics' in name)"
@@ -249,32 +249,32 @@ def test_diagnostic_scripts_import_plugin_owned_entrypoints() -> None:
     for path in (ROOT / "scripts" / "diagnostics" / "fast_arm").glob("run_fast_arm_*diagnostic*.py"):
         imported = _imports(path)
         assert any(
-            name.startswith("selfrionette.plugins.robots.fast_arm.adapter.diagnostics")
+            name.startswith("xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics")
             for name in imported
         ), path.relative_to(ROOT)
-        assert not any(name.startswith("selfrionette.runtime.endpoint_motion_sanity") for name in imported)
+        assert not any(name.startswith("xpotato_sim.runtime.endpoint_motion_sanity") for name in imported)
 
 
 def test_public_packages_export_no_test_doubles_or_fast_arm_generic_symbols() -> None:
     for module_name in (
-        "selfrionette.kinematics",
-        "selfrionette.motion",
-        "selfrionette.mujoco_backend",
-        "selfrionette.transport",
-        "selfrionette.runtime",
+        "xpotato_sim.kinematics",
+        "xpotato_sim.motion",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.transport",
+        "xpotato_sim.runtime",
     ):
         module = importlib.import_module(module_name)
         assert not any(name.startswith(("NoOp", "Zero", "Static")) for name in module.__all__)
     assert set(runtime._PUBLIC_EXPORTS) == set(runtime.__all__)
-    assert not any("FastArm" in name for name in importlib.import_module("selfrionette.kinematics").__all__)
-    assert not any("FAST_ARM" in name for name in importlib.import_module("selfrionette.mujoco_backend").__all__)
+    assert not any("FastArm" in name for name in importlib.import_module("xpotato_sim.kinematics").__all__)
+    assert not any("FAST_ARM" in name for name in importlib.import_module("xpotato_sim.mujoco_backend").__all__)
 
 
 def test_runtime_root_retains_only_deliberate_catalog_apis() -> None:
     retained_catalog_apis = {
         name
         for name, (owner, _) in runtime._PUBLIC_EXPORTS.items()
-        if owner == "selfrionette.plugins.robots.catalog"
+        if owner == "xpotato_sim.plugins.robots.catalog"
     }
     assert retained_catalog_apis == {
         "registered_robot_bundle_ids",

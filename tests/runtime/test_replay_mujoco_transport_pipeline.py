@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
 
 import asyncio
 import json
 
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
-from selfrionette.transport import WebSocketStatePublisher
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
+from xpotato_sim.transport import WebSocketStatePublisher
 
 
 class RecordingSender:

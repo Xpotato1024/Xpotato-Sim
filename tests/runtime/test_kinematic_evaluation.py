@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.runtime.evaluation.kinematics import (
+from xpotato_sim.runtime.evaluation.kinematics import (
     RuntimeForwardKinematicsEvaluation,
     evaluate_fk_endpoint_from_joint_command,
     evaluate_fk_endpoint_from_qpos,
 )
-from selfrionette.schemas import JointCommand
+from xpotato_sim.schemas import JointCommand
 from tests.support.kinematics_solver_doubles import (
     FailingForwardKinematicsSolver,
     FixedForwardKinematicsSolver,

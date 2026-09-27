@@ -14,7 +14,7 @@ related:
 
 # R7-G deterministic E2E
 
-`selfrionette-r7-g-e2e`は、callerが明示したmanifest revisionと独立したactual execution
+`xpotato-sim-r7-g-e2e`は、callerが明示したmanifest revisionと独立したactual execution
 revisionで、固定したR7-G manifest / protocol contextを
 production six-axis readiness、world/tool MuJoCo runner、
 `experiment-motion-log/v1`、Task-owned canonical evidence reconstruction、
@@ -34,7 +34,7 @@ $executionRevision = $env:R7_G_EXECUTION_REVISION
 if ([string]::IsNullOrWhiteSpace($manifestRevision) -or [string]::IsNullOrWhiteSpace($executionRevision)) {
     throw 'R7_G_MANIFEST_REVISION and R7_G_EXECUTION_REVISION are required caller inputs'
 }
-uv run selfrionette-r7-g-e2e `
+uv run xpotato-sim-r7-g-e2e `
     --output-dir $out `
     --manifest-software-revision $manifestRevision `
     --execution-software-revision $executionRevision

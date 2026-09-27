@@ -6,15 +6,15 @@ from math import sqrt
 
 import pytest
 
-from selfrionette.plugins.mappings._continuous_endpoint_velocity import (
+from xpotato_sim.plugins.mappings._continuous_endpoint_velocity import (
     build_continuous_endpoint_velocity_intent,
     build_normalized_analog_fixture_intent,
 )
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
     build_keyboard_continuous_velocity_intent,
     build_keyboard_motion_command,
 )
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import (
     KeyboardBinding,
     KeyboardInputConfig,
 )

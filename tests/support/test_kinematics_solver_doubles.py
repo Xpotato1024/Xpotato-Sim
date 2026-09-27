@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.kinematics import ForwardKinematicsSolver, InverseKinematicsSolver
-from selfrionette.schemas import JointCommand
+from xpotato_sim.kinematics import ForwardKinematicsSolver, InverseKinematicsSolver
+from xpotato_sim.schemas import JointCommand
 from tests.support.kinematics_solver_doubles import (
     FailingForwardKinematicsSolver,
     FailingInverseKinematicsSolver,

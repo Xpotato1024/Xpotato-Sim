@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from selfrionette.schemas import MotionCommand, MuJoCoState
+from xpotato_sim.schemas import MotionCommand, MuJoCoState
 
 
 class NoOpMuJoCoSimulator:

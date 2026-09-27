@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from selfrionette.runtime.evaluation.manifest import SoftwareExecutionIdentity
-from selfrionette.runtime.experiment.contracts import TaskTerminalClassification
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.evaluation.manifest import SoftwareExecutionIdentity
+from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     decode_endpoint_reach_terminal_evidence,
     decode_endpoint_reach_trajectory_evidence,
 )
-from selfrionette.runtime.experiment.world_tool_runner import (
+from xpotato_sim.runtime.experiment.world_tool_runner import (
     ExperimentStopReason,
     run_r7_g_world_tool_experiment,
 )
@@ -14,7 +14,7 @@ from selfrionette.runtime.experiment.world_tool_runner import (
 
 REVISION = "test-revision:issue-406-canonical-runner"
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity=REVISION,
 )
 

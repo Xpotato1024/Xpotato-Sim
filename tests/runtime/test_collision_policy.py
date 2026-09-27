@@ -6,14 +6,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import selfrionette.runtime.safety.collision_policy as _collision_module
-from selfrionette.runtime.safety import (
+import xpotato_sim.runtime.safety.collision_policy as _collision_module
+from xpotato_sim.runtime.safety import (
     validate_bounded_collision_trajectory_result as package_validate_bounded,
     validate_collision_check_result as package_validate_check,
     validate_collision_context as package_validate_context,
     validate_collision_evaluation as package_validate_evaluation,
 )
-from selfrionette.runtime.safety.collision_policy import (
+from xpotato_sim.runtime.safety.collision_policy import (
     BoundedCollisionTrajectoryResult,
     build_mujoco_geometry_inventory,
     CollisionCheckResult,

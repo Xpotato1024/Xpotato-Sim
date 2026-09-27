@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import json
 from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     FastArmIkFkSanityDiagnostic,
     _fast_arm_ik_fk_sanity_target_fixtures,
     _ik_fk_error_vector_m,

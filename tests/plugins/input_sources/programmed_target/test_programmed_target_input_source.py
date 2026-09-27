@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from selfrionette.plugins.input_sources.programmed_target import (
+from xpotato_sim.plugins.input_sources.programmed_target import (
     ProgrammedTargetFrame,
     ProgrammedTargetInputSource,
     ProgrammedTargetTrajectory,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 def _build_trajectory() -> ProgrammedTargetTrajectory:

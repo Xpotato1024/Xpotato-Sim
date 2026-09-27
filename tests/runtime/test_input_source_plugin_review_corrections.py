@@ -6,22 +6,22 @@ from types import SimpleNamespace
 
 import pytest
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.control.input_source_state import (
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.control.input_source_state import (
     annotate_raw_input_frame,
     build_runtime_input_source_state_from_health,
 )
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
 )
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.schemas import (
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.schemas import (
     RawInputFrame,
     ViewerControlGamepadButtonMessage,
     ViewerControlGamepadMessage,

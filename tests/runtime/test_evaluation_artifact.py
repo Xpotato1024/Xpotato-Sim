@@ -12,11 +12,11 @@ from threading import Event, Thread
 
 import pytest
 
-import selfrionette.runtime.evaluation.artifact as artifact_module
-from selfrionette.runtime.composition.production_experiment import (
+import xpotato_sim.runtime.evaluation.artifact as artifact_module
+from xpotato_sim.runtime.composition.production_experiment import (
     PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
 )
-from selfrionette.runtime.evaluation.artifact import (
+from xpotato_sim.runtime.evaluation.artifact import (
     EvaluationArtifactError,
     build_evaluation_artifact,
     build_world_tool_evaluation_artifacts,
@@ -26,30 +26,30 @@ from selfrionette.runtime.evaluation.artifact import (
     reconstruct_task_evidence_from_motion_log,
     write_evaluation_artifact_atomic,
 )
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.evaluation.manifest import (
     SoftwareExecutionIdentity,
     build_evaluation_condition_pair_readiness,
     comparison_parameters_for_readiness,
 )
-from selfrionette.runtime.evaluation.r7_g_free_space import (
+from xpotato_sim.runtime.evaluation.r7_g_free_space import (
     build_r7_g_free_space_manifest_pair,
 )
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     ENDPOINT_REACH_TERMINAL_EVIDENCE,
     ENDPOINT_REACH_TRAJECTORY_EVIDENCE,
     decode_endpoint_reach_terminal_evidence,
     decode_endpoint_reach_trajectory_evidence,
 )
-from selfrionette.runtime.experiment.contracts import EvidenceStatus
-from selfrionette.runtime.experiment.motion_log_recorder import (
+from xpotato_sim.runtime.experiment.contracts import EvidenceStatus
+from xpotato_sim.runtime.experiment.motion_log_recorder import (
     TrialProtocolContext,
     WorldToolTrialProtocolContext,
     build_world_tool_motion_log_records,
 )
-from selfrionette.runtime.experiment.world_tool_runner import (
+from xpotato_sim.runtime.experiment.world_tool_runner import (
     run_evaluation_condition_pair,
 )
-from selfrionette.schemas.experiment_log import (
+from xpotato_sim.schemas.experiment_log import (
     ConfigurationRecord,
     MotionSampleRecord,
     TrialOutcomeRecord,
@@ -60,7 +60,7 @@ from selfrionette.schemas.experiment_log import (
 
 REVISION = "test-revision:issue-408-artifact"
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity=REVISION,
 )
 
@@ -592,7 +592,7 @@ from pathlib import Path
 import sys
 import time
 
-from selfrionette.runtime.evaluation.artifact import _exclusive_target_lock
+from xpotato_sim.runtime.evaluation.artifact import _exclusive_target_lock
 
 target = Path(sys.argv[1])
 with _exclusive_target_lock(target):

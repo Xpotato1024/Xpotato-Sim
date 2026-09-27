@@ -4,12 +4,12 @@ import ast
 import importlib.util
 from pathlib import Path
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PLUGINS = ROOT / "src" / "selfrionette" / "plugins"
+PLUGINS = ROOT / "src" / "xpotato_sim" / "plugins"
 SOURCE_ROOT = PLUGINS / "input_sources"
 MAPPING_ROOT = PLUGINS / "mappings"
 ROBOT_ROOT = PLUGINS / "robots"
@@ -89,12 +89,12 @@ def test_axis_local_infrastructure_and_retired_root_paths_are_exact() -> None:
 
 def test_retired_axis_infrastructure_modules_are_not_importable() -> None:
     for module_name in (
-        "selfrionette.plugins.catalog",
-        "selfrionette.plugins.robot_discovery",
-        "selfrionette.plugins.robot_registration",
-        "selfrionette.plugins.input_source_discovery",
-        "selfrionette.plugins.input_source_registration",
-        "selfrionette.plugins.control_mapping_discovery",
+        "xpotato_sim.plugins.catalog",
+        "xpotato_sim.plugins.robot_discovery",
+        "xpotato_sim.plugins.robot_registration",
+        "xpotato_sim.plugins.input_source_discovery",
+        "xpotato_sim.plugins.input_source_registration",
+        "xpotato_sim.plugins.control_mapping_discovery",
     ):
         assert importlib.util.find_spec(module_name) is None
 
@@ -165,7 +165,7 @@ def test_temporary_plugin_compatibility_facades_are_absent() -> None:
     assert "__getattr__" not in mapping_root
     source_catalog = (SOURCE_ROOT / "catalog.py").read_text(encoding="utf-8")
     runtime_contract = (
-        ROOT / "src" / "selfrionette" / "runtime" / "experiment" / "input_source.py"
+        ROOT / "src" / "xpotato_sim" / "runtime" / "experiment" / "input_source.py"
     ).read_text(encoding="utf-8")
     for retired_name in (
         "INPUT_SOURCE_PLUGIN_REGISTRY",
@@ -183,7 +183,7 @@ def test_command_route_execution_is_provider_bound_without_central_id_dispatch()
     command_routes = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "execution"
         / "command_routes.py"
@@ -191,7 +191,7 @@ def test_command_route_execution_is_provider_bound_without_central_id_dispatch()
     step_loop = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "execution"
         / "input_step_loop.py"
@@ -199,7 +199,7 @@ def test_command_route_execution_is_provider_bound_without_central_id_dispatch()
     robot_bundle = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "composition"
         / "robot_bundle.py"
@@ -207,7 +207,7 @@ def test_command_route_execution_is_provider_bound_without_central_id_dispatch()
     robot_provider_adapters = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "composition"
         / "robot_provider_adapters.py"
@@ -232,7 +232,7 @@ def test_command_route_execution_is_provider_bound_without_central_id_dispatch()
 
 def test_production_pipeline_builders_do_not_accept_prebound_command_execution() -> None:
     composition_root = (
-        ROOT / "src" / "selfrionette" / "runtime" / "composition"
+        ROOT / "src" / "xpotato_sim" / "runtime" / "composition"
     )
     builder_paths = (
         composition_root / "concrete_mujoco_pipeline.py",
@@ -329,7 +329,7 @@ def test_production_pipeline_builders_do_not_accept_prebound_command_execution()
         assert required_check in robot_resolution_source
 
     registration_source = (
-        ROOT / "src" / "selfrionette" / "plugins" / "robots" / "registration.py"
+        ROOT / "src" / "xpotato_sim" / "plugins" / "robots" / "registration.py"
     ).read_text(encoding="utf-8")
     assert "validate_production_robot_selection_consistency(" in registration_source
     robot_bundle_source = (
@@ -343,7 +343,7 @@ def test_production_pipeline_builders_do_not_accept_prebound_command_execution()
     step_loop = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "execution"
         / "input_step_loop.py"
@@ -355,13 +355,13 @@ def test_production_pipeline_builders_do_not_accept_prebound_command_execution()
     assert "command_semantics_route=pipeline.command_semantics_route" in step_loop
     assert "command_execution=pipeline.command_execution" in step_loop
     assert "tests.support" not in step_loop
-    for path in (ROOT / "src" / "selfrionette" / "runtime").rglob("*.py"):
+    for path in (ROOT / "src" / "xpotato_sim" / "runtime").rglob("*.py"):
         assert "tests.support" not in path.read_text(encoding="utf-8")
 
     offline_smoke_path = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "runners"
         / "offline_input_smoke.py"
@@ -392,7 +392,7 @@ def test_production_pipeline_builders_do_not_accept_prebound_command_execution()
 
 
 def test_production_runtime_cannot_reintroduce_motion_command_backend_bypass() -> None:
-    runtime_root = ROOT / "src" / "selfrionette" / "runtime"
+    runtime_root = ROOT / "src" / "xpotato_sim" / "runtime"
     violations: list[str] = []
     for path in runtime_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -451,7 +451,7 @@ def test_production_runtime_cannot_reintroduce_motion_command_backend_bypass() -
 
 
 def test_legacy_motion_command_backend_calls_are_limited_to_diagnostics() -> None:
-    source_root = ROOT / "src" / "selfrionette"
+    source_root = ROOT / "src" / "xpotato_sim"
     call_owners: set[tuple[str, str]] = set()
     for path in source_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -481,12 +481,12 @@ def test_legacy_motion_command_backend_calls_are_limited_to_diagnostics() -> Non
 
     assert call_owners == {
         (
-            "src/selfrionette/plugins/robots/fast_arm/adapter/diagnostics/"
+            "src/xpotato_sim/plugins/robots/fast_arm/adapter/diagnostics/"
             "endpoint_motion_sanity.py",
             "_run_fast_arm_endpoint_trajectory_case",
         ),
         (
-            "src/selfrionette/plugins/robots/fast_arm/adapter/diagnostics/"
+            "src/xpotato_sim/plugins/robots/fast_arm/adapter/diagnostics/"
             "endpoint_motion_sanity.py",
             "_run_fast_arm_endpoint_motion_sanity_case_async",
         ),
@@ -497,7 +497,7 @@ def test_endpoint_motion_capability_is_not_a_robot_command_semantic() -> None:
     contracts = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "experiment"
         / "contracts.py"
@@ -505,7 +505,7 @@ def test_endpoint_motion_capability_is_not_a_robot_command_semantic() -> None:
     bundle = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "composition"
         / "robot_bundle.py"
@@ -525,7 +525,7 @@ def test_evaluation_manifest_v3_has_no_misnamed_command_semantics_field() -> Non
     manifest = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "runtime"
         / "evaluation"
         / "manifest.py"
@@ -583,7 +583,7 @@ def test_generic_runtime_uses_typed_health_and_lifecycle_contracts() -> None:
             (
                 ROOT
                 / "src"
-                / "selfrionette"
+                / "xpotato_sim"
                 / "runtime"
                 / "execution"
                 / "input_step_loop.py"
@@ -591,7 +591,7 @@ def test_generic_runtime_uses_typed_health_and_lifecycle_contracts() -> None:
             (
                 ROOT
                 / "src"
-                / "selfrionette"
+                / "xpotato_sim"
                 / "runtime"
                 / "runners"
                 / "live_selfrionette.py"
@@ -611,7 +611,7 @@ def test_generic_runtime_uses_typed_health_and_lifecycle_contracts() -> None:
 
 
 def test_current_device_facing_surfaces_use_selfrionette_identity() -> None:
-    runners = ROOT / "src" / "selfrionette" / "runtime" / "runners"
+    runners = ROOT / "src" / "xpotato_sim" / "runtime" / "runners"
     hardware = ROOT / "scripts" / "hardware"
     operations = ROOT / "docs" / "operations"
 

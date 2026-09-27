@@ -7,15 +7,15 @@ from threading import Barrier
 
 import pytest
 
-from selfrionette.runtime.output import (
+from xpotato_sim.runtime.output import (
     PhysicalOutputRecordingSink,
     PhysicalOutputTrace,
     PhysicalOutputTraceEvent,
     physical_output_traces_equivalent,
     replay_physical_output_trace,
 )
-from selfrionette.runtime.output.permission import evaluate_physical_output_permission
-from selfrionette.schemas import PhysicalOutputPermission
+from xpotato_sim.runtime.output.permission import evaluate_physical_output_permission
+from xpotato_sim.schemas import PhysicalOutputPermission
 
 from tests.schemas.test_physical_output_contract import _endpoint_request
 

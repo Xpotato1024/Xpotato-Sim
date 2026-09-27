@@ -2,9 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.runtime.experiment.composition import PluginParameters, compose_experiment
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.experiment.composition import PluginParameters, compose_experiment
+from xpotato_sim.runtime.experiment.contracts import (
     ControlMappingPlugin,
     PluginAxis,
     PluginParameterOwner,

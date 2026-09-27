@@ -2,8 +2,8 @@
 from __future__ import annotations
 import numpy as np
 import pytest
-from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
-from selfrionette.schemas import JointPositionCommand
+from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+from xpotato_sim.schemas import JointPositionCommand
 
 XML = b"""<mujoco><option gravity="0 0 0"/><worldbody>
 <body name="free" pos="0 0 2"><freejoint name="object_free"/><geom type="sphere" size=".03"/></body>

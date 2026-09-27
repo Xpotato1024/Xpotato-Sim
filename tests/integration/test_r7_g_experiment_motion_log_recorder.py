@@ -5,28 +5,28 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.composition.production_experiment import (
+from xpotato_sim.runtime.composition.production_experiment import (
     PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
 )
-from selfrionette.runtime.control.input_source_state import RuntimeInputSourceState
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.control.input_source_state import RuntimeInputSourceState
+from xpotato_sim.runtime.evaluation.manifest import (
     SoftwareExecutionIdentity,
     build_evaluation_condition_pair_readiness,
 )
-from selfrionette.runtime.evaluation.r7_g_free_space import (
+from xpotato_sim.runtime.evaluation.r7_g_free_space import (
     build_r7_g_free_space_manifest_pair,
 )
-from selfrionette.runtime.experiment.contracts import TaskTerminalClassification
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     decode_endpoint_reach_terminal_evidence,
     decode_endpoint_reach_trajectory_evidence,
 )
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
     InputSourcePlugin,
 )
-from selfrionette.runtime.experiment.motion_log_recorder import (
+from xpotato_sim.runtime.experiment.motion_log_recorder import (
     ExperimentMotionLogRecordingError,
     TrialProtocolContext,
     WorldToolTrialProtocolContext,
@@ -35,13 +35,13 @@ from selfrionette.runtime.experiment.motion_log_recorder import (
     prepare_motion_log,
     run_r7_g_world_tool_experiment_and_record,
 )
-from selfrionette.runtime.experiment.world_tool_runner import (
+from xpotato_sim.runtime.experiment.world_tool_runner import (
     ExperimentStopReason,
     run_evaluation_condition_pair,
     run_experiment_condition,
     run_r7_g_world_tool_experiment,
 )
-from selfrionette.schemas.experiment_log import (
+from xpotato_sim.schemas.experiment_log import (
     ConfigurationRecord,
     MotionSampleRecord,
     TrialOutcomeRecord,
@@ -53,7 +53,7 @@ from selfrionette.schemas.experiment_log import (
 
 REVISION = "test-revision:issue-407-canonical-recorder"
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity=REVISION,
 )
 

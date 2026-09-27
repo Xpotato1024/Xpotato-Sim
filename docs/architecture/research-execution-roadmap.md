@@ -10,13 +10,15 @@ related:
   - docs/contracts/runtime-input-source-registry.md
   - docs/evaluation/world-tool-frame-comparison-design.md
   - docs/operations/hardware-safety.md
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/410
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/418
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/419
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/420
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/410
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/418
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/419
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/420
 ---
 
 # 研究実行ロードマップ
+
+基盤名はXpotato-Simへ移行した。上記の関連Issueは改名前と同じ履歴を参照し、研究の優先順位は変更しない。
 
 ## 目的と位置付け
 

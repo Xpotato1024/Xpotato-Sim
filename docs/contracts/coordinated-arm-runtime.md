@@ -96,7 +96,7 @@ routerの処理相関は移動・停止完了のACKではない。合成観測�
 ## 有限診断CLI
 
 ```powershell
-uv run python -m selfrionette.runtime.runners.coordinated_gamepad tests/fixtures/coordinated_gamepad/bimanual.json
+uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/coordinated_gamepad/bimanual.json
 ```
 
 入力は `coordinated-gamepad-diagnostic/v1`。明示assembly、side binding、Mapping parameters、epoch、dt、

@@ -4,9 +4,9 @@ from math import cos, pi, sin
 import socket
 import pytest
 from fast_arm_core.assembly import FastArmAssembly, FastArmInstance
-from selfrionette.plugins.robots.fast_arm.adapter.coordinated import FastArmAssemblyMotionProvider
-from selfrionette.runtime.composition.fast_arm_coordinated import FastArmCoordinatedGamepadRuntime
-from selfrionette.schemas.coordinated import EndpointVelocity
+from xpotato_sim.plugins.robots.fast_arm.adapter.coordinated import FastArmAssemblyMotionProvider
+from xpotato_sim.runtime.composition.fast_arm_coordinated import FastArmCoordinatedGamepadRuntime
+from xpotato_sim.schemas.coordinated import EndpointVelocity
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message, parameters
 
 
@@ -156,7 +156,7 @@ def test_final_candidate_validation_failure_does_not_publish(monkeypatch):
 def test_diagnostic_document_runs_both_and_records_terminal_fault():
     import json
     from pathlib import Path
-    from selfrionette.runtime.runners.coordinated_gamepad import run_document
+    from xpotato_sim.runtime.runners.coordinated_gamepad import run_document
     raw=json.loads((Path(__file__).parents[1]/"fixtures/coordinated_gamepad/bimanual.json").read_text(encoding="utf-8"))
     mounts = {item["arm_id"]: item["quaternion_wxyz"] for item in raw["assembly"]}
     assert mounts["left"] == pytest.approx((MOUNT_W, MOUNT_X, 0, 0))
@@ -176,7 +176,7 @@ def test_diagnostic_document_runs_both_and_records_terminal_fault():
 def test_diagnostic_configuration_rejects_unknown_or_incomplete(path,value):
     import json
     from pathlib import Path
-    from selfrionette.runtime.runners.coordinated_gamepad import run_document
+    from xpotato_sim.runtime.runners.coordinated_gamepad import run_document
     raw=json.loads((Path(__file__).parents[1]/"fixtures/coordinated_gamepad/bimanual.json").read_text(encoding="utf-8"))
     raw[path]=value
     with pytest.raises((ValueError,TypeError)):

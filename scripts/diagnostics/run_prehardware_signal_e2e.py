@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from selfrionette.runtime.runners.signal_contact import capture_signal_contact, canonical, validate_scenario
-from selfrionette.runtime.runners.signal_contact_artifact import decode_signal_trace
+from xpotato_sim.runtime.runners.signal_contact import capture_signal_contact, canonical, validate_scenario
+from xpotato_sim.runtime.runners.signal_contact_artifact import decode_signal_trace
 
 ROOT=Path(__file__).resolve().parents[2]
 

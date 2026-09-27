@@ -1,8 +1,8 @@
 from fast_arm_core.reference.initial_state import FAST_ARM_INITIAL_STATE
-from selfrionette.plugins.robots.fast_arm.adapter.initial_state import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.initial_state import (
     FAST_ARM_INITIAL_STATE_CONTRACT,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 def test_initial_state_contract_is_an_exact_core_projection() -> None:

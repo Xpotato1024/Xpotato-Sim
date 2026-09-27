@@ -138,7 +138,7 @@ index/signは共に3要素integerで、indexは相異なる非負値、signは+1
 unknown field、bool、重複軸、不正長、nullをstartup前に拒否する。
 active sampleの選択軸欠落はzero paddingせずrejectし、inactiveの停止は維持する。
 keyboard、buttonのZ補助、速度・deadzone・frame resolution、最終指令意味は変更しない。
-実装ownerと条件例は[Mapping README](../../src/selfrionette/plugins/mappings/viewer_keyboard_gamepad_mapping/README.md)を参照する。
+実装ownerと条件例は[Mapping README](../../src/xpotato_sim/plugins/mappings/viewer_keyboard_gamepad_mapping/README.md)を参照する。
 画面方向との対応、個々のcontrollerの配置、左右armの割当はこの設定だけで実測済みとはしない。
 
 ## 左右独立の1スティックXYZ操作

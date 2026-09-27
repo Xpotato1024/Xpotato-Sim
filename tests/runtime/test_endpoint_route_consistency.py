@@ -7,19 +7,19 @@ from math import dist
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import SelfrionetteInputSource
-from selfrionette.plugins.mappings.loadcell_endpoint_mapping.implementation import (
+from xpotato_sim.plugins.input_sources.selfrionette import SelfrionetteInputSource
+from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping.implementation import (
     LOADCELL_ENDPOINT_MAPPING_PLUGIN,
 )
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.execution.command_routes import project_joint_position_command
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.execution.command_routes import project_joint_position_command
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
-from selfrionette.runtime.safety.qpos_feasibility import QposFeasibilityResult
-from selfrionette.schemas import JointCommand, JointPositionCommand, MuJoCoState
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.runtime.safety.qpos_feasibility import QposFeasibilityResult
+from xpotato_sim.schemas import JointCommand, JointPositionCommand, MuJoCoState
 
 
 def _selection(values, *, gain=0.002, limit=0.002, extra=None):
@@ -175,8 +175,8 @@ def test_pure_mapping_still_requires_explicit_context():
 
 
 def test_context_declaration_mismatch_is_rejected_before_model_creation(monkeypatch):
-    from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-    from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+    from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+    from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
     from tests.support.transport_doubles import NoOpStatePublisher
 
     def forbidden(*args, **kwargs):
@@ -191,9 +191,9 @@ def test_context_declaration_mismatch_is_rejected_before_model_creation(monkeypa
 
 @pytest.mark.parametrize("frame", ("world", "tool"))
 def test_gamepad_velocity_has_same_backend_request_at_both_entrypoints(frame):
-    from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-    from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-    from selfrionette.schemas import ViewerControlMessage, ViewerControlGamepadMessage
+    from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+    from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+    from xpotato_sim.schemas import ViewerControlMessage, ViewerControlGamepadMessage
 
     sources = [ViewerInputSource(clock=lambda: 0.0) for _ in range(2)]
     plans = [build_runtime_input_source_step_loop_plan(
@@ -222,7 +222,7 @@ def test_gamepad_velocity_has_same_backend_request_at_both_entrypoints(frame):
 @pytest.mark.parametrize("status", ("inactive", "stale", "invalid", "disconnected"))
 def test_managed_health_stops_motion_at_both_entrypoints(entry, status):
     """取得済みhealthの非active状態を、frameの省略値でactiveへ戻さない。"""
-    from selfrionette.runtime.experiment.input_source import InputSourceHealth
+    from xpotato_sim.runtime.experiment.input_source import InputSourceHealth
 
     plan = build_runtime_input_source_step_loop_plan(_selection((1.0,)))
     original = plan.pipeline.input_source
@@ -265,7 +265,7 @@ def test_managed_health_stops_motion_at_both_entrypoints(entry, status):
 @pytest.mark.parametrize("field,value", (("source_active", False), ("command_age_ms", 500), ("stale_reason", "old")))
 def test_managed_health_conflict_fails_before_backend_request(entry, field, value):
     """frameとhealthに明示的不一致がある場合、どちらの入口も指令前に拒否する。"""
-    from selfrionette.runtime.experiment.input_source import InputSourceHealth
+    from xpotato_sim.runtime.experiment.input_source import InputSourceHealth
 
     plan = build_runtime_input_source_step_loop_plan(_selection((1.0,)))
     original = plan.pipeline.input_source

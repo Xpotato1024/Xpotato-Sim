@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import json
 import math
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.mujoco_backend.endpoint_extraction import RuntimeMuJoCoEndpointEvaluation
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.mujoco_backend.endpoint_extraction import RuntimeMuJoCoEndpointEvaluation
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     _build_fast_arm_fk_site_consistency_diagnostic,
     _fast_arm_fk_site_consistency_qpos_fixtures,
     _vector_norm_m,
@@ -116,7 +116,7 @@ def test_fast_arm_fk_site_consistency_tip_site_is_primary_and_body_reference_is_
     )
 
     monkeypatch.setattr(
-        "selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity.extract_fast_arm_tip_site_endpoint_from_state",
+        "xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity.extract_fast_arm_tip_site_endpoint_from_state",
         lambda state: fake_body_reference,
     )
 

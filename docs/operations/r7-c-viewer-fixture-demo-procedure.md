@@ -52,7 +52,7 @@ publisher は loopback の `127.0.0.1:8766` を基本にする。
 
 ```powershell
 cd <repository root>
-uv run selfrionette viewer --robot fast_arm `
+uv run xpotato-sim viewer --robot fast_arm `
   --host 127.0.0.1 `
   --port 8766 `
   --steps 6 `
@@ -81,7 +81,7 @@ uv run pytest `
 確認ポイント:
 
 - 既定keybindが
-  `src/selfrionette/plugins/mappings/viewer_keyboard_gamepad_mapping/resources/keyboard_default.json`
+  `src/xpotato_sim/plugins/mappings/viewer_keyboard_gamepad_mapping/resources/keyboard_default.json`
   にあり、Mapping plugin package resourceとして配布される
 - WASD / Space / Shift が `desired_endpoint_m` を作る
 - `build_keyboard_motion_command()` が `MotionCommand.metadata["desired_endpoint_m"]` を埋める

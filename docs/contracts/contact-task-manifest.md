@@ -8,12 +8,12 @@ canonical_for:
 related:
   - docs/contracts/experiment-plugin-composition.md
   - docs/architecture/research-execution-roadmap.md
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/411
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/411
 ---
 
 # R7-H contact task / object manifest
 
-`selfrionette.runtime.contact.manifest` は、接触taskを再現するための
+`xpotato_sim.runtime.contact.manifest` は、接触taskを再現するための
 versioned manifestとscene contractのcanonical ownerである。manifestのencode、decode、digestは
 pureであり、MuJoCo model load、scene spawn、physics step、viewer描画、hardware outputを開始しない。
 

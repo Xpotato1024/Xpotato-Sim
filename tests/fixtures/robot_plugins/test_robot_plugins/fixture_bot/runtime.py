@@ -5,14 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
-from selfrionette.runtime.safety.qpos_feasibility import NoOpQposFeasibilityGuard
-from selfrionette.runtime.composition.robot_plugin import (
+from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+from xpotato_sim.runtime.safety.qpos_feasibility import NoOpQposFeasibilityGuard
+from xpotato_sim.runtime.composition.robot_plugin import (
     state_transform_by_name,
     validate_profile_model_dimensions,
 )
-from selfrionette.runtime.composition.robot_profile import RobotProfile
-from selfrionette.schemas import InputIntent, JointCommand, MotionCommand, MuJoCoState
+from xpotato_sim.runtime.composition.robot_profile import RobotProfile
+from xpotato_sim.schemas import InputIntent, JointCommand, MotionCommand, MuJoCoState
 from test_robot_plugins.fixture_bot.profile import FIXTURE_ROBOT_PROFILE
 
 

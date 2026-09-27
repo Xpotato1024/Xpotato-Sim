@@ -14,7 +14,7 @@ schemaを定義せず、FKまたはIKを実行しない。
 
 `apps/mujoco-viewer` は MuJoCo WASM scene renderer を rendering-only でホストする。
 Input Sourceとしてのbrowser control acquisitionとbackend-side source / Mappingの境界は
-[viewer Input Source](../../src/selfrionette/plugins/input_sources/viewer/README.md)から辿る。
+[viewer Input Source](../../src/xpotato_sim/plugins/input_sources/viewer/README.md)から辿る。
 
 ## 正本
 
@@ -39,10 +39,10 @@ repository rootから次のコマンドで再生成する。
 uv run python scripts/viewer/export_wasm_qpos_fixture.py --preset sweep_x --steps 30
 ```
 
-既定の出力先はSelfrionette adapter packageの
-`src/selfrionette/plugins/robots/fast_arm/adapter/resources/fixtures/fast_arm_sweep_x_qpos.json`である。
+既定の出力先はXpotato-SimのFastArm adapter packageの
+`src/xpotato_sim/plugins/robots/fast_arm/adapter/resources/fixtures/fast_arm_sweep_x_qpos.json`である。
 fixture contractとresource identityは
-[fast_arm Robot Plugin README](../../src/selfrionette/plugins/robots/fast_arm/README.md)からcanonical
+[fast_arm Robot Plugin README](../../src/xpotato_sim/plugins/robots/fast_arm/README.md)からcanonical
 ownerへ辿る。viewer testはtracked fixtureのschema、model path、frame ordering、qpos dimension、
 finite値、progressionを検証する。過去の候補hashや採否理由は`docs/reports/`のevidenceに残し、
 このcurrent operation入口には複製しない。

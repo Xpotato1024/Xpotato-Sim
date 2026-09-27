@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.resources import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import (
     FAST_ARM_ARM_XML_RESOURCE,
     FAST_ARM_JOINT_LIMIT_RESOURCE,
     FAST_ARM_MESH_RESOURCES,
@@ -17,10 +17,10 @@ from selfrionette.plugins.robots.fast_arm.adapter.resources import (
     FAST_ARM_VIEWER_DECLARATION_RESOURCE,
     FAST_ARM_VIEWER_FIXTURE_RESOURCE,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.viewer import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.viewer import (
     FAST_ARM_VIEWER_DECLARATION,
 )
-from selfrionette.runtime.composition.viewer_package_resource_manifest import (
+from xpotato_sim.runtime.composition.viewer_package_resource_manifest import (
     MODEL_DEPENDENCY_ROLE,
     decode_viewer_package_resource_manifest,
     validate_viewer_declaration_resource_bindings,
@@ -30,7 +30,7 @@ from selfrionette.runtime.composition.viewer_package_resource_manifest import (
 def _manifest_document() -> dict[str, object]:
     data = (
         importlib.resources.files(
-            "selfrionette.plugins.robots.fast_arm.adapter.resources"
+            "xpotato_sim.plugins.robots.fast_arm.adapter.resources"
         )
         .joinpath("viewer-resource-bindings.json")
         .read_bytes()
@@ -190,7 +190,7 @@ def test_viewer_declaration_exactly_matches_manifest_model_fixture_and_vfs() -> 
 def test_adapter_resources_module_contains_no_concrete_binding_registry() -> None:
     source = (
         importlib.resources.files(
-            "selfrionette.plugins.robots.fast_arm.adapter.resources"
+            "xpotato_sim.plugins.robots.fast_arm.adapter.resources"
         )
         .joinpath("__init__.py")
         .read_text(encoding="utf-8")

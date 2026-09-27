@@ -5,7 +5,7 @@ from dataclasses import replace
 import mujoco
 import pytest
 
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     ContactCubeObject,
     ContactMaterial,
     ContactResetState,
@@ -16,7 +16,7 @@ from selfrionette.runtime.contact.manifest import (
     ScenePresentationIdentity,
     contact_manifest_digest,
 )
-from selfrionette.runtime.contact.evidence import (
+from xpotato_sim.runtime.contact.evidence import (
     CONTACT_EVIDENCE_PROVENANCE,
     ContactEvidence,
     ContactEvidenceError,
@@ -25,11 +25,11 @@ from selfrionette.runtime.contact.evidence import (
     ContactPairClassification,
     extract_contact_evidence_from_scene_instance,
 )
-from selfrionette.runtime.contact.scene import (
+from xpotato_sim.runtime.contact.scene import (
     ContactSceneBuildRequest,
     ContactSceneComposer,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     SemanticRole,
     SemanticRoleRequirement,

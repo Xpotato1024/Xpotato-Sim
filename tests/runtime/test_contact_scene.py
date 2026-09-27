@@ -4,10 +4,10 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.environments.contact_cube_environment import (
+from xpotato_sim.plugins.environments.contact_cube_environment import (
     CONTACT_CUBE_ENVIRONMENT_PLUGIN,
 )
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     ContactCubeObject,
     ContactManifestError,
     ContactResetState,
@@ -18,13 +18,13 @@ from selfrionette.runtime.contact.manifest import (
     MuJoCoSettingsIdentity,
     ScenePresentationIdentity,
 )
-from selfrionette.runtime.contact.scene import (
+from xpotato_sim.runtime.contact.scene import (
     ContactSceneBuildRequest,
     ContactSceneComposer,
     ContactSceneError,
     validate_contact_scene_compatibility,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     SemanticRole,
     SemanticRoleRequirement,
@@ -307,7 +307,7 @@ def test_provider_owns_load_and_reset_lifecycle() -> None:
 
 
 def test_robot_bundle_resource_is_a_supported_scene_composition_source() -> None:
-    from selfrionette.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
+    from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
 
     manifest = _manifest()
     manifest = replace(

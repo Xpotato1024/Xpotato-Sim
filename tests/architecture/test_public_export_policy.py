@@ -6,11 +6,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOTS = (
-    "selfrionette.kinematics",
-    "selfrionette.motion",
-    "selfrionette.mujoco_backend",
-    "selfrionette.transport",
-    "selfrionette.runtime",
+    "xpotato_sim.kinematics",
+    "xpotato_sim.motion",
+    "xpotato_sim.mujoco_backend",
+    "xpotato_sim.transport",
+    "xpotato_sim.runtime",
 )
 
 FORBIDDEN_PREFIXES = ("NoOp", "Zero", "Static")

@@ -4,7 +4,7 @@ from dataclasses import fields
 
 import pytest
 
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     EndpointVelocityCommand,
     JointPositionCommand,
     MotionCommand,

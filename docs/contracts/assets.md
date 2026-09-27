@@ -59,7 +59,7 @@ fail-closedで拒否する。checkout path fallback、runtime `sys.path`変更�
 - asset path修正とmodel semantics変更を同じ変更として暗黙に扱わない。
 - headless model loaderはtyped package bundleのbytesをMuJoCo VFSへ渡す。観測可能なlogical model pathは
   `assets/mujoco/fast_arm/scene.xml`のまま維持する。
-- MuJoCoのimportは`src/selfrionette/mujoco_backend/`内に限定する。
+- MuJoCoのimportは`src/xpotato_sim/mujoco_backend/`内に限定する。
 - state snapshotのownershipはbackend / runtime contractに従う。
 
 他の文書ではasset ruleを再記載せず、この文書へlinkする。

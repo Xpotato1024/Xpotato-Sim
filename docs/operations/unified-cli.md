@@ -17,10 +17,10 @@ Catalog と Robot Bundle から `--robot` で解決する。runtime command の�
 typed provider が Bundle に一意に存在することを検証する。
 
 ```bash
-uv run selfrionette replay --robot fast_arm --steps 1
-uv run selfrionette viewer --robot fast_arm --steps 1
-uv run selfrionette replay --robot fast_arm --steps 1 --input-source noop
-uv run selfrionette viewer --robot fast_arm --steps 18000 --input-source viewer
+uv run xpotato-sim replay --robot fast_arm --steps 1
+uv run xpotato-sim viewer --robot fast_arm --steps 1
+uv run xpotato-sim replay --robot fast_arm --steps 1 --input-source noop
+uv run xpotato-sim viewer --robot fast_arm --steps 18000 --input-source viewer
 ```
 
 ## 採用した entry point
@@ -56,14 +56,14 @@ CLI behaviorを維持する。
 
 ## 起動設定の検査
 
-`uv run selfrionette profile`でcheckoutの起動profileを一覧表示し、
-`uv run selfrionette profile sim-gamepad`で検証・解決済み設定をJSON表示する。
+`uv run xpotato-sim profile`でcheckoutの起動profileを一覧表示し、
+`uv run xpotato-sim profile sim-gamepad`で検証・解決済み設定をJSON表示する。
 この操作はSource、model、サーバー、ブラウザを開始しない。
 JSONの仕様とpath解決は`docs/contracts/launch-profile.md`を参照する。
 
 ## 統一起動
 
-`uv run selfrionette app --profile sim-gamepad`はprofileからWeb/backendを起動する。
+`uv run xpotato-sim app --profile sim-gamepad`はprofileからWeb/backendを起動する。
 `--check`は依存と設定だけ、`--startup-check`はloopback serverの起動/終了だけを検証する。
 profileにrobotが明記されるので、このsubcommandに別の`--robot`はない。
 既存replay/viewerの選択肢と引数は維持する。手順は`backend-viewer-startup.md`を参照する。

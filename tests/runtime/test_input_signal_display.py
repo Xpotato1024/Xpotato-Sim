@@ -7,10 +7,10 @@ import socket
 
 import pytest
 
-from selfrionette.runtime.control.input_step_diagnostics import input_signal_display_projection
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
-from selfrionette.schemas import MuJoCoState, RawInputFrame
+from xpotato_sim.runtime.control.input_step_diagnostics import input_signal_display_projection
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
+from xpotato_sim.schemas import MuJoCoState, RawInputFrame
 
 
 def test_projection_preserves_raw_values_and_distinct_clocks():

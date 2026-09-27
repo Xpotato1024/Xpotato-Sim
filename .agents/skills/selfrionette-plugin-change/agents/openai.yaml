@@ -1,7 +1,0 @@
-interface:
-  display_name: "Selfrionette Plugin Change"
-  short_description: "plugin変更の境界と影響を監査する"
-  default_prompt: "Use $selfrionette-plugin-change to audit a scoped plugin change."
-
-policy:
-  allow_implicit_invocation: true

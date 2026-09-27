@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import pytest
 
-import selfrionette.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose as neutral_initial_pose
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
+import xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose as neutral_initial_pose
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
     FAST_ARM_INITIAL_STATE_QPOS_RAD,
     FAST_ARM_INITIAL_STATE_TIP_POSITION_M,
     HISTORICAL_RAISED_BASELINE_QPOS_RAD,

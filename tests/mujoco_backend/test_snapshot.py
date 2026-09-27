@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
-from selfrionette.mujoco_backend import (
+from xpotato_sim.mujoco_backend import (
     load_mujoco_model,
     snapshot_mujoco_state,
 )
-from selfrionette.schemas import MuJoCoState
+from xpotato_sim.schemas import MuJoCoState
 
 
 def test_snapshot_mujoco_state_builds_state_from_headless_model() -> None:

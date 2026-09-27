@@ -1,4 +1,4 @@
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 from tests.plugins.input_sources.contract.conformance import (
     InputSourceConformanceCase,
     TimestampSequencePolicy,

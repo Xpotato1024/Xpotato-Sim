@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from selfrionette.runtime.runners.live_websocket_delivery import LiveLatestStateWebSocketPublisher
-from selfrionette.schemas import MuJoCoState
+from xpotato_sim.runtime.runners.live_websocket_delivery import LiveLatestStateWebSocketPublisher
+from xpotato_sim.schemas import MuJoCoState
 
 
 class DelayedSender:

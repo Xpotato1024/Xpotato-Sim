@@ -5,7 +5,7 @@ from enum import Enum
 
 import pytest
 
-from selfrionette.runtime.safety.physical_limits import (
+from xpotato_sim.runtime.safety.physical_limits import (
     EvidenceStatus,
     LimitConversionProvenance,
     LimitQuantity,

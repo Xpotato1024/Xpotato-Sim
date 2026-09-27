@@ -17,7 +17,7 @@ related:
 
 ## Runtime owner map
 
-`src/selfrionette/runtime/`はflat facadeではなく、次の責務ownerへ分ける。
+`src/xpotato_sim/runtime/`はflat facadeではなく、次の責務ownerへ分ける。
 
 | owner | canonical responsibility |
 |---|---|
@@ -82,7 +82,7 @@ startup keyframe、IK / FK、motion policy、qpos feasibility guardの整合を�
 zero solver、退役したPlanar solverへ暗黙fallbackしない。
 
 production concrete registrationは、固定namespace直下の`plugin.py` / `ROBOT_PLUGIN`を読むbounded
-discoveryから`selfrionette.plugins.robots.catalog`へ投影する。catalogは具体robot importや具体IDを持たず、
+discoveryから`xpotato_sim.plugins.robots.catalog`へ投影する。catalogは具体robot importや具体IDを持たず、
 discovered `RobotBundle`をknown IDでresolveし、ProfileとRuntime Plugin resolverは同じBundle objectの
 `profile` / `runtime_plugin`へprojectionする。application compositionはBundleから必要なtyped providerを
 assembly時に取得してconsumerへ渡し、処理中にBundleへ問い合わせるservice locatorにはしない。
@@ -264,7 +264,7 @@ legacy messageはsourceでcanonical sampleへ変換され、別のlegacy mapping
 source-owned implementationを`plugins/input_sources/`へ集約した。C3ではproduction/internal consumerを
 catalog、typed mapping selection、`ControlMappedRuntimePipeline`へ収束させた。
 public compatibility evidenceの監査後、C4はimmediate removalを採用した。
-`src/selfrionette/input_sources/`、`input_interpreters/`、interpreter-based `RuntimePipeline`、old-path helper、
+`src/xpotato_sim/input_sources/`、`input_interpreters/`、interpreter-based `RuntimePipeline`、old-path helper、
 compatibility scriptを退役した。canonical CLIの`--robot` requirement、validation wording、runtime behaviorへ
 wrapper parityを逆流させない。
 

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.plugins.input_sources.selfrionette import (
     LoadcellNormalizationConfig,
     LoadcellNormalizedInputIntentConverter,
     NormalizedLoadcellInputIntent,
     RawLoadcellVectorRecord,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 def test_loadcell_normalization_converts_raw_input_frame_without_reordering_channels() -> None:

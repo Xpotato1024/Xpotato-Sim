@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import json
 import math
@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.jacobian_mobility import _pose_qpos, run_fast_arm_jacobian_mobility_diagnostics
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.jacobian_mobility import _pose_qpos, run_fast_arm_jacobian_mobility_diagnostics
 
 
 def test_fast_arm_diagnostic_has_explicit_mapping_and_deterministic_pose_sweep() -> None:

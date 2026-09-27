@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from selfrionette.plugins.tasks.endpoint_reach_task.implementation import (
+from xpotato_sim.plugins.tasks.endpoint_reach_task.implementation import (
     ENDPOINT_REACH_TASK_PLUGIN,
     ENDPOINT_REACH_TRAJECTORY_EVIDENCE,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     EvidenceStatus,
     TaskTerminalClassification,
 )
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     EndpointReachObservation,
     EndpointReachTaskContext,
     decode_endpoint_reach_trajectory_evidence,

@@ -22,7 +22,7 @@ for _import_root in (
     REPOSITORY_ROOT / "src",
     REPOSITORY_ROOT
     / "src"
-    / "selfrionette"
+    / "xpotato_sim"
     / "plugins"
     / "robots"
     / "fast_arm"
@@ -35,24 +35,24 @@ for _import_root in (
 import mujoco
 import numpy as np
 
-from selfrionette.mujoco_backend import snapshot_mujoco_state
-from selfrionette.plugins.robots.fast_arm.adapter.bundle import (
+from xpotato_sim.mujoco_backend import snapshot_mujoco_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import (
     FAST_ARM_INITIAL_STATE_QPOS_RAD,
     FAST_ARM_ROBOT_BUNDLE,
 )
-from selfrionette.plugins.tasks.contact_press_hold_task import (
+from xpotato_sim.plugins.tasks.contact_press_hold_task import (
     ContactTaskBinding,
     ContactTaskContext,
     ContactTaskObservation,
     ContactTrialIdentity,
     derive_contact_outcome,
 )
-from selfrionette.runtime.contact.evidence import (
+from xpotato_sim.runtime.contact.evidence import (
     ContactEvidence,
     ContactEvidenceExtractor,
     ContactEvidenceStatus,
 )
-from selfrionette.runtime.contact.log import (
+from xpotato_sim.runtime.contact.log import (
     ContactTaskLog,
     ContactTaskLogHeader,
     ContactTaskLogRecorder,
@@ -62,7 +62,7 @@ from selfrionette.runtime.contact.log import (
     decode_contact_task_log,
     write_contact_task_log,
 )
-from selfrionette.runtime.contact.manifest import (
+from xpotato_sim.runtime.contact.manifest import (
     ContactCubeObject,
     ContactMaterial,
     ContactResetState,
@@ -73,19 +73,19 @@ from selfrionette.runtime.contact.manifest import (
     ScenePresentationIdentity,
     contact_manifest_digest,
 )
-from selfrionette.runtime.contact.presentation import (
+from xpotato_sim.runtime.contact.presentation import (
     CONTACT_SCENE_ROBOT_QPOS_METADATA_KEY,
     CONTACT_TASK_PRESENTATION_METADATA_KEY,
     contact_scene_robot_qpos_payload_metadata_v1,
     contact_task_payload_metadata_v1,
 )
-from selfrionette.runtime.contact.scene import (
+from xpotato_sim.runtime.contact.scene import (
     ContactSceneBuildRequest,
     ContactSceneComposer,
     ContactSceneError,
     ContactSceneInstance,
 )
-from selfrionette.runtime.contact.virtual_reaction_force import (
+from xpotato_sim.runtime.contact.virtual_reaction_force import (
     VirtualReactionForceConfig,
     VirtualReactionForceFrame,
     VirtualReactionForceManifest,
@@ -93,20 +93,20 @@ from selfrionette.runtime.contact.virtual_reaction_force import (
     VirtualReactionForceSignal,
     VirtualReactionForceStatus,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     SemanticRole,
     SemanticRoleRequirement,
     TaskTerminalClassification,
     VersionedIdentity,
 )
-from selfrionette.runtime.composition.robot_profile import (
+from xpotato_sim.runtime.composition.robot_profile import (
     robot_profile_runtime_metadata,
 )
-from selfrionette.runtime.composition.robot_profile_metadata import (
+from xpotato_sim.runtime.composition.robot_profile_metadata import (
     merge_runtime_metadata,
 )
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.transport import mujoco_state_to_payload
 
 FIXTURE_SCHEMA_VERSION = "contact-e2e-software-fixture/v1"
 SUMMARY_SCHEMA_VERSION = "contact-e2e-summary/v1"

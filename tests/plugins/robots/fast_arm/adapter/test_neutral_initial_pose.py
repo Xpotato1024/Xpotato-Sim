@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
     validate_candidate_qpos,
 )
 

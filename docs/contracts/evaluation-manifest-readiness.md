@@ -19,7 +19,7 @@ related:
 
 ## ownershipとscope
 
-`src/selfrionette/runtime/evaluation/manifest.py`が、実行開始前に固定する
+`src/xpotato_sim/runtime/evaluation/manifest.py`が、実行開始前に固定する
 `evaluation-manifest/v3`のtyped manifest、canonical serialization、software-only readiness、
 world/tool condition-pair、freeze identityを所有する。manifestはimmutableなtyped modelであり、
 内部にmutable mappingやlistを保持しない。6軸のplugin contractはR7-G-P0 / #421の
@@ -203,7 +203,7 @@ production catalog boundaryは
 `runtime/evaluation/r7_g_free_space.py::build_r7_g_free_space_manifest_pair()`である。#406 runnerはこれらを使い、
 test-only fixtureまたは`plugins.robots.fast_arm`のconcrete moduleから6軸を再構築しない。
 
-robot selectionが必要なcomposition rootは`selfrionette.plugins.robots.catalog`のresolverを使用し、
+robot selectionが必要なcomposition rootは`xpotato_sim.plugins.robots.catalog`のresolverを使用し、
 resolved Bundleから必要なtyped providerをassembly時に取得する。`plugins.robots.fast_arm`のconcrete
 moduleと旧compatibility facadeは#406のimport boundaryではない。Bundleはprovider assemblyの境界であり、
 runner処理中のservice locatorとして使用しない。

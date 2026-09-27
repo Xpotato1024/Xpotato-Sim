@@ -35,7 +35,7 @@ payload stateとoverlay stateを表示する。
 viewer input sourceを有効にしてbackend runtimeを実行する。
 
 ```powershell
-uv run selfrionette viewer --robot fast_arm `
+uv run xpotato-sim viewer --robot fast_arm `
   --host 127.0.0.1 `
   --port 8766 `
   --steps 18000 `

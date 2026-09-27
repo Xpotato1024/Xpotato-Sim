@@ -8,7 +8,7 @@ observable_evidence = [
   "PR #422、#427、#463、#489の本文で、axis、registry、identity、runtime composition、README、test ownershipを繰り返し確認している。",
   "Issue #491はRobot、Environment、Mapping、Task、Evaluation、Input Sourceの6 axisと不要なstub・compat layer・parallel implementationの禁止を明記している。"
 ]
-realized_by_skills = ["selfrionette-plugin-change"]
+realized_by_skills = ["xpotato-sim-plugin-change"]
 related_overlapping_skills = []
 approval_boundary = "read-only taskではauditだけを行う。明示されたwrite taskでは、prompt、Issue、AGENTS.mdが許可するscoped plugin実装、catalog、resource、tests、README、canonical docsを扱えるが、implicit invocation自体はwrite permissionを付与しない。scope外public contract、重大なschema、dependency、runtime expansion、unrelated viewer・simulation、hardware、external mutationは停止・承認対象とする。"
 unresolved_risks = [

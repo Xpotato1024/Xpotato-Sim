@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import FastArmEndpointMotionSanityResult, run_fast_arm_endpoint_motion_sanity
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics import endpoint_motion_sanity as endpoint_motion_sanity_module
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import FastArmEndpointMotionSanityResult, run_fast_arm_endpoint_motion_sanity
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics import endpoint_motion_sanity as endpoint_motion_sanity_module
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 def _vector_delta(

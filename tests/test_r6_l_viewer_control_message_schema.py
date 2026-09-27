@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     ViewerControlGamepadButtonMessage,
     ViewerControlGamepadMessage,
     ViewerControlKeyboardMessage,

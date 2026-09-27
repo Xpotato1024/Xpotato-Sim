@@ -10,15 +10,15 @@ import pytest
 from fast_arm_core.assembly import FastArmAssembly, FastArmInstance, resolve_assembly_addresses
 from fast_arm_core.assembly_model import build_fast_arm_assembly_model
 from fast_arm_core.definition import FAST_ARM_JOINT_NAMES
-from selfrionette.plugins.robots.fast_arm.adapter.assembly_output import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.assembly_output import (
     FastArmOutputBinding, build_fast_arm_assembly_requests,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.physical_output import FastArmOutputMapping
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.runtime.output.fast_arm_adapter import create_fast_arm_wire_encoder
-from selfrionette.runtime.output.fast_arm_emulation import FastArmSignalSession, emulate_fast_arm_peer
-from selfrionette.schemas.command import JointPositionCommand
-from selfrionette.transport.osc import decode_osc_message
+from xpotato_sim.plugins.robots.fast_arm.adapter.physical_output import FastArmOutputMapping
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.runtime.output.fast_arm_adapter import create_fast_arm_wire_encoder
+from xpotato_sim.runtime.output.fast_arm_emulation import FastArmSignalSession, emulate_fast_arm_peer
+from xpotato_sim.schemas.command import JointPositionCommand
+from xpotato_sim.transport.osc import decode_osc_message
 
 
 @pytest.fixture(autouse=True)
