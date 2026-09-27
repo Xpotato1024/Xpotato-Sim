@@ -97,7 +97,7 @@ fresh/staleとtarget-local watchdog状態を所有し、Xpotato-Simはhealth pac
 別clockなので直接比較せず、routerが判定したstatusと、health packet自体を受信してからのhost経過時間を分けて評価する。
 
 `max_router_health_age_s` を明示した `CoordinatedPhysicalOutputGroup` は、全armについてfreshな
-`healthy` healthをarming・submit・pollの条件とする。health欠落、受信期限切れ、malformed schema、
+`healthy` healthをarming・submit・各腕の送信直前・pollの条件とする。期限ちょうども失効する。health欠落、受信期限切れ、malformed schema、
 target mismatch、`stale`、`watchdog_tripped`、`awaiting_state`、`unmonitored` はfail-closedで全体faultへ
 遷移し、既存の全側stop requesterを試す。health受信はcommand ACKのpending/clearを変更せず、
 `physical_stop_confirmed`もfalseのままである。
@@ -127,3 +127,7 @@ uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/
 ブラウザの双腕scene declaration/同時操作、汎用catalog/GUI、二台Selfrionette取得、衝突geometry、
 servo/contact経路、ばね/搬送taskは後続。OSCの具体receiver停止・全体scene評価と実機検証は未実施。
 本経路の成功をそれらの完了や高トルク機体の安全認定へ読み替えない。
+
+受信不正時はarming前でも当該health記録を失効させ、直前のhealthyを使い回さない。
+`state_age_s`はrouter内で測った経過時間であり、絶対時刻ではない。Pi側の判定閾値を上位で複製せず、受信後の経過時間は上位側で別に監視する。
+このv1 wireには送信系列・起動epoch・認証がなく、再送や偽装の識別、故障箇所の一意な特定は保証しない。実接続では受信endpointの制限が別途必要である。

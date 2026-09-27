@@ -99,7 +99,7 @@ class CoordinatedPhysicalOutputGroup:
             if evidence.target_robot_id != session.target_robot_id:
                 raise ValueError("router_health_target_mismatch:" + arm)
             age = now - evidence.observed_at_s
-            if not 0 <= age <= self.max_router_health_age_s:
+            if not 0 <= age < self.max_router_health_age_s:
                 raise ValueError("router_health_stale:" + arm)
             if evidence.status != "healthy" or evidence.watchdog_tripped:
                 raise ValueError("router_health_unhealthy:" + arm + ":" + evidence.status)
@@ -202,7 +202,9 @@ class CoordinatedPhysicalOutputGroup:
                 with self._lock:
                     if generation != self._generation or self.state not in ("armed", "active"):
                         raise RuntimeError("group_state_changed_during_preflight")
-                    self._input(input, self._now(now_s))
+                    dispatch_now = self._now(now_s)
+                    self._input(input, dispatch_now)
+                    self._require_router_health(dispatch_now)
                     attempted.append(arm)
                     result = session.dispatch_submission(prepared[arm], now_s=now_s)
                     if (result.status != "transmission_attempted" or result.transport_result is None
@@ -242,10 +244,15 @@ class CoordinatedPhysicalOutputGroup:
             return evidence
         except Exception as exc:
             with self._lock:
+                if type(arm_id) is str and arm_id in self.sessions:
+                    self._router_health.pop(arm_id, None)
+                else:
+                    self._router_health.clear()
                 running = self.state in ("armed", "active")
             if running:
+                label = arm_id if type(arm_id) is str else "invalid_arm_id"
                 self.stop(
-                    "router_health_observation_error:" + arm_id + ":" + type(exc).__name__,
+                    "router_health_observation_error:" + label + ":" + type(exc).__name__,
                     fault=True,
                 )
             return None
