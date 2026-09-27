@@ -16,6 +16,10 @@ from xpotato_sim.schemas.command import JointPositionCommand, PhysicalOutputRequ
 
 FAST_ARM_OUTPUT_MAPPING_SCHEMA_VERSION = "fast-arm-physical-output-mapping/v1"
 FAST_ARM_ROUTER_OBSERVATION_SCHEMA_VERSION = "fast-arm-router-observation/v1"
+FAST_ARM_ROUTER_TARGET_HEALTH_SCHEMA_VERSION = "router-target-health/v1"
+FAST_ARM_ROUTER_TARGET_HEALTH_STATUSES = frozenset(
+    {"unmonitored", "awaiting_state", "healthy", "stale", "watchdog_tripped"}
+)
 FAST_ARM_JOINT_COMMAND = "joint"
 FAST_ARM_JOINT_POSITION_SEMANTICS = "joint_position_command/v1"
 _SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]+$")
@@ -388,6 +392,81 @@ class FastArmRouterCommandObservation:
             _float32("router argument", value)
 
 
+@dataclass(frozen=True, slots=True)
+class FastArmRouterTargetHealth:
+    """routerが公開したtarget単位の通信健全性。物理停止・動作完了の証拠ではない。"""
+
+    target_robot_id: str
+    status: str
+    state_age_s: float | None
+    watchdog_tripped: bool
+    schema_version: str = FAST_ARM_ROUTER_TARGET_HEALTH_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if self.schema_version != FAST_ARM_ROUTER_TARGET_HEALTH_SCHEMA_VERSION:
+            raise ValueError("unsupported FastArm router target health schema_version")
+        _path_segment("target_robot_id", self.target_robot_id)
+        if self.status not in FAST_ARM_ROUTER_TARGET_HEALTH_STATUSES:
+            raise ValueError("unknown FastArm router target health status")
+        if type(self.watchdog_tripped) is not bool:
+            raise TypeError("watchdog_tripped must be boolean")
+        if self.watchdog_tripped != (self.status == "watchdog_tripped"):
+            raise ValueError("watchdog_tripped flag must match status")
+        if self.state_age_s is not None:
+            if (
+                type(self.state_age_s) is not float
+                or not isfinite(self.state_age_s)
+                or self.state_age_s < 0
+            ):
+                raise ValueError("state_age_s must be a finite non-negative float or None")
+        if self.status in {"healthy", "stale"} and self.state_age_s is None:
+            raise ValueError("healthy/stale router health requires state_age_s")
+        if self.status == "awaiting_state" and self.state_age_s is not None:
+            raise ValueError("awaiting_state router health must not report state_age_s")
+
+
+def parse_fast_arm_router_target_health(
+    address: str,
+    arguments: tuple[object, ...],
+) -> FastArmRouterTargetHealth:
+    """router health wire contractをstrictに検証する。"""
+    if type(address) is not str:
+        raise TypeError("router health address must be a string")
+    parts = address.split("/")
+    if (
+        len(parts) != 4
+        or parts[0] != ""
+        or parts[1] != "router"
+        or parts[3] != "health"
+    ):
+        raise ValueError("unexpected FastArm router health address")
+    target_robot_id = _path_segment("target_robot_id", parts[2])
+    if type(arguments) is not tuple or len(arguments) != 4:
+        raise ValueError("router health requires exactly four OSC arguments")
+    schema_version, status, state_age_s, watchdog_value = arguments
+    if type(schema_version) is not str or type(status) is not str:
+        raise ValueError("router health schema and status must be OSC strings")
+    if schema_version != FAST_ARM_ROUTER_TARGET_HEALTH_SCHEMA_VERSION:
+        raise ValueError("unsupported FastArm router target health schema_version")
+    if type(state_age_s) is not float or not isfinite(state_age_s):
+        raise ValueError("router health state_age_s must be a finite OSC float")
+    if state_age_s == -1.0:
+        age = None
+    elif state_age_s < 0:
+        raise ValueError("router health state_age_s must be -1 or non-negative")
+    else:
+        age = _float32("router health state_age_s", state_age_s)
+    if type(watchdog_value) is not int or watchdog_value not in {0, 1}:
+        raise ValueError("router health watchdog_tripped must be OSC int 0 or 1")
+    return FastArmRouterTargetHealth(
+        target_robot_id=target_robot_id,
+        status=status,
+        state_age_s=age,
+        watchdog_tripped=watchdog_value == 1,
+        schema_version=schema_version,
+    )
+
+
 def parse_fast_arm_router_observation(
     address: str,
     arguments: tuple[object, ...],
@@ -444,10 +523,13 @@ __all__ = [
     "FAST_ARM_JOINT_POSITION_SEMANTICS",
     "FAST_ARM_OUTPUT_MAPPING_SCHEMA_VERSION",
     "FAST_ARM_ROUTER_OBSERVATION_SCHEMA_VERSION",
+    "FAST_ARM_ROUTER_TARGET_HEALTH_SCHEMA_VERSION",
     "FastArmJointWireCommand",
     "FastArmOutputMapping",
     "FastArmRouterCommandObservation",
+    "FastArmRouterTargetHealth",
     "build_fast_arm_joint_wire_command",
     "parse_fast_arm_router_observation",
+    "parse_fast_arm_router_target_health",
     "router_observation_matches",
 ]

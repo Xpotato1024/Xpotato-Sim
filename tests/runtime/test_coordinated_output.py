@@ -6,6 +6,7 @@ from xpotato_sim.runtime.output.coordinated import CoordinatedPhysicalOutputGrou
 from xpotato_sim.runtime.output.fast_arm_adapter import FastArmPreparedSubmission
 from xpotato_sim.runtime.output.fast_arm_emulation import emulate_fast_arm_peer
 from xpotato_sim.schemas.coordinated import CoordinatedInput, EndpointVelocity
+from xpotato_sim.transport.osc import OscMessage
 from tests.runtime import test_fast_arm_physical_output as support
 
 
@@ -21,7 +22,16 @@ def source(seq=0, *, stamp=1., neutral=True):
                   for s in ("left","right")),"provider-1",seq,stamp,stamp,True,neutral,"a"*64)
 
 
-def setup(monkeypatch, *, veto=None, max_age=10.):
+def health(target, status="healthy", *, state_age=.01, watchdog=None):
+    watchdog_value = (status == "watchdog_tripped") if watchdog is None else watchdog
+    age = -1.0 if state_age is None else float(state_age)
+    return OscMessage(
+        f"/router/{target}/health",
+        ("router-target-health/v1", status, age, 1 if watchdog_value else 0),
+    ).to_bytes()
+
+
+def setup(monkeypatch, *, veto=None, max_age=10., health_age=None, initial_health=True):
     sessions={};senders={};evals={};permissions={};stops=[];clocks={}
     for side in ("left","right"):
         with monkeypatch.context() as m:
@@ -33,8 +43,13 @@ def setup(monkeypatch, *, veto=None, max_age=10.):
         sessions[side]=session;senders[side]=sender;permissions[side]=(physical,transmission);clocks[side]=clock
     def stop(side):stops.append(side);return True
     group=CoordinatedPhysicalOutputGroup(sessions,scene_preflight=(lambda es:True) if veto is None else veto,
-        stop_requesters={s:lambda s=s:stop(s) for s in sessions},max_input_age_s=max_age,clock=lambda:1.)
-    assert group.arm(permissions,neutral=source(),now_s=1.).state=="armed"
+        stop_requesters={s:lambda s=s:stop(s) for s in sessions},max_input_age_s=max_age,
+        max_router_health_age_s=health_age,clock=lambda:1.)
+    if health_age is not None and initial_health:
+        for side,session in sessions.items():
+            group.observe_health(side,health(session.target_robot_id),now_s=1.)
+    expected="armed" if health_age is None or initial_health else "faulted"
+    assert group.arm(permissions,neutral=source(),now_s=1.).state==expected
     return group,sessions,senders,evals,stops,permissions,clocks
 
 
@@ -56,6 +71,74 @@ def test_all_prepared_before_first_send_and_ack_remains_nonphysical(monkeypatch)
         assert ack.reason=="simulated_router_observation_correlated"
         assert ack.status=="unavailable" and g.state=="active"
     assert g.poll(now_s=1.02).state=="active"
+
+
+def test_router_health_supervision_requires_all_targets_before_arm(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(
+        monkeypatch,health_age=.2,initial_health=False,
+    )
+    assert g.state=="faulted"
+    assert "router_health_missing:left" in g.reason
+    assert stops==["left","right"]
+    assert all(s.state=="stopped" for s in ss.values())
+    assert all(sender.send_calls==[] for sender in senders.values())
+
+
+def test_router_health_stale_packet_age_faults_whole_group(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    result=g.poll(now_s=1.21)
+    assert result.state=="faulted"
+    assert "router_health_stale:left" in result.reason
+    assert stops==["left","right"]
+
+
+@pytest.mark.parametrize("status,state_age",[
+    ("stale",1.0),
+    ("watchdog_tripped",.01),
+    ("awaiting_state",None),
+    ("unmonitored",None),
+])
+def test_router_nonhealthy_status_faults_both_arms(monkeypatch,status,state_age):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    evidence=g.observe_health(
+        "left",
+        health(ss["left"].target_robot_id,status,state_age=state_age),
+        now_s=1.05,
+    )
+    assert evidence is not None and evidence.status==status
+    assert g.state=="faulted" and stops==["left","right"]
+    assert "router_health_unhealthy:left:" + status == g.reason
+
+
+def test_malformed_router_health_schema_faults_both_arms(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    malformed=OscMessage(
+        f"/router/{ss['left'].target_robot_id}/health",
+        ("router-target-health/v999","healthy",.01,0),
+    ).to_bytes()
+    assert g.observe_health("left",malformed,now_s=1.05) is None
+    assert g.state=="faulted" and stops==["left","right"]
+    assert g.reason=="router_health_observation_error:left:ValueError"
+
+
+def test_router_health_target_mismatch_faults_both_arms(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    assert g.observe_health(
+        "left",health(ss["right"].target_robot_id),now_s=1.05,
+    ) is None
+    assert g.state=="faulted" and stops==["left","right"]
+    assert g.reason=="router_health_observation_error:left:ValueError"
+
+
+def test_fresh_health_heartbeat_allows_poll_without_comparing_router_clock(monkeypatch):
+    g,ss,senders,ev,stops,_,_=setup(monkeypatch,health_age=.2)
+    for side,session in ss.items():
+        evidence=g.observe_health(
+            side,health(session.target_robot_id,state_age=123.0),now_s=1.15,
+        )
+        assert evidence is not None and evidence.state_age_s==123.0
+    assert g.poll(now_s=1.3).state=="armed"
+    assert not stops
 
 
 @pytest.mark.parametrize("side",["left","right"])

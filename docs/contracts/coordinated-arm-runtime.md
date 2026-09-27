@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-26
+last_verified: 2026-09-28
 canonical_for:
   - coordinated arm diagnostic execution and output supervision
 related:
@@ -89,7 +89,23 @@ P5や実機evidenceを代替しない。未実装の全体collisionやreceiver�
 `stop_results` は各側のlocal許可失効と停止要求の試行/不明/失敗。`physical_stop_confirmed` は常にfalse。
 routerの処理相関は移動・停止完了のACKではない。合成観測は実機観測へ昇格しない。
 
-`poll()` はcallerの周期schedulerで実行する。Python process停止・通信断・OS停止に備えるreceiver watchdog、
+### Router target healthの監督
+
+R4の `router-target-health/v1` はcommand ACKとは別の入力として扱う。routerはPi telemetryの
+fresh/staleとtarget-local watchdog状態を所有し、Xpotato-Simはhealth packetのtarget相関・受信鮮度と
+「一側異常なら全側停止」という双腕policyを所有する。routerの `state_age_s` とXpotato-Simのhost clockは
+別clockなので直接比較せず、routerが判定したstatusと、health packet自体を受信してからのhost経過時間を分けて評価する。
+
+`max_router_health_age_s` を明示した `CoordinatedPhysicalOutputGroup` は、全armについてfreshな
+`healthy` healthをarming・submit・pollの条件とする。health欠落、受信期限切れ、malformed schema、
+target mismatch、`stale`、`watchdog_tripped`、`awaiting_state`、`unmonitored` はfail-closedで全体faultへ
+遷移し、既存の全側stop requesterを試す。health受信はcommand ACKのpending/clearを変更せず、
+`physical_stop_confirmed`もfalseのままである。
+
+この監督は明示opt-inで、router側R4 contractが利用可能なphysical compositionで有効化する。
+無効時の既存software-only経路を互換維持することは、実機運用でhealth supervisionを省略してよいという意味ではない。
+
+`poll()` はcallerの周期schedulerで実行する。Python process停止・通信断・OS停止に備えるPi/drive側watchdog、
 独立非常停止、停止指令の機種別実装・検証は別の必須条件であり、このクラスやUDP二送信では実現しない。
 この変更には実機へ接続するlauncherや停止OSC commandの捏造を含めない。
 
