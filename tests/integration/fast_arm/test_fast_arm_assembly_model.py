@@ -1,5 +1,6 @@
 """左右の鏡映・慣性・名前addressを実MuJoCoで照合する。実機計測ではない。"""
 from dataclasses import replace
+from math import cos, pi, sin
 import xml.etree.ElementTree as ET
 
 import mujoco
@@ -10,12 +11,14 @@ from fast_arm_core.assembly import FastArmAssembly, FastArmInstance, resolve_ass
 from fast_arm_core.assembly_model import build_fast_arm_assembly_model
 
 S = np.diag([1.,-1.,1.])
+MOUNT_W = cos(pi / 12.0)
+MOUNT_X = sin(pi / 12.0)
 
 
 def assembly():
     return FastArmAssembly((
-        FastArmInstance("right",False,(0,-.4,0),(1,0,0,0)),
-        FastArmInstance("left",True,(0,.4,0),(1,0,0,0)),
+        FastArmInstance("right",False,(0,-.4,0),(MOUNT_W,-MOUNT_X,0,0)),
+        FastArmInstance("left",True,(0,.4,0),(MOUNT_W,MOUNT_X,0,0)),
     ))
 
 
@@ -40,6 +43,15 @@ def test_single_original_single_mirror_and_both_share_one_model(selected):
         assert np.isfinite(data.site_xpos[address.tip_site_id]).all()
         np.testing.assert_array_equal(model.actuator_forcerange[list(address.actuator_ids)],
                                       [[-24,24],[-24,24],[-12,12],[-12,12]])
+
+
+def test_bimanual_mounts_use_opposite_30_degree_x_rotations():
+    model, data, _ = load(assembly())
+    for side, angle in (("right", -pi / 6.0), ("left", pi / 6.0)):
+        c, s = cos(angle), sin(angle)
+        expected = np.array(((1.,0.,0.),(0.,c,-s),(0.,s,c)))
+        mount = model.body(f"{side}__mount").id
+        np.testing.assert_allclose(data.xmat[mount].reshape(3,3), expected, atol=1e-12)
 
 
 def test_random_pose_fk_jacobian_mass_and_gravity_are_true_reflections():
@@ -90,7 +102,7 @@ def test_object_freejoint_before_arms_does_not_corrupt_qpos_or_dof_addresses():
 
 
 def test_mount_rotation_is_applied_after_local_mirror():
-    original = assembly().instances[1]
+    original = FastArmInstance("left", True, (0,0,0), (1,0,0,0))
     s1 = FastArmAssembly((replace(original,position_m=(0,0,0)),))
     s2 = FastArmAssembly((replace(original,position_m=(1,2,3),quaternion_wxyz=(0,0,0,1)),))
     _,d1,(a1,) = load(s1); _,d2,(a2,) = load(s2)
