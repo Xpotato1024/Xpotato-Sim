@@ -1,6 +1,6 @@
 ---
 name: xpotato-sim-change-validation
-description: Selfrionette-mujocoの変更層、contract、failure mode、side effectに応じて必要なvalidationを選び、実行結果と未実行理由を報告する。実装、bug fix、docs・plugin変更の完了前に使用し、full suiteの機械適用やhardware・serial・OSC・production操作には使用しない。
+description: Xpotato-Simの変更層、contract、failure mode、side effectに応じて必要なvalidationを選び、実行結果と未実行理由を報告する。実装、bug fix、docs・plugin変更の完了前に使用し、full suiteの機械適用やhardware・serial・OSC・production操作には使用しない。
 ---
 
 # Xpotato-Sim change validation
