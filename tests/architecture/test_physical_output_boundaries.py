@@ -5,18 +5,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PERMISSION_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "permission.py"
-TRACE_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "trace.py"
-LIFECYCLE_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "lifecycle.py"
-SAFETY_GATE_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "safety_gate.py"
-FAST_ARM_RUNTIME_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "fast_arm_adapter.py"
+PERMISSION_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "permission.py"
+TRACE_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "trace.py"
+LIFECYCLE_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "lifecycle.py"
+SAFETY_GATE_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "safety_gate.py"
+FAST_ARM_RUNTIME_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "fast_arm_adapter.py"
 FAST_ARM_PLUGIN_PATH = (
-    ROOT / "src" / "selfrionette" / "plugins" / "robots" / "fast_arm" / "adapter" / "physical_output.py"
+    ROOT / "src" / "xpotato_sim" / "plugins" / "robots" / "fast_arm" / "adapter" / "physical_output.py"
 )
 TRANSPORT_ADAPTER_PATH = (
-    ROOT / "src" / "selfrionette" / "runtime" / "output" / "transport_adapter.py"
+    ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "transport_adapter.py"
 )
-OUTPUT_PACKAGE_PATH = ROOT / "src" / "selfrionette" / "runtime" / "output" / "__init__.py"
+OUTPUT_PACKAGE_PATH = ROOT / "src" / "xpotato_sim" / "runtime" / "output" / "__init__.py"
 FORBIDDEN_IMPORT_ROOTS = {
     "mujoco",
     "osc4py3",
@@ -26,10 +26,10 @@ FORBIDDEN_IMPORT_ROOTS = {
     "usb",
 }
 FORBIDDEN_SELF_RIONETTE_IMPORTS = (
-    "selfrionette.plugins.robots",
-    "selfrionette.runtime.execution",
-    "selfrionette.runtime.runners",
-    "selfrionette.transport",
+    "xpotato_sim.plugins.robots",
+    "xpotato_sim.runtime.execution",
+    "xpotato_sim.runtime.runners",
+    "xpotato_sim.transport",
 )
 
 
@@ -135,11 +135,11 @@ def test_transport_adapter_is_the_output_composition_transport_owner() -> None:
         filename=str(TRANSPORT_ADAPTER_PATH),
     )
     imported = _imported_modules(tree)
-    assert "selfrionette.transport.endpoint" in imported
-    assert "selfrionette.transport.osc" in imported
-    assert "selfrionette.transport.udp" in imported
+    assert "xpotato_sim.transport.endpoint" in imported
+    assert "xpotato_sim.transport.osc" in imported
+    assert "xpotato_sim.transport.udp" in imported
     assert all(
-        not module.startswith("selfrionette.plugins.robots")
+        not module.startswith("xpotato_sim.plugins.robots")
         for module in imported
     )
 
@@ -157,11 +157,11 @@ def test_fast_arm_mapping_and_runtime_output_composition_keep_layer_ownership() 
         filename=str(FAST_ARM_PLUGIN_PATH),
     )
     plugin_imports = _imported_modules(plugin_tree)
-    assert "selfrionette.schemas.command" in plugin_imports
+    assert "xpotato_sim.schemas.command" in plugin_imports
     assert all(
         not module.startswith((
-            "selfrionette.runtime",
-            "selfrionette.transport",
+            "xpotato_sim.runtime",
+            "xpotato_sim.transport",
         ))
         for module in plugin_imports
     )
@@ -171,11 +171,11 @@ def test_fast_arm_mapping_and_runtime_output_composition_keep_layer_ownership() 
         filename=str(FAST_ARM_RUNTIME_PATH),
     )
     runtime_imports = _imported_modules(runtime_tree)
-    assert "selfrionette.plugins.robots.fast_arm.adapter.physical_output" in runtime_imports
-    assert "selfrionette.runtime.output.transport_adapter" in runtime_imports
-    assert "selfrionette.runtime.output.lifecycle" in runtime_imports
-    assert "selfrionette.runtime.output.safety_gate" in runtime_imports
-    assert "selfrionette.transport.osc" in runtime_imports
+    assert "xpotato_sim.plugins.robots.fast_arm.adapter.physical_output" in runtime_imports
+    assert "xpotato_sim.runtime.output.transport_adapter" in runtime_imports
+    assert "xpotato_sim.runtime.output.lifecycle" in runtime_imports
+    assert "xpotato_sim.runtime.output.safety_gate" in runtime_imports
+    assert "xpotato_sim.transport.osc" in runtime_imports
 
 
 
@@ -187,9 +187,9 @@ def test_no_io_fast_arm_owners_cannot_import_transmission_or_authorization():
         modules = _imported_modules(tree)
         assert {item.split(".")[0] for item in modules}.isdisjoint(FORBIDDEN_IMPORT_ROOTS | {"threading", "asyncio"})
         assert all(not item.startswith((
-            "selfrionette.transport.udp", "selfrionette.runtime.output.fast_arm_adapter",
-            "selfrionette.runtime.output.permission", "selfrionette.runtime.output.safety_gate",
-            "selfrionette.runtime.output.transport_adapter", "selfrionette.runtime.safety",
+            "xpotato_sim.transport.udp", "xpotato_sim.runtime.output.fast_arm_adapter",
+            "xpotato_sim.runtime.output.permission", "xpotato_sim.runtime.output.safety_gate",
+            "xpotato_sim.runtime.output.transport_adapter", "xpotato_sim.runtime.safety",
         )) for item in modules)
         calls = {node.func.attr for node in ast.walk(tree)
                  if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute)}

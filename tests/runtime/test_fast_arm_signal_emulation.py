@@ -8,14 +8,14 @@ import socket
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.physical_output import FastArmOutputMapping
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.runtime.output.fast_arm_emulation import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.physical_output import FastArmOutputMapping
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.runtime.output.fast_arm_emulation import (
     FastArmSignalSession, build_fast_arm_signal_preview, emulate_fast_arm_peer,
 )
-from selfrionette.runtime.output.fast_arm_observation import BoundedFastArmObservationDriver
-from selfrionette.schemas.command import JointPositionCommand
-from selfrionette.transport.osc import OscMessage, decode_osc_message, encode_osc_message
+from xpotato_sim.runtime.output.fast_arm_observation import BoundedFastArmObservationDriver
+from xpotato_sim.schemas.command import JointPositionCommand
+from xpotato_sim.transport.osc import OscMessage, decode_osc_message, encode_osc_message
 from tests.runtime.test_fast_arm_physical_output import (
     _mapping, _request, _new_session, _arm_session, _evaluation,
 )
@@ -232,7 +232,7 @@ def test_same_driver_and_byte_peer_work_with_existing_physical_session_fixture()
 
 
 def test_no_io_session_does_not_construct_physical_session_or_socket(monkeypatch):
-    import selfrionette.runtime.output.fast_arm_adapter as physical_adapter
+    import xpotato_sim.runtime.output.fast_arm_adapter as physical_adapter
     def forbidden(*args,**kwargs): pytest.fail("no-I/O boundary crossed")
     for name in ("socket","getaddrinfo","create_connection"):
         monkeypatch.setattr(socket,name,forbidden)
@@ -342,8 +342,8 @@ def test_unexpected_receiver_exception_is_not_misreported_as_clock_error():
 
 
 def test_shared_ack_dto_alias_and_local_socket_classification_are_preserved():
-    from selfrionette.runtime.output.fast_arm_adapter import FastArmAcknowledgementEvidence as OldEvidence
-    from selfrionette.runtime.output.fast_arm_observation import (
+    from xpotato_sim.runtime.output.fast_arm_adapter import FastArmAcknowledgementEvidence as OldEvidence
+    from xpotato_sim.runtime.output.fast_arm_observation import (
         FastArmAcknowledgementEvidence, FastArmPendingObservation, resolve_fast_arm_router_datagram,
     )
     assert OldEvidence is FastArmAcknowledgementEvidence

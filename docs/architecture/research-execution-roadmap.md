@@ -10,10 +10,10 @@ related:
   - docs/contracts/runtime-input-source-registry.md
   - docs/evaluation/world-tool-frame-comparison-design.md
   - docs/operations/hardware-safety.md
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/410
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/418
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/419
-  - https://github.com/Xpotato1024/Selfrionette-mujoco/issues/420
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/410
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/418
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/419
+  - https://github.com/Xpotato1024/Xpotato-Sim/issues/420
 ---
 
 # 研究実行ロードマップ

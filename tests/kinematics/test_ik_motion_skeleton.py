@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from selfrionette.motion import TargetToJointMotionGenerator
-from selfrionette.schemas import InputIntent, JointCommand
+from xpotato_sim.motion import TargetToJointMotionGenerator
+from xpotato_sim.schemas import InputIntent, JointCommand
 
 
 class RecordingIKSolver:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from selfrionette.schemas import InputIntent, MotionCommand
+from xpotato_sim.schemas import InputIntent, MotionCommand
 
 
 class NoOpMotionGenerator:

@@ -17,7 +17,7 @@ def main() -> int:
     repository_root = Path(__file__).resolve().parents[2]
     for import_root in (
         repository_root / "src",
-        repository_root / "src" / "selfrionette" / "plugins" / "robots" / "fast_arm" / "core" / "src",
+        repository_root / "src" / "xpotato_sim" / "plugins" / "robots" / "fast_arm" / "core" / "src",
     ):
         sys.path.insert(0, str(import_root))
     test_module = runpy.run_path(

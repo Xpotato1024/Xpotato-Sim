@@ -4,19 +4,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from selfrionette.mujoco_backend import endpoint_extraction as generic_endpoint_extraction
-from selfrionette.mujoco_backend import (
+from xpotato_sim.mujoco_backend import endpoint_extraction as generic_endpoint_extraction
+from xpotato_sim.mujoco_backend import (
     ResolvedModelReference,
     RuntimeMuJoCoEndpointEvaluation,
     RuntimeMuJoCoSiteEndpointEvaluation,
     load_mujoco_model,
     snapshot_mujoco_state,
 )
-from selfrionette.mujoco_backend.model_info import MuJoCoModelInfo
-from selfrionette.plugins.robots.fast_arm.adapter import endpoint as endpoint_extraction_module
-from selfrionette.plugins.robots.fast_arm.adapter import model_contract as model_contract_module
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import FastArmMuJoCoModelForwardKinematicsSolver
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.mujoco_backend.model_info import MuJoCoModelInfo
+from xpotato_sim.plugins.robots.fast_arm.adapter import endpoint as endpoint_extraction_module
+from xpotato_sim.plugins.robots.fast_arm.adapter import model_contract as model_contract_module
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import FastArmMuJoCoModelForwardKinematicsSolver
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 def _fake_mujoco(*, body_id: int = 0, site_id: int = 0) -> object:

@@ -8,7 +8,7 @@ observable_evidence = [
   "PR #403、#463、#490の本文で、focused validation、architecture suite、compile、docs・Git audit、impact判定を別々に選択している。",
   "Issue #491はこのworkflowをrepository-local Skillとして候補化し、全taskへのfull suite機械適用を禁止している。"
 ]
-realized_by_skills = ["selfrionette-change-validation"]
+realized_by_skills = ["xpotato-sim-change-validation"]
 related_overlapping_skills = []
 approval_boundary = "implicit invocationはvalidation workflowの選択だけを行う。prompt、Issue、AGENTS.mdが許可するlocal test、build、dry-runだけを実行でき、未実行項目を成功扱いしない。executable script変更、dependency、GitHub mutation、hardware、external mutationは明示承認対象であり、Skill発火自体は権限を付与しない。"
 unresolved_risks = [

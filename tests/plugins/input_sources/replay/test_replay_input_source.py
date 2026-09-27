@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.replay import ReplayInputSource
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.plugins.input_sources.replay import ReplayInputSource
+from xpotato_sim.schemas import RawInputFrame
 
 
 def test_replay_input_source_returns_frames_in_order() -> None:

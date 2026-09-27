@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 import pytest
 
-import selfrionette.runtime.runners.websocket_publisher as WEBSOCKET_RUNNER
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
+import xpotato_sim.runtime.runners.websocket_publisher as WEBSOCKET_RUNNER
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 
 
-CLI = importlib.import_module("selfrionette.cli.main")
+CLI = importlib.import_module("xpotato_sim.cli.main")
 
 
 def test_select_runtime_input_source_reports_initial_metadata_contract() -> None:

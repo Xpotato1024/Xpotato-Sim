@@ -54,7 +54,7 @@ replay / fixture path は deterministic `sweep_x` を使う。
 
 ```powershell
 New-Item -ItemType Directory -Force artifacts\r7-c | Out-Null
-uv run selfrionette replay --robot fast_arm --steps 6 --preset sweep_x --output artifacts/r7-c/r7-c-236-replay-axis-sanity.ndjson
+uv run xpotato-sim replay --robot fast_arm --steps 6 --preset sweep_x --output artifacts/r7-c/r7-c-236-replay-axis-sanity.ndjson
 ```
 
 確認すること:

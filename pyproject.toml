@@ -3,8 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "selfrionette-mujoco"
+name = "xpotato-sim"
 version = "0.0.0"
+description = "Simulation-centered robot operation and experiment platform"
 requires-python = ">=3.11"
 dependencies = [
     "fast-arm-core",
@@ -14,22 +15,22 @@ dependencies = [
 ]
 
 [project.scripts]
-selfrionette = "selfrionette.cli:main"
-selfrionette-r7-g-e2e = "selfrionette.runtime.experiment.r7_g_e2e:main"
+xpotato-sim = "xpotato_sim.cli:main"
+xpotato-sim-r7-g-e2e = "xpotato_sim.runtime.experiment.r7_g_e2e:main"
 
 [tool.setuptools]
 include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
-exclude = ["selfrionette.plugins.robots.fast_arm.core*"]
+exclude = ["xpotato_sim.plugins.robots.fast_arm.core*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping" = [
+"xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping" = [
     "resources/*.json",
 ]
-"selfrionette.plugins.robots.fast_arm.adapter" = [
+"xpotato_sim.plugins.robots.fast_arm.adapter" = [
     "resources/mujoco/*.xml",
     "resources/*.json",
     "resources/fixtures/*.json",
@@ -39,7 +40,7 @@ namespaces = false
 fast-arm-core = { workspace = true }
 
 [tool.uv.workspace]
-members = ["src/selfrionette/plugins/robots/fast_arm/core"]
+members = ["src/xpotato_sim/plugins/robots/fast_arm/core"]
 
 [dependency-groups]
 dev = [

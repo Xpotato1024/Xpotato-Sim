@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.motion import (
+from xpotato_sim.motion import (
     InputIntentMotionGenerator,
     build_motion_command_from_input_intent,
     build_motion_command_from_target_command,
 )
 from tests.support.motion_doubles import NoOpMotionGenerator
-from selfrionette.schemas import InputIntent, MotionCommand, TargetCommand
+from xpotato_sim.schemas import InputIntent, MotionCommand, TargetCommand
 
 
 def test_zero_intent_produces_empty_motion_command() -> None:

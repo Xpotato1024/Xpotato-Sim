@@ -21,12 +21,12 @@ related:
 
 Input SourceはRobot、Environment、Control / Mapping、Task、Evaluationに加わる第6のversioned
 composition軸である。production runtime selectionの正本は
-`src/selfrionette/plugins/input_sources/catalog.py`であり、source identity、contract version、sample schema、
+`src/xpotato_sim/plugins/input_sources/catalog.py`であり、source identity、contract version、sample schema、
 mode、factory、health、lifecycle、CLI alias、execution adapterを解決する。具体registrationの正本は
 各`plugins/input_sources/<source_id>/plugin.py::INPUT_SOURCE_PLUGIN`である。
 
 production source selectionの正本は`plugins/input_sources/catalog.py`だけである。
-旧`src/selfrionette/input_sources/registry.py`、historical descriptor、frame/default registry、
+旧`src/xpotato_sim/input_sources/registry.py`、historical descriptor、frame/default registry、
 mapping lookup facadeを別moduleへ移植しない。
 
 ## Production plugin catalog
@@ -92,8 +92,8 @@ runtime dependency / fixture boundaryから到達する。generic CLIの表示�
 factory outputは`HealthyInputSource`を満たし、`read_frame()`と`current_health()`をtyped contractとして
 常に提供する。live / viewer bridgeは`ManagedHealthyInputSource`として`start()`と`close()`も提供する。
 generic `InputSource` Protocolのcanonical definitionは
-`src/selfrionette/runtime/experiment/input_source.py`に置く。
-旧`src/selfrionette/input_sources/base.py`はC4で退役し、consumerはcanonical contractを直接参照する。
+`src/xpotato_sim/runtime/experiment/input_source.py`に置く。
+旧`src/xpotato_sim/input_sources/base.py`はC4で退役し、consumerはcanonical contractを直接参照する。
 
 - `read_frame()`は毎回`RawInputFrame`を返す。
 - `current_health()`は毎回`InputSourceHealth`を返す。
@@ -338,8 +338,8 @@ frontend registryはarbitrary dynamic importを行わない。lifecycleが選択
 unknownまたはduplicate provider IDは安全なdefaultへ置換せずrejectする。provider disposal後は
 publication、polling、heartbeatを停止し、再activationはzero / safe stateから開始する。
 
-keyboard / continuous mappingのcanonical implementationは`src/selfrionette/plugins/mappings/`、
-viewer sourceのcanonical implementationを`src/selfrionette/plugins/input_sources/viewer/`から直接使用する。
+keyboard / continuous mappingのcanonical implementationは`src/xpotato_sim/plugins/mappings/`、
+viewer sourceのcanonical implementationを`src/xpotato_sim/plugins/input_sources/viewer/`から直接使用する。
 旧facade、low-level registry、retained compatibility symbolは存在しない。
 
 ## Current Mapping ownership and conformance
@@ -354,10 +354,10 @@ production Control Mapping catalog は次の deterministic registrations を持�
 | `loadcell_endpoint_mapping/v1` | `loadcell_normalized_input_intent/v1` | loadcell endpoint delta and `MotionCommand` metadata |
 
 analogのparser、timestamp、raw values、healthはsource-ownedで、mapping implementationは
-`src/selfrionette/plugins/mappings/analog_fixture_mapping/`にある。Selfrionetteのserial parser、
-diagnostic、intrinsic normalizationは`src/selfrionette/plugins/input_sources/selfrionette/`が所有し、
+`src/xpotato_sim/plugins/mappings/analog_fixture_mapping/`にある。Selfrionetteのserial parser、
+diagnostic、intrinsic normalizationは`src/xpotato_sim/plugins/input_sources/selfrionette/`が所有し、
 operational deadzone、channel-axis weights、gain、max delta、endpoint delta、command conversionは
-`src/selfrionette/plugins/mappings/loadcell_endpoint_mapping/`が所有する。acquisition schemaはraw
+`src/xpotato_sim/plugins/mappings/loadcell_endpoint_mapping/`が所有する。acquisition schemaはraw
 `loadcell_vector_sample/v1`、source-owned `mapping_input_adapter`のoutputはeffective mapping-input schema
 `loadcell_normalized_input_intent/v1`である。generic runtimeはadapter contractを検証してその結果だけを
 mapping strategyへ渡し、Control Mapping Pluginはnormalized schemaをaccepted schemaとして宣言する。

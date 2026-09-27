@@ -1,10 +1,10 @@
 """軸設定の不正値を実行前に拒否し、旧設定の意味を維持する。"""
 from dataclasses import FrozenInstanceError
 import pytest
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.gamepad_axes import (
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.gamepad_axes import (
     GamepadAxisMap, apply_gamepad_axis_map, coerce_gamepad_axis_map,
 )
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping import (
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping import (
     normalize_viewer_control_mapping_parameters,
 )
 

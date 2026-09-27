@@ -9,7 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "selfrionette"
+SRC = ROOT / "src" / "xpotato_sim"
 
 
 def _imports(path: Path) -> tuple[str, ...]:
@@ -36,15 +36,15 @@ def test_generic_contracts_do_not_import_catalog_or_concrete_plugins() -> None:
     )
     for path in paths:
         imported = _imports(path)
-        assert not any(name.startswith("selfrionette.plugins") for name in imported), path
+        assert not any(name.startswith("xpotato_sim.plugins") for name in imported), path
         assert not any("fast_arm" in name for name in imported), path
 
 
 def test_domain_layers_do_not_reverse_depend_on_assembly_or_manifest() -> None:
     forbidden = (
-        "selfrionette.plugins.robots.catalog",
-        "selfrionette.runtime.composition.robot_bundle",
-        "selfrionette.runtime.evaluation.manifest",
+        "xpotato_sim.plugins.robots.catalog",
+        "xpotato_sim.runtime.composition.robot_bundle",
+        "xpotato_sim.runtime.evaluation.manifest",
     )
     paths = tuple((SRC / "kinematics").rglob("*.py"))
     paths += tuple((SRC / "motion").rglob("*.py"))
@@ -132,14 +132,14 @@ def test_bounded_discovery_has_one_production_owner_and_fixed_entry_point() -> N
     assert "RuntimeConfig" not in discovery
     assert "importlib.import_module(module_name)" in discovery
     assert "root.namespace.__name__" in discovery
-    assert "selfrionette.plugins.robots.fast_arm" not in catalog
+    assert "xpotato_sim.plugins.robots.fast_arm" not in catalog
     assert "fast_arm" not in catalog
 
     discovery_importers = {
         path.relative_to(SRC)
         for path in SRC.rglob("*.py")
         if any(
-            imported == "selfrionette.plugins.robots.discovery"
+            imported == "xpotato_sim.plugins.robots.discovery"
             for imported in _imports(path)
         )
     }
@@ -165,25 +165,25 @@ def test_runtime_generic_exports_are_catalog_free_until_resolver_access() -> Non
     environment["PYTHONPATH"] = str(ROOT / "src")
     for resolver_name in ("resolve_robot_runtime", "resolve_robot_bundle"):
         command = (
-            "import sys; import selfrionette.runtime as runtime; "
-            "assert 'selfrionette.plugins.robots.catalog' not in sys.modules; "
-            "assert 'selfrionette.plugins.robots.fast_arm.plugin' not in sys.modules; "
-            "from selfrionette.runtime.composition.robot_resolution import "
+            "import sys; import xpotato_sim.runtime as runtime; "
+            "assert 'xpotato_sim.plugins.robots.catalog' not in sys.modules; "
+            "assert 'xpotato_sim.plugins.robots.fast_arm.plugin' not in sys.modules; "
+            "from xpotato_sim.runtime.composition.robot_resolution import "
             "ResolvedRobotRuntime as direct_runtime; "
-            "from selfrionette.runtime.composition.robot_bundle import RobotBundle as direct_bundle; "
-            "from selfrionette.runtime.experiment.contracts import "
+            "from xpotato_sim.runtime.composition.robot_bundle import RobotBundle as direct_bundle; "
+            "from xpotato_sim.runtime.experiment.contracts import "
             "VersionedIdentity as direct_identity; "
-            "assert direct_runtime.__module__ == 'selfrionette.runtime.composition.robot_resolution'; "
-            "assert direct_bundle.__module__ == 'selfrionette.runtime.composition.robot_bundle'; "
-            "assert direct_identity.__module__ == 'selfrionette.runtime.experiment.contracts'; "
+            "assert direct_runtime.__module__ == 'xpotato_sim.runtime.composition.robot_resolution'; "
+            "assert direct_bundle.__module__ == 'xpotato_sim.runtime.composition.robot_bundle'; "
+            "assert direct_identity.__module__ == 'xpotato_sim.runtime.experiment.contracts'; "
             "assert not hasattr(runtime, 'ResolvedRobotRuntime'); "
             "assert not hasattr(runtime, 'RobotBundle'); "
             "assert not hasattr(runtime, 'VersionedIdentity'); "
-            "assert 'selfrionette.plugins.robots.catalog' not in sys.modules; "
-            "assert 'selfrionette.plugins.robots.fast_arm.plugin' not in sys.modules; "
+            "assert 'xpotato_sim.plugins.robots.catalog' not in sys.modules; "
+            "assert 'xpotato_sim.plugins.robots.fast_arm.plugin' not in sys.modules; "
             f"getattr(runtime, {resolver_name!r}); "
-            "assert 'selfrionette.plugins.robots.catalog' in sys.modules; "
-            "assert 'selfrionette.plugins.robots.fast_arm.plugin' in sys.modules"
+            "assert 'xpotato_sim.plugins.robots.catalog' in sys.modules; "
+            "assert 'xpotato_sim.plugins.robots.fast_arm.plugin' in sys.modules"
         )
         result = subprocess.run(
             [sys.executable, "-c", command],
@@ -197,7 +197,7 @@ def test_runtime_generic_exports_are_catalog_free_until_resolver_access() -> Non
 
 
 def test_runtime_public_exports_have_one_explicit_owner_and_preserve_identity() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert set(runtime._PUBLIC_EXPORTS) == set(runtime.__all__)
     source = (SRC / "runtime" / "__init__.py").read_text(encoding="utf-8")

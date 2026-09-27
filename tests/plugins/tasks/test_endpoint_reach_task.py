@@ -4,23 +4,23 @@ from typing import get_type_hints
 
 import pytest
 
-from selfrionette.plugins.tasks.endpoint_reach_task.implementation import (
+from xpotato_sim.plugins.tasks.endpoint_reach_task.implementation import (
     ENDPOINT_REACH_TASK_PLUGIN,
     ENDPOINT_REACH_TERMINAL_EVIDENCE,
     ENDPOINT_REACH_TRAJECTORY_EVIDENCE,
     EndpointReachTaskLifecycle,
     EndpointReachTaskState,
 )
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_POSE_V1,
     RESET_INITIAL_STATE_V1,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     EvidenceStatus,
     TaskTerminalClassification,
     VersionedIdentity,
 )
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     EndpointReachMotionStatus,
     EndpointReachObservation,
     EndpointReachTaskContext,

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Selfrionette PR Handoff"
+  short_description: "PR handoff状態をread-onlyで監査する"
+  default_prompt: "Use $xpotato-sim-pr-handoff to audit a PR handoff read-only."
+
+policy:
+  allow_implicit_invocation: true

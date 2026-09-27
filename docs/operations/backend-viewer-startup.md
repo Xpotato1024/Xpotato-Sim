@@ -36,9 +36,9 @@ npm --prefix apps/mujoco-viewer ci
 同じrootから一つのコマンドで起動する。別terminalや別directoryへの移動は不要。
 
 ```powershell
-uv run selfrionette app --profile sim-gamepad
-uv run selfrionette app --profile sim-keyboard
-uv run selfrionette app --profile replay-sweep
+uv run xpotato-sim app --profile sim-gamepad
+uv run xpotato-sim app --profile sim-keyboard
+uv run xpotato-sim app --profile replay-sweep
 ```
 
 上のコマンドは用途に応じて一つを選ぶ。Webとbackendの起動完了後に、接続先と入力providerを
@@ -54,10 +54,10 @@ backend完了に伴いWebも終了する。終了後の画面に残った姿勢�
 ## 設定検査と起動確認
 
 ```powershell
-uv run selfrionette profile sim-gamepad
-uv run selfrionette app --profile sim-gamepad --check
-uv run selfrionette app --profile sim-gamepad --startup-check
-uv run selfrionette app --profile sim-gamepad --no-browser --web-port 5178 --backend-port 8768
+uv run xpotato-sim profile sim-gamepad
+uv run xpotato-sim app --profile sim-gamepad --check
+uv run xpotato-sim app --profile sim-gamepad --startup-check
+uv run xpotato-sim app --profile sim-gamepad --no-browser --web-port 5178 --backend-port 8768
 ```
 
 `profile`はJSONと既存resolverの検査・表示だけを行う。`app --check`はさらにsource checkoutとの
@@ -83,8 +83,8 @@ LAN/TLS/auth/deploymentは対象外で、必要な手動配信は次の低位手
 backendだけを使う既存CLIは維持する。
 
 ```powershell
-uv run selfrionette replay --robot fast_arm --steps 3 --preset sweep_x
-uv run selfrionette viewer --robot fast_arm --input-source viewer --steps 18000 --interval-s 0.016667 --grace-period-s 60
+uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
+uv run xpotato-sim viewer --robot fast_arm --input-source viewer --steps 18000 --interval-s 0.016667 --grace-period-s 60
 npm --prefix apps/mujoco-viewer run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 

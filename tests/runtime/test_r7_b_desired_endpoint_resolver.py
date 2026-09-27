@@ -4,13 +4,13 @@ import math
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
-from selfrionette.plugins.mappings.loadcell_endpoint_mapping import LoadcellEndpointMotionCommandConverter
-from selfrionette.runtime.control.desired_endpoint_resolver import (
+from xpotato_sim.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
+from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping import LoadcellEndpointMotionCommandConverter
+from xpotato_sim.runtime.control.desired_endpoint_resolver import (
     ResolvedDesiredEndpoint,
     resolve_desired_endpoint_from_motion_command,
 )
-from selfrionette.schemas import MotionCommand, TargetCommand
+from xpotato_sim.schemas import MotionCommand, TargetCommand
 
 
 def test_resolve_desired_endpoint_from_motion_command_uses_command_metadata() -> None:

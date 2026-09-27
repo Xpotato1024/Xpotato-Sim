@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import run_fast_arm_endpoint_motion_sanity
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import run_fast_arm_endpoint_motion_sanity
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     _endpoint_error_vector_m,
     _vector_norm_m,
     build_fast_arm_endpoint_diagnostic_log_rows,

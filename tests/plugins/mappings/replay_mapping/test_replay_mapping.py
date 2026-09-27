@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from selfrionette.plugins.input_sources.programmed_target import (
+from xpotato_sim.plugins.input_sources.programmed_target import (
     build_sweep_x_input_source,
 )
-from selfrionette.plugins.mappings.replay_mapping import (
+from xpotato_sim.plugins.mappings.replay_mapping import (
     REPLAY_CONTROL_MAPPING_PLUGIN,
 )
-from selfrionette.schemas import InputIntent, RawInputFrame
+from xpotato_sim.schemas import InputIntent, RawInputFrame
 
 
 def test_replay_mapping_preserves_raw_frame_fields_with_shallow_metadata_copy() -> None:

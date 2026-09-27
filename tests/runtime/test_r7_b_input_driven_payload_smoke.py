@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import build_keyboard_motion_command
-from selfrionette.runtime.runners.offline_input_smoke import run_offline_input_runtime_stepping_smoke
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import build_keyboard_motion_command
+from xpotato_sim.runtime.runners.offline_input_smoke import run_offline_input_runtime_stepping_smoke
 
 
 def test_r7_b_input_driven_payload_smoke_roundtrips_keyboard_payload_and_feedback_target() -> None:

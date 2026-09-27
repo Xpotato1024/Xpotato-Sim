@@ -6,22 +6,22 @@ from collections.abc import Mapping
 from pathlib import Path
 from dataclasses import dataclass
 
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
-from selfrionette.mujoco_backend.model_loader import ModelResourceBundle
-from selfrionette.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
-from selfrionette.runtime.control.input_source_state import RuntimeInputSourceState
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.mujoco_backend.model_loader import ModelResourceBundle
+from xpotato_sim.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.runtime.control.input_source_state import RuntimeInputSourceState
+from xpotato_sim.runtime.experiment.contracts import (
     CommandSemanticsRoute,
     JOINT_POSITION_COMMAND_V1,
 )
-from selfrionette.runtime.safety.input_safety import (
+from xpotato_sim.runtime.safety.input_safety import (
     RuntimeInputSafetyResult,
     build_runtime_input_safety_result,
 )
-from selfrionette.runtime.safety.qpos_feasibility import QposFeasibilityGuard
-from selfrionette.schemas import (
+from xpotato_sim.runtime.safety.qpos_feasibility import QposFeasibilityGuard
+from xpotato_sim.schemas import (
     InputIntent,
     JointPositionCommand,
     MotionCommand,

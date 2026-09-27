@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.plugins.input_sources.selfrionette import (
     RawLoadcellVectorRecord,
     SerialDiagnosticEvent,
     SerialFrameParseError,

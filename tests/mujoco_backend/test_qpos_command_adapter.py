@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
-from selfrionette.plugins.robots.fast_arm.adapter.bundle import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import (
     FAST_ARM_ROBOT_BUNDLE,
 )
 
 import pytest
 
-from selfrionette.mujoco_backend.command_adapter import motion_command_to_qpos_command
-from selfrionette.runtime.execution.command_routes import (
+from xpotato_sim.mujoco_backend.command_adapter import motion_command_to_qpos_command
+from xpotato_sim.runtime.execution.command_routes import (
     project_joint_position_command,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     JOINT_POSITION_COMMAND_V1,
 )
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     JointCommand,
     JointPositionCommand,
     MotionCommand,

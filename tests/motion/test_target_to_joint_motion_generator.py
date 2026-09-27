@@ -4,12 +4,12 @@ from dataclasses import dataclass
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import (
     FastArmEndpointForwardKinematicsSolver,
     FastArmEndpointInverseKinematicsSolver,
 )
-from selfrionette.motion import TargetToJointMotionGenerator
-from selfrionette.schemas import InputIntent, JointCommand
+from xpotato_sim.motion import TargetToJointMotionGenerator
+from xpotato_sim.schemas import InputIntent, JointCommand
 from tests.support.kinematics_solver_doubles import (
     FailingInverseKinematicsSolver,
     FixedInverseKinematicsSolver,

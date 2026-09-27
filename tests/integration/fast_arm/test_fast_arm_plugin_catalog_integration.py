@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.robots.catalog import (
+from xpotato_sim.plugins.robots.catalog import (
     registered_robot_plugin_ids,
     registered_robot_bundle_ids,
     registered_robot_profile_ids,
@@ -15,20 +15,20 @@ from selfrionette.plugins.robots.catalog import (
     resolve_robot_runtime,
     resolve_robot_runtime_plugin,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import FAST_ARM_ROBOT_BUNDLE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import (
     FAST_ARM_RUNTIME_PLUGIN,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.viewer import FAST_ARM_VIEWER_DECLARATION
-from selfrionette.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle as root_resolve_robot_bundle
-from selfrionette.plugins.robots.catalog import resolve_robot_runtime as root_resolve_robot_runtime
-from selfrionette.runtime.composition.robot_profile import robot_profile_runtime_metadata
-from selfrionette.runtime.composition.robot_profile_metadata import merge_runtime_metadata
-from selfrionette.runtime.composition.viewer_robot_declaration import viewer_robot_declaration_digest
-from selfrionette.schemas import MuJoCoState
-from selfrionette.transport.websocket import serialize_mujoco_state_message
+from xpotato_sim.plugins.robots.fast_arm.adapter.viewer import FAST_ARM_VIEWER_DECLARATION
+from xpotato_sim.plugins.robots.fast_arm.plugin import ROBOT_PLUGIN
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle as root_resolve_robot_bundle
+from xpotato_sim.plugins.robots.catalog import resolve_robot_runtime as root_resolve_robot_runtime
+from xpotato_sim.runtime.composition.robot_profile import robot_profile_runtime_metadata
+from xpotato_sim.runtime.composition.robot_profile_metadata import merge_runtime_metadata
+from xpotato_sim.runtime.composition.viewer_robot_declaration import viewer_robot_declaration_digest
+from xpotato_sim.schemas import MuJoCoState
+from xpotato_sim.transport.websocket import serialize_mujoco_state_message
 
 
 def test_catalog_resolvers_project_one_canonical_bundle() -> None:

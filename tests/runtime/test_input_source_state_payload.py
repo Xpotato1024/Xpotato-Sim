@@ -3,18 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.control.input_source_state import (
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.control.input_source_state import (
     build_runtime_input_source_state,
     build_runtime_input_source_state_from_metadata,
     runtime_input_source_state_to_metadata,
 )
-from selfrionette.schemas import MuJoCoState
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.schemas import MuJoCoState
+from xpotato_sim.transport import mujoco_state_to_payload
 
 
 class RecordingPublisher:

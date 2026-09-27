@@ -9,14 +9,14 @@ from types import ModuleType
 
 import pytest
 
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan
-from selfrionette.runtime.experiment.input_source import InputSourceRuntimeDependencies
-from selfrionette.runtime.output.fast_arm_emulation import emulate_fast_arm_peer
-from selfrionette.runtime.output.safety_gate import physical_output_candidate_id
-from selfrionette.runtime.runners.fast_arm_input_runtime import FastArmInputRuntime
-from selfrionette.runtime.safety.physical_safety_core import SafetyInput
-from selfrionette.schemas import JointPositionCommand, PhysicalOutputPermission
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan
+from xpotato_sim.runtime.experiment.input_source import InputSourceRuntimeDependencies
+from xpotato_sim.runtime.output.fast_arm_emulation import emulate_fast_arm_peer
+from xpotato_sim.runtime.output.safety_gate import physical_output_candidate_id
+from xpotato_sim.runtime.runners.fast_arm_input_runtime import FastArmInputRuntime
+from xpotato_sim.runtime.safety.physical_safety_core import SafetyInput
+from xpotato_sim.schemas import JointPositionCommand, PhysicalOutputPermission
 from tests.runtime.test_fast_arm_physical_output import _new_session, _evaluation
 
 
@@ -322,7 +322,7 @@ def test_inactive_viewer_never_dispatches():
 
 def test_guard_rejection_is_not_dispatched(monkeypatch):
     """test-only solver故障を本物のjoint-limit guardが拒否する。"""
-    from selfrionette.schemas import MotionCommand, JointCommand
+    from xpotato_sim.schemas import MotionCommand, JointCommand
     h = Harness()
     def invalid_candidate(intent, dt_s):
         return MotionCommand(intent.timestamp_s, joint=JointCommand((100.0, 0.0, 0.0, 0.0)))
@@ -360,7 +360,7 @@ def test_cadence_is_based_on_actual_dispatch_start():
 @pytest.mark.parametrize("change", ("token", "target"))
 def test_wellformed_wrong_response_keeps_pending(change):
     """構文的には正常な別token/targetをACKにしない。"""
-    from selfrionette.transport.osc import OscMessage, decode_osc_message, encode_osc_message
+    from xpotato_sim.transport.osc import OscMessage, decode_osc_message, encode_osc_message
     h = Harness(); original = h.receive
     def wrong():
         data = original()

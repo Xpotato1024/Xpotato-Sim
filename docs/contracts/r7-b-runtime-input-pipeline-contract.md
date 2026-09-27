@@ -95,7 +95,7 @@ default keybind は次のとおり。
 keybind は config file で変更可能にする。
 
 既定keybindはMapping plugin package内の
-`src/selfrionette/plugins/mappings/viewer_keyboard_gamepad_mapping/resources/keyboard_default.json`
+`src/xpotato_sim/plugins/mappings/viewer_keyboard_gamepad_mapping/resources/keyboard_default.json`
 を正本とし、wheel / sdistへ同梱する。repository-rootのconfig pathには依存しない。
 
 ```json

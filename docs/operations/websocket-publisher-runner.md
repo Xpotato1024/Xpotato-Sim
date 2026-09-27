@@ -32,7 +32,7 @@ manual browser smokeには短い`sweep_x` programmed input pathを使う。MuJoC
 ある長いdynamics pathを使わず、HTTP-served viewerがpayloadを受信することを確認する推奨commandである。
 
 ```bash
-uv run selfrionette viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 6 --interval-s 0.033 --grace-period-s 60 --preset sweep_x
+uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 6 --interval-s 0.033 --grace-period-s 60 --preset sweep_x
 ```
 
 default pathはunit testでcoverするpayload compatibility pathのままである。以前のdefault `--steps 120` commandを

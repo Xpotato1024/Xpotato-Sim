@@ -5,10 +5,10 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.robots.catalog import (
+from xpotato_sim.plugins.robots.catalog import (
     resolve_robot_bundle as resolve_robot_bundle_from_catalog,
 )
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.evaluation.manifest import (
     EVALUATION_MANIFEST_SCHEMA_VERSION,
     EvaluationConditionPair,
     EvaluationManifest,
@@ -24,11 +24,11 @@ from selfrionette.runtime.evaluation.manifest import (
     evaluation_manifest_digest,
     verify_freeze_identity,
 )
-from selfrionette.runtime.experiment.composition import (
+from xpotato_sim.runtime.experiment.composition import (
     ExperimentPluginRegistries,
     PluginParameters,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     ENDPOINT_DELTA_TO_JOINT_POSITION_V1,
     EnvironmentRole,
     ControlMappingPlugin,
@@ -40,14 +40,14 @@ from selfrionette.runtime.experiment.contracts import (
     PluginSelection,
     VersionedIdentity,
 )
-from selfrionette.plugins.mappings._command_routes import (
+from xpotato_sim.plugins.mappings._command_routes import (
     joint_position_command_route,
 )
-from selfrionette.runtime.experiment.registry import VersionedPluginRegistry
+from xpotato_sim.runtime.experiment.registry import VersionedPluginRegistry
 from tests.support.input_source_plugin_doubles import CONFORMANCE_SAMPLE_SCHEMA
-from selfrionette.runtime.composition.robot_bundle import CONTACT_EVIDENCE_V1, InitialStateContract
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.robots.fast_arm.adapter.initial_state import (
+from xpotato_sim.runtime.composition.robot_bundle import CONTACT_EVIDENCE_V1, InitialStateContract
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.initial_state import (
     FAST_ARM_INITIAL_STATE_CONTRACT,
     FAST_ARM_INITIAL_STATE_QPOS_RAD,
     FAST_ARM_INITIAL_STATE_TIP_POSITION_M,
@@ -66,13 +66,13 @@ from tests.runtime.test_experiment_plugin_composition import (
 
 
 BASELINE_FAST_ARM_MANIFEST_DIGEST = (
-    "sha256:2125da9cf092fcd33bb57df5cbd1fdf129b054fd2eba3b4f5d01872493a6caeb"
+    "sha256:1c0f145f98fe7a05d8af2308f677794690b0ed2d7b690b8d4024336cd58f436a"
 )
 BASELINE_FAST_ARM_RESOLVED_IDENTITY_DIGEST = (
-    "sha256:5c184f295fc6c8fe5371dfbfd0c85b65467360b784c4a9490a983ec9197fc8f3"
+    "sha256:f525e8d6ddd89b6a10647014defcdf86ea967716d1eed07d3f197986ba34b07e"
 )
 BASELINE_FAST_ARM_FREEZE_DIGEST = (
-    "sha256:7b7d77a441539026aec1eee0642236fdb1b85f876262815c8f20d0ac3521ab06"
+    "sha256:818e18bbcf617a44c2d9bbe60ab92c70194c79f5dbbbc2826bf8b37e6a08fec1"
 )
 
 
@@ -84,7 +84,7 @@ def _environment_parameters(selection: PluginSelection) -> PluginParameters:
 
 
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity="test-revision:abc123",
 )
 
@@ -94,7 +94,7 @@ def _manifest(**overrides: object) -> EvaluationManifest:
     values: dict[str, object] = {
         "schema_version": EVALUATION_MANIFEST_SCHEMA_VERSION,
         "contract_version": 3,
-        "repository_identity": "Xpotato1024/Selfrionette-mujoco",
+        "repository_identity": "Xpotato1024/Xpotato-Sim",
         "software_revision_identity": EXECUTION_IDENTITY.software_revision_identity,
         "robot_bundle": PluginSelection("dummy_robot_bundle", 1),
         "robot_profile_identity": VersionedIdentity("dummy_robot", 1),
@@ -268,7 +268,7 @@ def test_command_route_difference_changes_resolved_and_freeze_identity() -> None
 
 
 def test_one_semantic_field_changes_the_manifest_digest() -> None:
-    from selfrionette.runtime.evaluation.manifest import evaluation_manifest_digest
+    from xpotato_sim.runtime.evaluation.manifest import evaluation_manifest_digest
 
     assert evaluation_manifest_digest(_manifest()) != evaluation_manifest_digest(
         _manifest(gain=0.2)
@@ -459,10 +459,10 @@ def test_generic_non_fast_arm_readiness_is_software_only_and_ready() -> None:
     "execution_identity",
     (
         SoftwareExecutionIdentity(
-            "OtherOwner/Selfrionette-mujoco", "test-revision:abc123"
+            "OtherOwner/Xpotato-Sim", "test-revision:abc123"
         ),
         SoftwareExecutionIdentity(
-            "Xpotato1024/Selfrionette-mujoco", "test-revision:other"
+            "Xpotato1024/Xpotato-Sim", "test-revision:other"
         ),
     ),
 )
@@ -482,7 +482,7 @@ def test_software_revision_identity_requires_an_explicit_stable_scheme() -> None
         _manifest(software_revision_identity="abc123")
     with pytest.raises(EvaluationManifestError, match="explicit stable scheme"):
         SoftwareExecutionIdentity(
-            "Xpotato1024/Selfrionette-mujoco", "git-sha1:ABCDEF"
+            "Xpotato1024/Xpotato-Sim", "git-sha1:ABCDEF"
         )
 
 
@@ -494,7 +494,7 @@ def test_actual_revision_change_changes_resolved_and_freeze_identity() -> None:
         changed_manifest,
         registries,
         execution_identity=SoftwareExecutionIdentity(
-            "Xpotato1024/Selfrionette-mujoco", "test-revision:other"
+            "Xpotato1024/Xpotato-Sim", "test-revision:other"
         ),
     )
     assert changed.resolved_identity != first.resolved_identity
@@ -842,7 +842,7 @@ def test_freeze_identity_detects_manifest_and_resolved_identity_changes() -> Non
             replace(
                 readiness,
                 software_execution_identity=SoftwareExecutionIdentity(
-                    "Xpotato1024/Selfrionette-mujoco", "test-revision:changed"
+                    "Xpotato1024/Xpotato-Sim", "test-revision:changed"
                 ),
             ),
         )
@@ -932,6 +932,15 @@ def test_fast_arm_profile_plugin_and_model_identity_regression() -> None:
     )
 
     readiness = _build_readiness(manifest, registries)
+    # 旧名を持つ記録は、改名前と同じdigestへ解決されることも固定する。
+    old_manifest = decode_evaluation_manifest(
+        encode_evaluation_manifest(manifest).replace(b"Xpotato1024/Xpotato-Sim", b"Xpotato1024/Selfrionette-mujoco")
+    )
+    old_readiness = _build_readiness(old_manifest, registries,
+        execution_identity=replace(EXECUTION_IDENTITY, repository_identity="Xpotato1024/Selfrionette-mujoco"))
+    assert old_readiness.freeze_record.manifest_digest == 'sha256:2125da9cf092fcd33bb57df5cbd1fdf129b054fd2eba3b4f5d01872493a6caeb'
+    assert old_readiness.resolved_identity == 'sha256:5c184f295fc6c8fe5371dfbfd0c85b65467360b784c4a9490a983ec9197fc8f3'
+    assert old_readiness.freeze_identity == 'sha256:7b7d77a441539026aec1eee0642236fdb1b85f876262815c8f20d0ac3521ab06'
     # Golden values include the evaluation-manifest/v3 command semantics condition.
     assert readiness.freeze_record.manifest_digest == (
         BASELINE_FAST_ARM_MANIFEST_DIGEST
@@ -950,7 +959,7 @@ def test_fast_arm_profile_plugin_and_model_identity_regression() -> None:
         encode_evaluation_manifest(manifest)
     )
     assert (
-        b"selfrionette.plugins"
+        b"xpotato_sim.plugins"
         not in readiness.freeze_record.canonical_resolved_identity_bytes
     )
     assert (

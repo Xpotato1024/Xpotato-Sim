@@ -5,21 +5,21 @@ from types import MappingProxyType
 
 import pytest
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
-from selfrionette.plugins.input_sources.registration import (
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
+from xpotato_sim.plugins.input_sources.registration import (
     InputSourcePluginRegistration,
 )
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.experiment.contracts import PluginSelection, VersionedIdentity
-from selfrionette.runtime.experiment.input_source import InputSourcePlugin
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
-from selfrionette.runtime.execution.input_source_adapters import (
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.experiment.contracts import PluginSelection, VersionedIdentity
+from xpotato_sim.runtime.experiment.input_source import InputSourcePlugin
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.runtime.execution.input_source_adapters import (
     REPLAY_COMPATIBILITY_EXECUTION_ADAPTER,
 )
-from selfrionette.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
-from selfrionette.cli.main import CLI_INPUT_SOURCE_NAMES
-from selfrionette.schemas import InputIntent
+from xpotato_sim.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
+from xpotato_sim.cli.main import CLI_INPUT_SOURCE_NAMES
+from xpotato_sim.schemas import InputIntent
 
 
 def test_production_input_source_catalog_is_versioned_and_deterministic() -> None:
@@ -166,13 +166,13 @@ def test_valid_mapping_parameters_are_normalized_and_frozen_before_runtime() -> 
 def test_duplicate_alias_is_rejected_before_catalog_creation() -> None:
     registration = INPUT_SOURCE_CATALOG.resolve("replay")
     with pytest.raises(ValueError, match="duplicate input source CLI alias"):
-        from selfrionette.plugins.input_sources.catalog import InputSourceCatalog
+        from xpotato_sim.plugins.input_sources.catalog import InputSourceCatalog
 
         InputSourceCatalog((registration, registration))
 
 
 def test_replay_uses_typed_runtime_dependency_for_custom_frames() -> None:
-    from selfrionette.schemas import RawInputFrame
+    from xpotato_sim.schemas import RawInputFrame
 
     frame = RawInputFrame(source="replay", timestamp_s=3.0, values=(1.0,))
     selection = select_runtime_input_source("replay", steps=1, frames=(frame,))

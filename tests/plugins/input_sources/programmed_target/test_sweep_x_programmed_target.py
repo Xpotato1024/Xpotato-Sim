@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.input_sources.programmed_target import (
+from xpotato_sim.plugins.input_sources.programmed_target import (
     ProgrammedTargetInputSource,
     build_sweep_x_input_source,
     build_sweep_x_trajectory,
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[4]
 PROGRAMMED_TARGET_MODULE = (
     ROOT
     / "src"
-    / "selfrionette"
+    / "xpotato_sim"
     / "plugins"
     / "input_sources"
     / "programmed_target"

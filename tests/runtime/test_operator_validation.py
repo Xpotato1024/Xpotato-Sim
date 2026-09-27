@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.runtime.safety.operator_validation import (
+from xpotato_sim.runtime.safety.operator_validation import (
     ClearanceDeclaration,
     EvidenceClass,
     MeasurementSource,
@@ -32,7 +32,7 @@ from selfrionette.runtime.safety.operator_validation import (
     validate_validation_artifact,
     validate_validation_procedure,
 )
-from selfrionette.runtime.safety.physical_safety_core import SafetyDecisionAction
+from xpotato_sim.runtime.safety.physical_safety_core import SafetyDecisionAction
 
 
 STARTED = "2026-08-28T10:00:00Z"

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.replay import ReplayInputSource
-from selfrionette.plugins.mappings.replay_mapping import (
+from xpotato_sim.plugins.input_sources.replay import ReplayInputSource
+from xpotato_sim.plugins.mappings.replay_mapping import (
     REPLAY_CONTROL_MAPPING_PLUGIN,
     build_motion_command_from_replay_frame,
 )
-from selfrionette.runtime.control.desired_endpoint_resolver import resolve_desired_endpoint_from_motion_command
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.runtime.control.desired_endpoint_resolver import resolve_desired_endpoint_from_motion_command
+from xpotato_sim.schemas import RawInputFrame
 
 
 def test_replay_fixture_motion_command_resolves_desired_endpoint() -> None:

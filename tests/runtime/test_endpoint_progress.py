@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from selfrionette.runtime.evaluation.endpoint_progress import calculate_endpoint_progress
+from xpotato_sim.runtime.evaluation.endpoint_progress import calculate_endpoint_progress
 
 
 def test_zero_request_is_not_requested_without_fabricated_metrics() -> None:

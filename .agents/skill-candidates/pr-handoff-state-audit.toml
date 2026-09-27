@@ -8,7 +8,7 @@ observable_evidence = [
   "Git commit 4b8dfeeでchanged Markdown governanceをCI検証へ接続し、直近のorigin/main履歴でもPRごとのbase・head・scope監査が継続している。",
   "Issue #491はmergeableだけでready判定しないこと、commit・push・PR更新・merge・Issue close・branch削除をSkillから禁止することを要求している。"
 ]
-realized_by_skills = ["selfrionette-pr-handoff"]
+realized_by_skills = ["xpotato-sim-pr-handoff"]
 related_overlapping_skills = []
 approval_boundary = "read-only inspectionに限定し、implicit invocation自体はwrite permissionを付与しない。Git/GitHub mutation、long-form body write、merge、Ready化、Issue close、branch削除を行わない。"
 unresolved_risks = [

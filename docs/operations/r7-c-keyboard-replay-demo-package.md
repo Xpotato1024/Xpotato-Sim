@@ -58,7 +58,7 @@ replay fixture demo は統一 CLI の `selfrionette replay` を使って作る�
 
 ```powershell
 New-Item -ItemType Directory -Force artifacts\r7-c | Out-Null
-uv run selfrionette replay --robot fast_arm --steps 6 --preset sweep_x --output artifacts/r7-c/r7-c-234-replay-demo.ndjson
+uv run xpotato-sim replay --robot fast_arm --steps 6 --preset sweep_x --output artifacts/r7-c/r7-c-234-replay-demo.ndjson
 ```
 
 この出力は replay demo の local artifact であり、browser 用の viewer 生成物ではない。

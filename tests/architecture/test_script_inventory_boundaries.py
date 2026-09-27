@@ -124,4 +124,4 @@ def test_canonical_default_commands_use_the_installable_cli() -> None:
         "docs/operations/websocket-publisher-runner.md",
     ):
         text = (ROOT / relative_path).read_text(encoding="utf-8")
-        assert "uv run selfrionette" in text
+        assert "uv run xpotato-sim" in text

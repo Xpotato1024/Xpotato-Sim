@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from selfrionette.runtime.output import evaluate_physical_output_permission
-from selfrionette.schemas import PhysicalOutputPermission
+from xpotato_sim.runtime.output import evaluate_physical_output_permission
+from xpotato_sim.schemas import PhysicalOutputPermission
 
 from tests.schemas.test_physical_output_contract import _endpoint_request
 

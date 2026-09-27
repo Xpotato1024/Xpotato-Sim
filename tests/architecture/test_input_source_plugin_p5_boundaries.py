@@ -5,13 +5,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_PLUGINS
-from selfrionette.runtime.experiment.contracts import PluginAxis
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_PLUGINS
+from xpotato_sim.runtime.experiment.contracts import PluginAxis
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "selfrionette"
+SRC = ROOT / "src" / "xpotato_sim"
 PRODUCTION_SOURCE_IDS = set(INPUT_SOURCE_CATALOG.ids)
 SOURCE_PACKAGE_ROOT = SRC / "plugins" / "input_sources"
 TEST_SOURCE_PACKAGE_ROOT = ROOT / "tests" / "plugins" / "input_sources"
@@ -101,22 +101,22 @@ def test_mapping_tests_use_canonical_mapping_owners() -> None:
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom) or node.module is None:
                 continue
-            if node.module.startswith("selfrionette.input_sources"):
+            if node.module.startswith("xpotato_sim.input_sources"):
                 imported = {alias.name for alias in node.names}
                 violations.append(f"{path}:{node.lineno}:{node.module}:{sorted(imported)}")
     for relative, module in (
         (
             "analog_fixture_mapping",
-            "selfrionette.plugins.mappings.analog_fixture_mapping",
+            "xpotato_sim.plugins.mappings.analog_fixture_mapping",
         ),
         (
             "loadcell_endpoint_mapping",
-            "selfrionette.plugins.mappings.loadcell_endpoint_mapping",
+            "xpotato_sim.plugins.mappings.loadcell_endpoint_mapping",
         ),
-        ("replay_mapping", "selfrionette.plugins.mappings.replay_mapping"),
+        ("replay_mapping", "xpotato_sim.plugins.mappings.replay_mapping"),
         (
             "viewer_keyboard_gamepad_mapping",
-            "selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard",
+            "xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard",
         ),
     ):
         owner_tests = tuple((MAPPING_TEST_ROOT / relative).rglob("test_*.py"))
@@ -138,8 +138,8 @@ def test_each_production_source_has_a_plugin_local_test_owner() -> None:
 def test_generic_conformance_helper_does_not_depend_on_production_private_sources() -> None:
     conformance_path = TEST_SOURCE_PACKAGE_ROOT / "contract" / "conformance.py"
     conformance_text = conformance_path.read_text(encoding="utf-8")
-    assert "selfrionette.input_sources" not in conformance_text
-    assert "selfrionette.plugins.input_sources" not in conformance_text
+    assert "xpotato_sim.input_sources" not in conformance_text
+    assert "xpotato_sim.plugins.input_sources" not in conformance_text
 
 
 def test_runtime_has_no_source_name_dispatch() -> None:
@@ -183,12 +183,12 @@ def test_source_plugin_import_graph_has_no_forbidden_or_private_cross_source_edg
         for path in package.rglob("*.py"):
             modules = _modules(_parse(path))
             for module in modules:
-                if module.startswith("selfrionette.plugins.robots") or module.startswith(
-                    "selfrionette.runtime.evaluation"
+                if module.startswith("xpotato_sim.plugins.robots") or module.startswith(
+                    "xpotato_sim.runtime.evaluation"
                 ) or ".fast_arm" in module or ".tasks" in module:
                     violations.append(f"source:{path}:{module}")
-                    if module.startswith("selfrionette.plugins.input_sources."):
-                        if module == "selfrionette.plugins.input_sources.registration":
+                    if module.startswith("xpotato_sim.plugins.input_sources."):
+                        if module == "xpotato_sim.plugins.input_sources.registration":
                             continue
                         other = module.split(".")[3]
                     if other != source_id:
@@ -209,9 +209,9 @@ def test_canonical_source_code_has_no_robot_evaluation_or_mapping_dependency() -
         for path in root.rglob("*.py"):
             for module in _modules(_parse(path)):
                 if (
-                    module.startswith("selfrionette.plugins.mappings")
-                    or module.startswith("selfrionette.plugins.robots")
-                    or module.startswith("selfrionette.runtime.evaluation")
+                    module.startswith("xpotato_sim.plugins.mappings")
+                    or module.startswith("xpotato_sim.plugins.robots")
+                    or module.startswith("xpotato_sim.runtime.evaluation")
                     or ".fast_arm" in module
                     or ".tasks" in module
                 ):
@@ -274,7 +274,7 @@ def test_programmed_target_defaults_have_one_canonical_definition() -> None:
 def test_runtime_contract_does_not_import_old_input_source_definition() -> None:
     contract_path = SRC / "runtime" / "experiment" / "input_source.py"
     assert "InputSource" in _defined_top_level_symbols(contract_path)
-    assert "selfrionette.input_sources.base" not in _modules(_parse(contract_path))
+    assert "xpotato_sim.input_sources.base" not in _modules(_parse(contract_path))
 
 
 def test_mapping_plugin_import_graph_does_not_acquire_devices_or_browser() -> None:
@@ -283,8 +283,8 @@ def test_mapping_plugin_import_graph_does_not_acquire_devices_or_browser() -> No
         "pyserial",
         "browser",
         "websocket",
-        "selfrionette.input_sources.loadcell_serial",
-        "selfrionette.input_sources.viewer",
+        "xpotato_sim.input_sources.loadcell_serial",
+        "xpotato_sim.input_sources.viewer",
     )
     violations: list[str] = []
     mapping_root = SRC / "plugins" / "mappings"

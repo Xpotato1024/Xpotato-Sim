@@ -19,9 +19,9 @@ related:
 
 ## Ownershipの分離
 
-Python上のgeneric contract ownerは`selfrionette.runtime.composition.robot_profile`、viewer declarationの
-serialization contract ownerは`selfrionette.runtime.composition.viewer_robot_declaration`である。旧package-rootの
-`selfrionette.robot_profile`と`selfrionette.viewer_robot_declaration`は退役し、compatibility facadeは持たない。
+Python上のgeneric contract ownerは`xpotato_sim.runtime.composition.robot_profile`、viewer declarationの
+serialization contract ownerは`xpotato_sim.runtime.composition.viewer_robot_declaration`である。旧package-rootの
+`xpotato_sim.robot_profile`と`xpotato_sim.viewer_robot_declaration`は退役し、compatibility facadeは持たない。
 
 `RobotProfile`はimmutableかつversionedなdeclarationである。robot identity、
 MuJoCo asset reference、canonical joint order、qpos/qvel dimension、initial keyframe、
@@ -105,7 +105,7 @@ profile-aware startup payload URL + digest
   -> qpos render only when compatible
 ```
 
-production discoveryは`selfrionette.plugins.robots`直下の非private packageだけを候補とし、package名を
+production discoveryは`xpotato_sim.plugins.robots`直下の非private packageだけを候補とし、package名を
 sortして固定`<package>.plugin`から固定`ROBOT_PLUGIN`を読む。external entry point、remote package、
 hot reload、configuration stringまたはrobot IDからのarbitrary import、`__init__.py`副作用登録を
 使用しない。candidate packageのentry point欠落、import failure、export欠落、不正型、package / declaration
@@ -119,7 +119,7 @@ registryを返す前にfailする。
 production robot追加時に変更する領域はrobot packageと、そこから参照するtyped resource ownerである。
 
 ```text
-src/selfrionette/plugins/robots/<robot_id>/
+src/xpotato_sim/plugins/robots/<robot_id>/
 repository-owned resource、またはdeclared Python package resource
 ```
 
@@ -139,7 +139,7 @@ catalogへ混入させない。
 runtime composition dependency、public APIではない。
 
 production concrete registrationのSoTは各robot packageの`plugin.py` / `ROBOT_PLUGIN`である。
-`selfrionette.plugins.robots.catalog`はdiscovery結果だけからregistryとprojection resolverを構成し、具体robot
+`xpotato_sim.plugins.robots.catalog`はdiscovery結果だけからregistryとprojection resolverを構成し、具体robot
 package、具体robot ID、Bundle singletonをimportしない。`resolve_robot_profile()`、`resolve_robot_runtime_plugin()`、
 `resolve_robot_runtime()`、`resolve_robot_bundle()`は同じBundleのProfile / Runtime Plugin objectへ収束する。
 Profile、Runtime Plugin、Bundleを独立したconcrete registryへ重複登録しない。旧registry moduleは

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from selfrionette.mujoco_backend.endpoint_extraction import RuntimeMuJoCoEndpointEvaluation
-from selfrionette.runtime.evaluation.endpoint_metrics import (
+from xpotato_sim.mujoco_backend.endpoint_extraction import RuntimeMuJoCoEndpointEvaluation
+from xpotato_sim.runtime.evaluation.endpoint_metrics import (
     RuntimeEndpointEvaluationMetrics,
     build_endpoint_evaluation_state_publisher,
     build_runtime_endpoint_evaluation_metrics,
@@ -16,13 +16,13 @@ from selfrionette.runtime.evaluation.endpoint_metrics import (
     compute_vector_error_m,
     runtime_endpoint_evaluation_metrics_to_payload,
 )
-from selfrionette.runtime.evaluation.kinematics import (
+from xpotato_sim.runtime.evaluation.kinematics import (
     RuntimeForwardKinematicsEvaluation,
     evaluate_fk_endpoint_from_joint_command,
 )
-from selfrionette.runtime.composition.robot_profile import EndpointReference
-from selfrionette.runtime.composition.robot_bundle import EndpointPoseObservation
-from selfrionette.schemas import (
+from xpotato_sim.runtime.composition.robot_profile import EndpointReference
+from xpotato_sim.runtime.composition.robot_bundle import EndpointPoseObservation
+from xpotato_sim.schemas import (
     BodyTransform,
     JointCommand,
     MotionCommand,

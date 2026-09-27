@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 [manifest]
 members = [
     "fast-arm-core",
-    "selfrionette-mujoco",
+    "xpotato-sim",
 ]
 
 [[package]]
@@ -136,7 +136,7 @@ epath = [
 [[package]]
 name = "fast-arm-core"
 version = "0.0.0"
-source = { editable = "src/selfrionette/plugins/robots/fast_arm/core" }
+source = { editable = "src/xpotato_sim/plugins/robots/fast_arm/core" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -686,7 +686,7 @@ wheels = [
 ]
 
 [[package]]
-name = "selfrionette-mujoco"
+name = "xpotato-sim"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
@@ -703,7 +703,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fast-arm-core", editable = "src/selfrionette/plugins/robots/fast_arm/core" },
+    { name = "fast-arm-core", editable = "src/xpotato_sim/plugins/robots/fast_arm/core" },
     { name = "matplotlib", specifier = ">=3.11.0" },
     { name = "mujoco", specifier = ">=3.9.0" },
     { name = "websockets", specifier = ">=16.0" },

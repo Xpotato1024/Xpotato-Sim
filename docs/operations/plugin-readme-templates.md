@@ -18,12 +18,12 @@ READMEはlocal entry pointとcanonical routingを担う。plugin declaration、c
 contractを複製したsecond SoTを作らない。identity、contract、parameterのcurrent値はcanonical ownerへ
 linkする。
 
-plugin READMEのactual rootは`src/selfrionette/plugins/`である。このtemplateからroot直下へ
+plugin READMEのactual rootは`src/xpotato_sim/plugins/`である。このtemplateからroot直下へ
 別の`plugins/`を作らない。
 
 ## plugin root README
 
-target: `src/selfrionette/plugins/README.md`
+target: `src/xpotato_sim/plugins/README.md`
 
 required section:
 
@@ -65,7 +65,7 @@ generic-only axisをproduction-readyと書かない。current concrete plugin li
 
 ## axis README
 
-target: `src/selfrionette/plugins/<axis>/README.md`
+target: `src/xpotato_sim/plugins/<axis>/README.md`
 
 required section:
 
@@ -121,7 +121,7 @@ generic-only axisは、generic contractが存在することとproduction concre
 
 ## concrete plugin README
 
-target: `src/selfrionette/plugins/<axis>/<plugin>/README.md`
+target: `src/xpotato_sim/plugins/<axis>/<plugin>/README.md`
 
 required section:
 

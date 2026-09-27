@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.contact.log import (
+from xpotato_sim.runtime.contact.log import (
     ContactTaskLogError,
     decode_contact_task_log,
 )

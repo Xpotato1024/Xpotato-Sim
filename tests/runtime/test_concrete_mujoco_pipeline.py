@@ -6,20 +6,20 @@ from math import dist
 
 import pytest
 
-import selfrionette.runtime.composition.concrete_mujoco_pipeline as concrete_pipeline_module
-from selfrionette.motion import TargetToJointMotionGenerator
-from selfrionette.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import FastArmEndpointInverseKinematicsSolver
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.runtime.evaluation.endpoint_metrics import EndpointEvaluationStatePublisher
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.robot_bundle import RobotBundle
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
-from selfrionette.schemas import JointCommand, MuJoCoState, RawInputFrame
+import xpotato_sim.runtime.composition.concrete_mujoco_pipeline as concrete_pipeline_module
+from xpotato_sim.motion import TargetToJointMotionGenerator
+from xpotato_sim.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import FastArmEndpointInverseKinematicsSolver
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.runtime.evaluation.endpoint_metrics import EndpointEvaluationStatePublisher
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.robot_bundle import RobotBundle
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.schemas import JointCommand, MuJoCoState, RawInputFrame
 from generic_qpos_test_doubles import RejectingGenericQposGuard
 
 

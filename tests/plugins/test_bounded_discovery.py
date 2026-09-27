@@ -7,22 +7,22 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.mappings.discovery import (
+from xpotato_sim.plugins.mappings.discovery import (
     ControlMappingDiscoveryRoot,
     ControlMappingPluginDiscoveryError,
     discover_control_mapping_plugins,
 )
-from selfrionette.plugins.input_sources.discovery import (
+from xpotato_sim.plugins.input_sources.discovery import (
     InputSourceDiscoveryRoot,
     InputSourcePluginDiscoveryError,
     discover_input_source_plugins,
 )
-from selfrionette.plugins.input_sources.catalog import (
+from xpotato_sim.plugins.input_sources.catalog import (
     INPUT_SOURCE_CATALOG,
     InputSourceCatalog,
 )
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
-from selfrionette.runtime.experiment.contracts import PluginSelection
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
+from xpotato_sim.runtime.experiment.contracts import PluginSelection
 
 
 _INPUT_EXPORT = """
@@ -30,7 +30,7 @@ from tests.plugins.input_sources.fixtures.dummy_input_source import DUMMY_REGIST
 INPUT_SOURCE_PLUGIN = DUMMY_REGISTRATION
 """
 _MAPPING_EXPORT = """
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 from tests.runtime.test_experiment_plugin_composition import build_test_mapping
 CONTROL_MAPPING_PLUGIN = build_test_mapping(
     identity=VersionedIdentity("test_dummy_mapping", 1)
@@ -41,7 +41,7 @@ CONTROL_MAPPING_PLUGIN = build_test_mapping(
 def _input_export(plugin_id: str) -> str:
     return f"""
 from dataclasses import replace
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 from tests.plugins.input_sources.fixtures.dummy_input_source import (
     DUMMY_PLUGIN,
     DUMMY_REGISTRATION,
@@ -56,7 +56,7 @@ INPUT_SOURCE_PLUGIN = replace(
 
 def _mapping_export(plugin_id: str) -> str:
     return f"""
-from selfrionette.runtime.experiment.contracts import VersionedIdentity
+from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 from tests.runtime.test_experiment_plugin_composition import build_test_mapping
 CONTROL_MAPPING_PLUGIN = build_test_mapping(
     identity=VersionedIdentity("{plugin_id}", 1)

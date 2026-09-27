@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
 
 import mujoco
 import pytest
 
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     JointCommand,
     JointPositionCommand,
     MotionCommand,

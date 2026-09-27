@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.runtime.control.endpoint_target_generator import (
+from xpotato_sim.runtime.control.endpoint_target_generator import (
     EndpointTargetGeneratorConfig,
     EndpointTargetGeneratorInput,
     EndpointTargetGeneratorState,

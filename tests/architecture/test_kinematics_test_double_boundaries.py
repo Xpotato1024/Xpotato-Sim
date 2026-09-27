@@ -3,13 +3,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import selfrionette as selfrionette_package
-import selfrionette.kinematics as kinematics
-import selfrionette.motion as motion
-import selfrionette.mujoco_backend as mujoco_backend
-import selfrionette.runtime as runtime
-import selfrionette.schemas as schemas
-import selfrionette.transport as transport
+import xpotato_sim as xpotato_sim_package
+import xpotato_sim.kinematics as kinematics
+import xpotato_sim.motion as motion
+import xpotato_sim.mujoco_backend as mujoco_backend
+import xpotato_sim.runtime as runtime
+import xpotato_sim.schemas as schemas
+import xpotato_sim.transport as transport
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,11 +20,11 @@ MIGRATED_GENERIC_TESTS = (
     ROOT / "tests" / "runtime" / "test_kinematic_evaluation.py",
 )
 FORBIDDEN_DOUBLE_IMPORTS = {
-    "selfrionette.kinematics.fk",
-    "selfrionette.kinematics.ik",
-    "selfrionette.plugins.robots.fast_arm.kinematics",
-    "selfrionette.mujoco_backend",
-    "selfrionette.runtime",
+    "xpotato_sim.kinematics.fk",
+    "xpotato_sim.kinematics.ik",
+    "xpotato_sim.plugins.robots.fast_arm.kinematics",
+    "xpotato_sim.mujoco_backend",
+    "xpotato_sim.runtime",
 }
 DOUBLE_EXPORT_NAMES = {
     "FixedForwardKinematicsSolver",
@@ -34,7 +34,7 @@ DOUBLE_EXPORT_NAMES = {
     "SeedSensitiveInverseKinematicsSolver",
 }
 PRODUCTION_PACKAGES = (
-    selfrionette_package,
+    xpotato_sim_package,
     kinematics,
     motion,
     mujoco_backend,
@@ -107,8 +107,8 @@ def test_migrated_generic_tests_have_no_planar_solver_dependency() -> None:
 
         assert "PlanarChainForwardKinematicsSolver" not in source
         assert "PlanarTwoLinkInverseKinematicsSolver" not in source
-        assert "selfrionette.kinematics.fk" not in imported_modules
-        assert "selfrionette.kinematics.ik" not in imported_modules
+        assert "xpotato_sim.kinematics.fk" not in imported_modules
+        assert "xpotato_sim.kinematics.ik" not in imported_modules
 
 
 def test_planar_solver_implementation_exports_and_production_consumers_are_retired() -> None:
@@ -116,7 +116,7 @@ def test_planar_solver_implementation_exports_and_production_consumers_are_retir
         "PlanarChainForwardKinematicsSolver",
         "PlanarTwoLinkInverseKinematicsSolver",
     }
-    production_sources = tuple((ROOT / "src" / "selfrionette").rglob("*.py"))
+    production_sources = tuple((ROOT / "src" / "xpotato_sim").rglob("*.py"))
 
     assert not retired_names & set(kinematics.__all__)
     assert not any(hasattr(kinematics, name) for name in retired_names)

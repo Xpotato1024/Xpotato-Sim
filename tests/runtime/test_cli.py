@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-cli = importlib.import_module("selfrionette.cli.main")
+cli = importlib.import_module("xpotato_sim.cli.main")
 
 
 class _BundleWithCapabilities:
@@ -111,7 +111,7 @@ def test_unknown_robot_returns_one_without_loading_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    diagnostic_module = "selfrionette.plugins.robots.fast_arm.adapter.diagnostics"
+    diagnostic_module = "xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics"
     sys.modules.pop(diagnostic_module, None)
 
     def reject_unknown(robot_id: str):
@@ -222,4 +222,4 @@ def test_runtime_failure_returns_one(
     monkeypatch.setattr(cli, "run_replay_mujoco_dry_run", fail)
 
     assert cli.main(["replay", "--robot", "selected"]) == 1
-    assert capsys.readouterr().err == "selfrionette: error: runtime failed\n"
+    assert capsys.readouterr().err == "xpotato-sim: error: runtime failed\n"

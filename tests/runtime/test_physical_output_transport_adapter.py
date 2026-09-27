@@ -9,15 +9,15 @@ from typing import Literal
 
 import pytest
 
-from selfrionette.runtime.output import (
+from xpotato_sim.runtime.output import (
     PhysicalOutputLifecycle,
     PhysicalOutputLifecycleTrace,
     bind_physical_output_safety,
     evaluate_and_bind_physical_output_safety,
     physical_output_candidate_id,
 )
-from selfrionette.runtime.output.safety_gate import PhysicalOutputSendableRequest
-from selfrionette.runtime.output.transport_adapter import (
+from xpotato_sim.runtime.output.safety_gate import PhysicalOutputSendableRequest
+from xpotato_sim.runtime.output.transport_adapter import (
     PHYSICAL_OUTPUT_OSC_ADDRESS,
     PHYSICAL_OUTPUT_TRANSPORT_CONFIG_SCHEMA_VERSION,
     PHYSICAL_OUTPUT_TRANSPORT_CONFIG_SCHEMA_VERSION_V2,
@@ -36,10 +36,10 @@ from selfrionette.runtime.output.transport_adapter import (
     build_physical_output_wire_message,
     decode_physical_output_wire_message,
 )
-from selfrionette.schemas import PhysicalOutputPermission, PhysicalOutputRequest
-from selfrionette.transport.endpoint import OscUdpEndpointConfig
-from selfrionette.transport.osc import OscMessage, decode_osc_message, encode_osc_message
-from selfrionette.transport.udp import (
+from xpotato_sim.schemas import PhysicalOutputPermission, PhysicalOutputRequest
+from xpotato_sim.transport.endpoint import OscUdpEndpointConfig
+from xpotato_sim.transport.osc import OscMessage, decode_osc_message, encode_osc_message
+from xpotato_sim.transport.udp import (
     DatagramSendReceipt,
     PreparedDatagramDestination,
     UdpDatagramSender,

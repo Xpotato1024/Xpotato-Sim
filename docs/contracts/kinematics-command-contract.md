@@ -140,7 +140,7 @@ test-only implementationは`tests/support/`だけが所有する。
 - `NoOpMuJoCoSimulator` は MuJoCo backend integration の本線ではない。
 - `NoOpStatePublisher` は production transport ではない。
 
-これらをproduction runtime fallbackとして使用せず、`src/selfrionette/**/stubs.py`を再導入しない。
+これらをproduction runtime fallbackとして使用せず、`src/xpotato_sim/**/stubs.py`を再導入しない。
 旧`InputInterpreter`経路も退役済みであり、Input SourceとControl Mappingをruntimeで直接composeする。
 
 ## Forward kinematics ownership

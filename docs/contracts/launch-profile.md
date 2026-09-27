@@ -14,7 +14,7 @@ related:
 
 ## 役割
 
-`runtime/composition/launch_profile.py`は、`selfrionette-launch-profile/v1` JSONを
+`runtime/composition/launch_profile.py`は、`xpotato-sim-launch-profile/v1` JSONを
 既存のRobot、Input Source、Mapping、command routeへ解決する。Robot Profileのモデル定義や
 関節範囲、Experiment Manifestの実験条件を複製しない。process、Source開始、model step、
 network、serial、physical permissionは所有しない。
@@ -28,9 +28,9 @@ directoryを基準に解決する。profileの名前解決はsource checkout専�
 checkoutを含む明示JSON pathが必要である。
 
 ```powershell
-uv run selfrionette profile
-uv run selfrionette profile sim-gamepad
-uv run selfrionette profile ./profiles/replay-sweep.json
+uv run xpotato-sim profile
+uv run xpotato-sim profile sim-gamepad
+uv run xpotato-sim profile ./profiles/replay-sweep.json
 ```
 
 このコマンドは設定検査・表示だけを行い、サーバーやブラウザを起動しない。
@@ -41,7 +41,7 @@ uv run selfrionette profile ./profiles/replay-sweep.json
 
 | field | 内容 |
 |---|---|
-| `schema_version` | `selfrionette-launch-profile/v1` |
+| `schema_version` | `xpotato-sim-launch-profile/v1` |
 | `name` | lowercaseで始まる英数字・underscore・hyphenの1〜64文字 |
 | `workspace` | source checkoutへの相対または絶対path |
 | `mode` | `simulation`または`replay`。実機出力は対象外 |

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.runtime.control.viewer_control_ingress import (
+from xpotato_sim.runtime.control.viewer_control_ingress import (
     build_viewer_input_source,
     ingest_viewer_control_message,
 )
-from selfrionette.plugins.input_sources.viewer import viewer_health
-from selfrionette.runtime.experiment.input_source import InputSourceHealthStatus
-from selfrionette.schemas import ViewerControlMessageError, ViewerControlKeyboardMessage, ViewerControlMessage
+from xpotato_sim.plugins.input_sources.viewer import viewer_health
+from xpotato_sim.runtime.experiment.input_source import InputSourceHealthStatus
+from xpotato_sim.schemas import ViewerControlMessageError, ViewerControlKeyboardMessage, ViewerControlMessage
 
 
 def test_viewer_control_ingress_validates_json_before_source_update() -> None:

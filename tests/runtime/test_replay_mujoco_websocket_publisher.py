@@ -6,11 +6,11 @@ from collections.abc import Callable
 
 import pytest
 
-import selfrionette.runtime.runners.websocket_publisher as websocket_runner_module
-from selfrionette.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
+import xpotato_sim.runtime.runners.websocket_publisher as websocket_runner_module
+from xpotato_sim.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
 from generic_qpos_test_doubles import RejectingGenericQposGuard
-from selfrionette.schemas import RawInputFrame
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.schemas import RawInputFrame
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 class _FakeWebSocketPublisherServer:

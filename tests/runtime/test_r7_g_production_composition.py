@@ -5,11 +5,11 @@ from math import isfinite
 
 import pytest
 
-from selfrionette.runtime.composition.production_experiment import (
+from xpotato_sim.runtime.composition.production_experiment import (
     PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
     resolve_production_experiment,
 )
-from selfrionette.runtime.evaluation.manifest import (
+from xpotato_sim.runtime.evaluation.manifest import (
     EvaluationConditionPair,
     EvaluationReadinessError,
     SoftwareExecutionIdentity,
@@ -19,7 +19,7 @@ from selfrionette.runtime.evaluation.manifest import (
     encode_evaluation_manifest,
     evaluation_manifest_digest,
 )
-from selfrionette.runtime.evaluation.r7_g_free_space import (
+from xpotato_sim.runtime.evaluation.r7_g_free_space import (
     R7_G_ENVIRONMENT_SELECTION,
     R7_G_EVALUATOR_SELECTIONS,
     R7_G_FIXTURE_NONZERO_SAMPLE_COUNT,
@@ -29,36 +29,36 @@ from selfrionette.runtime.evaluation.r7_g_free_space import (
     R7_G_TASK_SELECTION,
     build_r7_g_free_space_manifest_pair,
 )
-from selfrionette.runtime.experiment.contracts import PluginAxis, PluginSelection
-from selfrionette.runtime.experiment.endpoint_reach_evidence import (
+from xpotato_sim.runtime.experiment.contracts import PluginAxis, PluginSelection
+from xpotato_sim.runtime.experiment.endpoint_reach_evidence import (
     EndpointReachTaskContext,
 )
 
 
 EXECUTION_IDENTITY = SoftwareExecutionIdentity(
-    repository_identity="Xpotato1024/Selfrionette-mujoco",
+    repository_identity="Xpotato1024/Xpotato-Sim",
     software_revision_identity="test-revision:r7-g-production-fixture",
 )
 WORLD_MANIFEST_DIGEST = (
-    "sha256:416b85e1b70e27f3485aa58211e1ad5db1a4948d6f7c58983edcc044ac290f4f"
+    "sha256:939d4bf909dec5cccf5ce48371931e7e6eecca0e8f4b5e3a9fcfbdbe7e29253e"
 )
 TOOL_MANIFEST_DIGEST = (
-    "sha256:35352ae7fa550e9ca472941d81a4d89b070b84eae3c34629fd70b8b3a485a054"
+    "sha256:c877521fef2c46e89542055fb9564eb6d5d2017b7b5505f625ae49974c613ba0"
 )
 WORLD_RESOLVED_DIGEST = (
-    "sha256:40287ccca4f92e793efbba1a4daf996f205dac9362659cbba6a1150c0d9924aa"
+    "sha256:6372df327fd03cc55cc5107cf4d82f3c47913b232de990548c2fabbe583e38ce"
 )
 TOOL_RESOLVED_DIGEST = (
-    "sha256:a69359d2c6bf83bdf9dac10134356c60f15bcabaa9949205a8e9446ce9bb1120"
+    "sha256:9f60f249450e47b9ed8ff6be860f1dbeb9f6ee77816e11aac7db7706cac370fb"
 )
 WORLD_FREEZE_DIGEST = (
-    "sha256:28960b4155a455fb13613b75270ffbe920a2bc328da0ef8ec696fad8389bf700"
+    "sha256:594326c987d0e8f36a57f12e75bbea2a6ca082e8ca4b36807e1b09a97a206dda"
 )
 TOOL_FREEZE_DIGEST = (
-    "sha256:e29343c50d9012823fe4322153d38d24021bbce3339ec78ff89ac83ac08b63c1"
+    "sha256:8bfc897be091a7054e6f503eb82471e6d679f5b5598731fd28dcc56943141d5c"
 )
 PAIR_DIGEST = (
-    "sha256:800d09b16aac7b3c8519010df7fdeaec975bc59111cefd1bb3098b148e3e0247"
+    "sha256:96baf08830c0f1d6f361aa26b964cd3231d130d133fc54ca2cdd0b5cef768e39"
 )
 
 
@@ -118,6 +118,21 @@ def test_canonical_world_tool_pair_freezes_from_production_catalogs_only() -> No
         PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
         execution_identity=EXECUTION_IDENTITY,
     )
+
+    # repository identity以外の条件が旧goldenと同一であることを検証する。
+    def old_manifest(manifest):
+        return decode_evaluation_manifest(encode_evaluation_manifest(manifest).replace(
+            b"Xpotato1024/Xpotato-Sim", b"Xpotato1024/Selfrionette-mujoco"))
+    old_pair = replace(pair, world=old_manifest(pair.world), tool=old_manifest(pair.tool))
+    old_ready = build_evaluation_condition_pair_readiness(old_pair, PRODUCTION_EXPERIMENT_PLUGIN_REGISTRIES,
+        execution_identity=replace(EXECUTION_IDENTITY, repository_identity="Xpotato1024/Selfrionette-mujoco"))
+    assert evaluation_manifest_digest(old_pair.world) == 'sha256:416b85e1b70e27f3485aa58211e1ad5db1a4948d6f7c58983edcc044ac290f4f'
+    assert evaluation_manifest_digest(old_pair.tool) == 'sha256:35352ae7fa550e9ca472941d81a4d89b070b84eae3c34629fd70b8b3a485a054'
+    assert old_ready.world.freeze_record.resolved_identity_digest == 'sha256:40287ccca4f92e793efbba1a4daf996f205dac9362659cbba6a1150c0d9924aa'
+    assert old_ready.tool.freeze_record.resolved_identity_digest == 'sha256:a69359d2c6bf83bdf9dac10134356c60f15bcabaa9949205a8e9446ce9bb1120'
+    assert old_ready.world.freeze_identity == 'sha256:28960b4155a455fb13613b75270ffbe920a2bc328da0ef8ec696fad8389bf700'
+    assert old_ready.tool.freeze_identity == 'sha256:e29343c50d9012823fe4322153d38d24021bbce3339ec78ff89ac83ac08b63c1'
+    assert old_ready.pair_identity == 'sha256:800d09b16aac7b3c8519010df7fdeaec975bc59111cefd1bb3098b148e3e0247'
 
     assert evaluation_manifest_digest(pair.world) == WORLD_MANIFEST_DIGEST
     assert evaluation_manifest_digest(pair.tool) == TOOL_MANIFEST_DIGEST

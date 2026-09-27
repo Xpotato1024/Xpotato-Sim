@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from selfrionette.schemas import JointCommand, Vector3
+from xpotato_sim.schemas import JointCommand, Vector3
 
 
 class ZeroForwardKinematicsSolver:
