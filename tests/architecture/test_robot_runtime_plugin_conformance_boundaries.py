@@ -40,7 +40,7 @@ def test_generic_harness_is_robot_agnostic_and_viewer_free() -> None:
     tree = _parse(GENERIC_SUPPORT)
 
     assert "fast_arm" not in source.lower()
-    assert not any(module.startswith("selfrionette.robots") for module in _imported_modules(tree))
+    assert not any(module.startswith("xpotato_sim.robots") for module in _imported_modules(tree))
     assert not any(module.endswith("fast_arm_plugin") for module in _imported_modules(tree))
     assert not any(name.startswith("FAST_ARM") for name in _called_names(tree))
     assert "mujoco-viewer" not in source
@@ -80,7 +80,7 @@ def test_robot_specific_expected_values_are_owned_by_the_robot_case() -> None:
 
 def test_production_source_does_not_import_test_support() -> None:
     violations: list[str] = []
-    for path in (ROOT / "src" / "selfrionette").rglob("*.py"):
+    for path in (ROOT / "src" / "xpotato_sim").rglob("*.py"):
         for module in _imported_modules(_parse(path)):
             if module == "tests" or module.startswith("tests."):
                 violations.append(f"{path.relative_to(ROOT)} imports {module}")
@@ -88,7 +88,7 @@ def test_production_source_does_not_import_test_support() -> None:
 
 
 def test_test_conformance_support_is_not_a_runtime_export() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert not any("Conformance" in name for name in runtime.__all__)
     assert not hasattr(runtime, "RobotRuntimePluginConformanceCase")

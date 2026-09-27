@@ -79,7 +79,7 @@ def test_code_documentation_policy_is_canonical_and_registered() -> None:
         "plugin root README",
         "axis README",
         "concrete production plugin README",
-        "src/selfrionette/plugins/README.md",
+        "src/xpotato_sim/plugins/README.md",
         "command semantics route",
         "該当するREADME",
         "repository-wide policyとsubproject固有policyの境界",
@@ -100,8 +100,8 @@ def test_concrete_plugin_readme_template_is_axis_neutral() -> None:
     concrete = template.split("## concrete plugin README", 1)[1]
     required, optional = concrete.split("optional section:", 1)
 
-    assert "src/selfrionette/plugins/<axis>/<plugin>/README.md" in policy
-    assert "src/selfrionette/plugins/<axis>/<plugin>/README.md" in template
+    assert "src/xpotato_sim/plugins/<axis>/<plugin>/README.md" in policy
+    assert "src/xpotato_sim/plugins/<axis>/<plugin>/README.md" in template
     assert "root直下" in policy
     assert "## compatibilityとcomposition" in required
     assert "command semantics" not in required

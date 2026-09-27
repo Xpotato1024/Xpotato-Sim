@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import build_keyboard_motion_command
-from selfrionette.plugins.mappings.replay_mapping import build_motion_command_from_replay_frame
-from selfrionette.runtime.runners.offline_input_smoke import run_offline_input_runtime_stepping_smoke
-from selfrionette.runtime.runners import offline_input_smoke as offline_smoke_module
-from selfrionette.runtime.composition.robot_bundle import (
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import build_keyboard_motion_command
+from xpotato_sim.plugins.mappings.replay_mapping import build_motion_command_from_replay_frame
+from xpotato_sim.runtime.runners.offline_input_smoke import run_offline_input_runtime_stepping_smoke
+from xpotato_sim.runtime.runners import offline_input_smoke as offline_smoke_module
+from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1,
     ENDPOINT_POSE_V1,
     QPOS_FEASIBILITY_V1,
@@ -15,14 +15,14 @@ from selfrionette.runtime.composition.robot_bundle import (
     RobotCommandSemanticProviderBinding,
     RobotBundle,
 )
-from selfrionette.runtime.composition.robot_provider_adapters import (
+from xpotato_sim.runtime.composition.robot_provider_adapters import (
     RuntimeEndpointCommandProvider,
     RuntimeEndpointPoseProvider,
     RuntimeJointPositionCommandProvider,
     RuntimeQposFeasibilityProvider,
 )
-from selfrionette.schemas import MuJoCoState, RawInputFrame
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.schemas import MuJoCoState, RawInputFrame
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 @dataclass

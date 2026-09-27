@@ -26,7 +26,7 @@ publisher の bind address と、browser から見える接続先を分けて扱
 ## Loopback
 
 ```bash
-uv run selfrionette viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
+uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
 ```
 
 browser 側 endpoint は `ws://127.0.0.1:8766` とする。
@@ -36,7 +36,7 @@ browser 側 endpoint は `ws://127.0.0.1:8766` とする。
 publisher は必要な場合だけ `0.0.0.0` へbindする。
 
 ```bash
-uv run selfrionette viewer --robot fast_arm --host 0.0.0.0 --port 8766 --steps 3
+uv run xpotato-sim viewer --robot fast_arm --host 0.0.0.0 --port 8766 --steps 3
 ```
 
 browser URL には `ws://<browser-visible-host>:8766` を指定し、`0.0.0.0` を含めない。

@@ -9,11 +9,11 @@ import subprocess
 
 import pytest
 
-from selfrionette.runtime.composition.launch_profile import (
+from xpotato_sim.runtime.composition.launch_profile import (
     MAX_PROFILE_BYTES, decode_launch_profile, list_launch_profiles,
     load_launch_profile, override_launch_profile,
 )
-from selfrionette.runtime.experiment.input_source import ValidatedManagedInputSourceReader, ValidatedInputSourceReader
+from xpotato_sim.runtime.experiment.input_source import ValidatedManagedInputSourceReader, ValidatedInputSourceReader
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "profiles/sim-gamepad.json"
@@ -139,7 +139,7 @@ def test_parameter_changes_reach_the_existing_mapping_normalizer():
 
 
 def test_profile_cli_and_errors(capsys):
-    cli = importlib.import_module("selfrionette.cli.main")
+    cli = importlib.import_module("xpotato_sim.cli.main")
     assert cli.main(["profile"]) == 0
     assert json.loads(capsys.readouterr().out) == list(list_launch_profiles())
     assert cli.main(["profile", "sim-keyboard"]) == 0

@@ -5,17 +5,17 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
-from selfrionette.plugins.robots.catalog import resolve_robot_bundle
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
-from selfrionette.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
-from selfrionette.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.plugins.robots.catalog import resolve_robot_bundle
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.runtime.composition.replay_mujoco_pipeline import build_replay_mujoco_pipeline
+from xpotato_sim.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 from tests.support.mapped_pipeline_builders import build_test_mujoco_pipeline
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import FastArmJointLimitGuard
-from selfrionette.runtime.safety.qpos_feasibility import NoOpQposFeasibilityGuard, QposFeasibilityGuard
-from selfrionette.schemas import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import FastArmJointLimitGuard
+from xpotato_sim.runtime.safety.qpos_feasibility import NoOpQposFeasibilityGuard, QposFeasibilityGuard
+from xpotato_sim.schemas import (
     MotionCommand,
     MuJoCoState,
     RawInputFrame,
@@ -84,7 +84,7 @@ def test_fast_arm_replay_production_step_loop_uses_bundle_owned_guard() -> None:
 def test_fast_arm_production_composition_rejects_non_fast_arm_model(tmp_path: Path) -> None:
     model_path = _write_minimal_model(tmp_path)
 
-    from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+    from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
 
     try:
         build_concrete_mujoco_pipeline(model_path=model_path, publisher=_RecordingPublisher())
@@ -113,7 +113,7 @@ def test_generic_feasibility_contract_has_explicit_no_guard_behavior() -> None:
 
 
 def test_runtime_pipeline_uses_typed_rejection_without_fast_arm_metadata() -> None:
-    from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+    from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
 
     pipeline = build_concrete_mujoco_pipeline(publisher=_RecordingPublisher())
     pipeline.qpos_feasibility_guard = RejectingGenericQposGuard()
@@ -129,7 +129,7 @@ def test_runtime_pipeline_uses_typed_rejection_without_fast_arm_metadata() -> No
 
 
 def test_generic_runtime_package_root_excludes_fast_arm_implementation_details() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert not hasattr(runtime, "FastArmJointLimitConfig")
     assert not hasattr(runtime, "FastArmJointLimitViolation")
@@ -138,7 +138,7 @@ def test_generic_runtime_package_root_excludes_fast_arm_implementation_details()
 
 
 def test_generic_runtime_modules_do_not_import_fast_arm_limit_implementation() -> None:
-    root = Path(__file__).resolve().parents[2] / "src" / "selfrionette" / "runtime"
+    root = Path(__file__).resolve().parents[2] / "src" / "xpotato_sim" / "runtime"
     for relative_path in (
         "execution/pipeline.py",
         "safety/input_safety.py",
@@ -149,7 +149,7 @@ def test_generic_runtime_modules_do_not_import_fast_arm_limit_implementation() -
 
 
 def test_runtime_reject_control_flow_does_not_read_fast_arm_rejection_metadata() -> None:
-    root = Path(__file__).resolve().parents[2] / "src" / "selfrionette" / "runtime"
+    root = Path(__file__).resolve().parents[2] / "src" / "xpotato_sim" / "runtime"
     for relative_path in (
         "execution/pipeline.py",
         "runners/dry_run.py",

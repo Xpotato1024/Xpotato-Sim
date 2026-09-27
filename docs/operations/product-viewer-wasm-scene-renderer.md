@@ -105,7 +105,7 @@ intentional terminal holdを持つ30 framesである。current SHA-256は
 
 ## 実行
 
-通常はrepository rootから`uv run selfrionette app --profile sim-keyboard`を使う。
+通常はrepository rootから`uv run xpotato-sim app --profile sim-keyboard`を使う。
 Webとbackendを起動し、接続先と入力providerを指定したURLを一度だけ開く。
 起動・終了・障害時の正本は`backend-viewer-startup.md`である。以下はWeb単体の開発手順。
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from selfrionette.runtime.composition.robot_profile import (
+from xpotato_sim.runtime.composition.robot_profile import (
     CoordinateUnitContract,
     EndpointReference,
     RobotProfile,

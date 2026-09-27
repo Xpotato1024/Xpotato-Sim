@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import selfrionette.runtime.safety.trajectory_feasibility as _trajectory_module
+import xpotato_sim.runtime.safety.trajectory_feasibility as _trajectory_module
 
-from selfrionette.runtime.safety.physical_limits import (
+from xpotato_sim.runtime.safety.physical_limits import (
     EvidenceStatus,
     LimitQuantity,
     LimitSpace,
@@ -17,11 +17,11 @@ from selfrionette.runtime.safety.physical_limits import (
     LimitSourceProvenance,
     PhysicalLimit,
 )
-from selfrionette.runtime.safety.limit_resolution import (
+from xpotato_sim.runtime.safety.limit_resolution import (
     JointSpaceConversion,
     project_limit_to_joint_space,
 )
-from selfrionette.runtime.safety.trajectory_feasibility import (
+from xpotato_sim.runtime.safety.trajectory_feasibility import (
     ConfigurationFeasibilityResult,
     ConfigurationState,
     DynamicQuantity,

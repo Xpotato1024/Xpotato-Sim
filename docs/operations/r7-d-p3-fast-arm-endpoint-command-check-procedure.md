@@ -53,7 +53,7 @@ related:
 viewer control を使った manual 確認では、backend は viewer input source で起動する。
 
 ```powershell
-uv run selfrionette viewer --robot fast_arm `
+uv run xpotato-sim viewer --robot fast_arm `
   --host 127.0.0.1 `
   --port 8766 `
   --steps 120 `

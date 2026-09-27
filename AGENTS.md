@@ -4,7 +4,7 @@ Last updated: 2026-07-31
 
 ## 0. Purpose
 
-このファイルは、`Selfrionette-mujoco`で作業するAIエージェント向けのrepository-local instructionである。
+このファイルは、`Xpotato-Sim`で作業するAIエージェント向けのrepository-local instructionである。
 
 目的、Issue、関連するcanonical documentsを確認し、リポジトリ内の設計、tests、既存実装から必要な作業方法を判断する。恒常ルールを個別プロンプトへ重複転記しない。
 
@@ -215,7 +215,7 @@ testsを削除、skip、弱体化して変更を通さない。
 
 ## 9. Repository hygiene
 
-- repository名、URL、docs pathでは`Selfrionette-mujoco`を使用する。
+- repository名、URL、docs pathでは`Xpotato-Sim`を使用する。
 - generated artifacts、`node_modules/`、`dist/`、`.env.local`、secrets、local absolute pathをcommitしない。
 - `assets/`、schema、fixture、log formatを変更した場合は、consumerとcanonical docsへの影響を確認する。
 - 日本語MarkdownとテキストはUTF-8 without BOMを基本とする。

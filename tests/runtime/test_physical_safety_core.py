@@ -5,14 +5,14 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.runtime.safety.collision_policy import (
+from xpotato_sim.runtime.safety.collision_policy import (
     CollisionCheckResult,
     CollisionContext,
     CollisionEvaluation,
     CollisionKind,
     CollisionStatus,
 )
-from selfrionette.runtime.safety.limit_resolution import (
+from xpotato_sim.runtime.safety.limit_resolution import (
     DEFAULT_COMPARISON_TOLERANCE_RAD,
     JointSpaceConversion,
     LimitParityRecord,
@@ -23,7 +23,7 @@ from selfrionette.runtime.safety.limit_resolution import (
     ResolvedJointBound,
     resolve_joint_space_bounds,
 )
-from selfrionette.runtime.safety.physical_safety_core import (
+from xpotato_sim.runtime.safety.physical_safety_core import (
     BoundedSafetySamplingResult,
     SafetyComponent,
     SafetyComponentAssessment,
@@ -38,7 +38,7 @@ from selfrionette.runtime.safety.physical_safety_core import (
     validate_safety_input,
     validate_safety_projection,
 )
-from selfrionette.runtime.safety.trajectory_feasibility import (
+from xpotato_sim.runtime.safety.trajectory_feasibility import (
     ConfigurationFeasibilityResult,
     ConfigurationState,
     FeasibilityDiagnostic,
@@ -52,7 +52,7 @@ from selfrionette.runtime.safety.trajectory_feasibility import (
     evaluate_configuration_feasibility,
     evaluate_trajectory_feasibility,
 )
-from selfrionette.runtime.safety.physical_limits import (
+from xpotato_sim.runtime.safety.physical_limits import (
     EvidenceStatus,
     LimitQuantity,
     LimitSourceProvenance,

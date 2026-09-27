@@ -1,6 +1,6 @@
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.runtime.experiment.input_source import InputSourceRuntimeDependencies
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.experiment.input_source import InputSourceRuntimeDependencies
+from xpotato_sim.schemas import RawInputFrame
 from tests.plugins.input_sources.contract.conformance import (
     InputSourceConformanceCase,
     TimestampSequencePolicy,

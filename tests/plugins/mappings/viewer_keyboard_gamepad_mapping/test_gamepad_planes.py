@@ -5,10 +5,10 @@ from copy import deepcopy
 from dataclasses import replace
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping import VIEWER_CONTROL_MAPPING_PLUGIN as PLUGIN
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.gamepad_planes import coerce_plane_control
-from selfrionette.schemas import ViewerControlMessage, ViewerControlGamepadMessage, ViewerControlGamepadButtonMessage
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping import VIEWER_CONTROL_MAPPING_PLUGIN as PLUGIN
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.gamepad_planes import coerce_plane_control
+from xpotato_sim.schemas import ViewerControlMessage, ViewerControlGamepadMessage, ViewerControlGamepadButtonMessage
 
 
 CONFIG = {"schema": "gamepad-plane-control/v1", "output_side": "left", "neutral_threshold": 0.1,
@@ -203,7 +203,7 @@ def test_invalid_provider_session_is_rejected_by_source(identity):
 
 
 def test_empty_bootstrap_does_not_freeze_a_fabricated_world_frame():
-    from selfrionette.schemas import RawInputFrame
+    from xpotato_sim.schemas import RawInputFrame
     s=PLUGIN.create_session_strategy()
     empty=RawInputFrame(source="viewer",timestamp_s=0.,values=(),buttons=(),metadata={})
     assert s.map_input(empty,parameters()).values==(0.,0.,0.)

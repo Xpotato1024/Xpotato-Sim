@@ -5,8 +5,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from selfrionette.schemas import BodyTransform, MuJoCoState, SiteTransform
-from selfrionette.transport import WebSocketStatePublisher
+from xpotato_sim.schemas import BodyTransform, MuJoCoState, SiteTransform
+from xpotato_sim.transport import WebSocketStatePublisher
 
 
 class RecordingSender:
@@ -117,7 +117,7 @@ def test_websocket_state_publisher_sends_json_payload_contract() -> None:
 
 
 def test_transport_websocket_module_does_not_import_forbidden_layers() -> None:
-    path = Path(__file__).resolve().parents[2] / "src" / "selfrionette" / "transport" / "websocket.py"
+    path = Path(__file__).resolve().parents[2] / "src" / "xpotato_sim" / "transport" / "websocket.py"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: list[str] = []
 
@@ -127,7 +127,7 @@ def test_transport_websocket_module_does_not_import_forbidden_layers() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             imports.append(node.module)
 
-    assert not any(name.startswith("selfrionette.mujoco_backend") for name in imports)
-    assert not any(name.startswith("selfrionette.viewer") for name in imports)
-    assert not any(name.startswith("selfrionette.kinematics") for name in imports)
-    assert not any(name.startswith("selfrionette.motion") for name in imports)
+    assert not any(name.startswith("xpotato_sim.mujoco_backend") for name in imports)
+    assert not any(name.startswith("xpotato_sim.viewer") for name in imports)
+    assert not any(name.startswith("xpotato_sim.kinematics") for name in imports)
+    assert not any(name.startswith("xpotato_sim.motion") for name in imports)

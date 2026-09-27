@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import KeyboardBinding, KeyboardInputConfig
-from selfrionette.plugins.mappings.viewer_keyboard_gamepad_mapping import VIEWER_CONTROL_MAPPING_PLUGIN
-from selfrionette.schemas import (
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping.keyboard import KeyboardBinding, KeyboardInputConfig
+from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping import VIEWER_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.schemas import (
     ViewerControlGamepadButtonMessage,
     ViewerControlGamepadMessage,
     ViewerControlKeyboardMessage,

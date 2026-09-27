@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from selfrionette.runtime.control.input_step_diagnostics import (
+from xpotato_sim.runtime.control.input_step_diagnostics import (
     PostStepMeasurement,
     annotate_runtime_input_state,
     build_diagnostic_metadata,
     measure_post_step_tip,
 )
-from selfrionette.runtime.safety.input_safety import RuntimeInputSafetyResult
-from selfrionette.runtime.control.input_source_state import RuntimeInputSourceState
-from selfrionette.runtime.composition.robot_profile import robot_profile_runtime_metadata
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.schemas import InputIntent, MotionCommand, MuJoCoState, RawInputFrame, SiteTransform
+from xpotato_sim.runtime.safety.input_safety import RuntimeInputSafetyResult
+from xpotato_sim.runtime.control.input_source_state import RuntimeInputSourceState
+from xpotato_sim.runtime.composition.robot_profile import robot_profile_runtime_metadata
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.schemas import InputIntent, MotionCommand, MuJoCoState, RawInputFrame, SiteTransform
 
 
 def _state(*, tip_position_m=None, metadata=None, target_position_m=None) -> MuJoCoState:

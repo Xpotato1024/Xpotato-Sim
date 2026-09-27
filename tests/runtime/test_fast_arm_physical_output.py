@@ -8,13 +8,13 @@ from typing import Literal
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.physical_output import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.physical_output import (
     FAST_ARM_JOINT_POSITION_SEMANTICS,
     FastArmOutputMapping,
     build_fast_arm_joint_wire_command,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.runtime.output.fast_arm_adapter import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.runtime.output.fast_arm_adapter import (
     FastArmPhysicalEvidenceAcceptance,
     FastArmPhysicalEvidenceHandoff,
     FastArmPhysicalOutputSession,
@@ -22,23 +22,23 @@ from selfrionette.runtime.output.fast_arm_adapter import (
     fast_arm_codec_identity,
     fast_arm_envelope_provenance_token,
 )
-from selfrionette.runtime.output.safety_gate import (
+from xpotato_sim.runtime.output.safety_gate import (
     evaluate_and_bind_physical_output_safety,
     physical_output_candidate_id,
 )
-from selfrionette.runtime.output.transport_adapter import (
+from xpotato_sim.runtime.output.transport_adapter import (
     PHYSICAL_OUTPUT_TRANSPORT_CONFIG_SCHEMA_VERSION_V1,
     PHYSICAL_OUTPUT_TRANSPORT_CONFIG_SCHEMA_VERSION_V2,
     PhysicalOutputOperatorEnable,
     PhysicalOutputTransportAdapter,
     PhysicalOutputTransportConfig,
 )
-from selfrionette.runtime.safety.limit_resolution import resolve_joint_space_bounds
-from selfrionette.runtime.safety.operator_validation import (
+from xpotato_sim.runtime.safety.limit_resolution import resolve_joint_space_bounds
+from xpotato_sim.runtime.safety.operator_validation import (
     EvidenceClass,
     build_dry_run_validation_artifact,
 )
-from selfrionette.runtime.safety.physical_limits import (
+from xpotato_sim.runtime.safety.physical_limits import (
     EvidenceStatus,
     LimitQuantity,
     LimitSourceProvenance,
@@ -46,12 +46,12 @@ from selfrionette.runtime.safety.physical_limits import (
     PhysicalLimit,
     PhysicalSafetyEnvelope,
 )
-from selfrionette.runtime.safety.physical_safety_core import SafetyInput
-from selfrionette.schemas import PhysicalOutputPermission
-from selfrionette.schemas.command import JointPositionCommand, PhysicalOutputRequest
-from selfrionette.transport.endpoint import OscUdpEndpointConfig
-from selfrionette.transport.osc import OscMessage, encode_osc_message
-from selfrionette.transport.udp import (
+from xpotato_sim.runtime.safety.physical_safety_core import SafetyInput
+from xpotato_sim.schemas import PhysicalOutputPermission
+from xpotato_sim.schemas.command import JointPositionCommand, PhysicalOutputRequest
+from xpotato_sim.transport.endpoint import OscUdpEndpointConfig
+from xpotato_sim.transport.osc import OscMessage, encode_osc_message
+from xpotato_sim.transport.udp import (
     DatagramSendReceipt,
     PreparedDatagramDestination,
 )

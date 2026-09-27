@@ -1,0 +1,36 @@
+schema_version = 1
+skill_name = "xpotato-sim-pr-handoff"
+invocation_policy = "implicit-after-validation"
+validation_status = "validated"
+side_effect_policy = "instruction-only"
+unresolved_approval = false
+side_effect_boundary = "read-only Git/GitHub inspection"
+positive_triggers = [
+  "Draft PRを作成する前に、branch、base、actual diff、Issue scope、validationのhandoffを監査してください。",
+  "local HEAD、remote HEAD、PR head、CI、Draft stateが一致するかread-onlyで確認してください。",
+  "PR bodyとDocumentation・Research・Experiment impact、残存riskを突合してhandoff reportを作ってください。"
+]
+negative_triggers = [
+  "このSkillでcommit、push、PR更新、merge、Issue closeまで自動実行してください。",
+  "mergeable: trueだけを見てPRをReadyと判定してください。",
+  "このrepositoryと無関係な一般質問に答えてください。"
+]
+route_boundaries = [
+  "Unicode-safe long-form bodyのwriteとrollbackはgit-pr-workflowおよびjapanese-doc-writing-guardrailsへrouteする。",
+  "変更層ごとのtest選択はxpotato-sim-change-validationへrouteする。"
+]
+required_inputs = ["local branch / base / HEAD", "working tree", "actual diff", "Issue scope", "validation evidence", "remote branch / PR / CI state", "PR body"]
+expected_major_steps = ["local state確認", "diff / scope突合", "三者head突合", "validation / CI確認", "PR metadata / body確認", "impact / risk確認", "read-only report"]
+expected_outputs = ["handoff gate table", "head consistency", "Draft / CI / Issue relation", "impact判定", "blockerと残存risk"]
+forbidden_actions = ["commit", "push", "PR create / update", "merge", "Ready化", "Issue close", "branch削除", "long-form body write", "hardware / external mutation"]
+representative_dry_run = "metadata matchによるimplicit候補として、現在branchのworking tree・base・actual diffだけをread-onlyで監査し、PRがない状態ではPR headとCIをunavailableとして報告し、write権限を得ないことを確認する。"
+false_positive_risk = "mergeabilityやclean diffだけでhandoff完了と誤判定するリスク。"
+false_negative_risk = "local・remote・PR headやDraft stateの一部未取得を見落とすリスク。"
+stale_reference_risk = "古いPR bodyやCI runをcurrent headの証拠として扱うリスク。"
+
+[[routing_cases]]
+prompt = "実装検証後のDraft PRについて、head、CI、body、impactをread-onlyでhandoff監査してください。"
+expected_skills = ["xpotato-sim-pr-handoff", "xpotato-sim-change-validation"]
+primary_skill = "xpotato-sim-pr-handoff"
+automatic_chain = false
+permission_grant = false

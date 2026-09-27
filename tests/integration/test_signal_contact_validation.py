@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import FastArmRuntimePlugin
-from selfrionette.runtime.runners.signal_contact import capture_signal_contact, canonical, strict_json
-from selfrionette.runtime.runners.signal_contact_artifact import decode_signal_trace
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import FastArmRuntimePlugin
+from xpotato_sim.runtime.runners.signal_contact import capture_signal_contact, canonical, strict_json
+from xpotato_sim.runtime.runners.signal_contact_artifact import decode_signal_trace
 
 ROOT = Path(__file__).resolve().parents[2]
 REVISION = "test-only-r7l-validation"
@@ -121,10 +121,10 @@ def test_legitimate_success_and_failures_remain_readable(source, mode):
 def test_true_hold_reject_and_unavailable_contact_are_readable(monkeypatch, kind):
     """既存処理境界への故障注入で、正当な非成功記録を誤拒否しないことを確認する。"""
     from dataclasses import replace
-    from selfrionette.motion import LocalEndpointMotionGenerator
-    from selfrionette.schemas import JointCommand
-    from selfrionette.runtime.contact.scene import ContactSceneInstance
-    from selfrionette.runtime.contact.evidence import ContactEvidenceStatus
+    from xpotato_sim.motion import LocalEndpointMotionGenerator
+    from xpotato_sim.schemas import JointCommand
+    from xpotato_sim.runtime.contact.scene import ContactSceneInstance
+    from xpotato_sim.runtime.contact.evidence import ContactEvidenceStatus
 
     if kind == "invalid_contact":
         original = ContactSceneInstance.measure_contact_evidence
@@ -160,7 +160,7 @@ def test_true_hold_reject_and_unavailable_contact_are_readable(monkeypatch, kind
 
 @pytest.mark.parametrize("fail_start", (False, True))
 def test_cleanup_and_start_errors_keep_their_real_termination(monkeypatch, fail_start):
-    from selfrionette.plugins.input_sources.selfrionette import SelfrionetteInputSource
+    from xpotato_sim.plugins.input_sources.selfrionette import SelfrionetteInputSource
     original_close = SelfrionetteInputSource.close
 
     def broken_close(reader):
@@ -194,7 +194,7 @@ def test_budget_failure_cannot_be_relabelled_as_task_terminal():
 
 
 def test_readback_uses_robot_preflight_without_simulation_step_or_network(monkeypatch):
-    from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+    from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
     import socket
     raw = capture_signal_contact(fixture(), software_revision=REVISION)
 
@@ -210,7 +210,7 @@ def test_readback_uses_robot_preflight_without_simulation_step_or_network(monkey
 @pytest.mark.parametrize("phase", ("start", "close"))
 def test_empty_exception_message_remains_a_readable_failure(monkeypatch, phase):
     """例外の空messageを架空の原因で補わず、型名で理由を保持する。"""
-    from selfrionette.plugins.input_sources.selfrionette import SelfrionetteInputSource
+    from xpotato_sim.plugins.input_sources.selfrionette import SelfrionetteInputSource
     original_close = SelfrionetteInputSource.close
 
     def empty_error(reader):

@@ -99,14 +99,14 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
 `plugins/mappings/_continuous_endpoint_velocity.py`と、declaration / route factoryの
 `plugins/mappings/_command_routes.py`である。どちらもdiscoverable plugin entryではない。
 
-- `selfrionette.plugins.robots.discovery`は`selfrionette.plugins.robots`直下packageだけを列挙し、
+- `xpotato_sim.plugins.robots.discovery`は`xpotato_sim.plugins.robots`直下packageだけを列挙し、
   固定`plugin.py`の固定`ROBOT_PLUGIN`だけを読む。configuration値、robot ID、external entry pointを
   import pathとして使用しない。
 - 各robot packageの`ROBOT_PLUGIN`はBundle、viewer declaration、resource declaration、
   onboarding contract versionを一つのimmutable registrationへ束ねる。`__init__.py`の
   import副作用で自己登録しない。onboarding contract versionはregistration schema軸であり、
   Bundle / Profile / Viewerのrobot logical version軸とは独立させる。
-- `selfrionette.plugins.robots.catalog`はproduction discovery結果の唯一のprojection入口であり、
+- `xpotato_sim.plugins.robots.catalog`はproduction discovery結果の唯一のprojection入口であり、
   concrete robot package、具体robot ID、Bundle singletonを直接importまたは列挙しない。
 - ProfileとRuntime Pluginのresolverは、別registryへ具体objectを重複登録せず、resolved Bundleの
   `profile`と`runtime_plugin`を返す。
@@ -119,7 +119,7 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
 - Bundleのtyped providerはgeneric `ProviderAssemblyBinding`でBundle logical identityとcanonical Profile / Runtime
   Plugin ownerへbindする。provider adapter class名ではなくbinding contractとobject identityを検査する。
 - generic `runtime` contract、`kinematics`、`motion`、generic MuJoCo backendは
-  `selfrionette.plugins`、catalog、Bundle assembly、evaluation manifestへ逆依存しない。
+  `xpotato_sim.plugins`、catalog、Bundle assembly、evaluation manifestへ逆依存しない。
 - application compositionはcatalogからBundleをresolveし、consumerへ必要なtyped providerだけを渡す。
 - production pipeline builderはpre-bound executionを注入面として公開せず、current Mappingとcurrent
   Robot Bundleからcanonical route strategy / binding / providerを内部解決する。別Robot、別logical
@@ -139,10 +139,10 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
   application-facing production runnerは`MotionCommand`をbackendへ直接渡さず、route-bound pipelineと
   typed providerを経由する。legacy `apply_command(MotionCommand)`はfast_arm低位diagnosticとbackend
   単体testだけに限定し、generic runtimeへ逆流させない。
-- generic Robot Profile contractは`selfrionette.runtime.composition.robot_profile`、viewer向けrobot declaration
-  contractは`selfrionette.runtime.composition.viewer_robot_declaration`が所有する。旧flat moduleは退役済みである。
+- generic Robot Profile contractは`xpotato_sim.runtime.composition.robot_profile`、viewer向けrobot declaration
+  contractは`xpotato_sim.runtime.composition.viewer_robot_declaration`が所有する。旧flat moduleは退役済みである。
 - Selfrionetteの7-channel protocol、intrinsic normalization、typed health、serial / injected backendは
-  `selfrionette.plugins.input_sources.selfrionette`が所有する。旧`_loadcell`、`loadcell_serial`、
+  `xpotato_sim.plugins.input_sources.selfrionette`が所有する。旧`_loadcell`、`loadcell_serial`、
   `loadcell_fixture` production ownerは退役済みである。
 - fast_arm固有implementationは`plugins/robots/fast_arm/`だけが所有する。旧`robots/fast_arm.py`、
   `robot_registry.py`、`runtime/fast_arm_*.py`、旧registry moduleは退役済みであり、再作成しない。
@@ -154,16 +154,16 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
   `adapter -> generic Protocol / schema`だけを許可する。
   generic layer、他robot、viewerはfast_arm core implementationへ依存しない。root `plugin.py`の
   `ROBOT_PLUGIN`を唯一のproduction discovery入口とし、coreまたはadapterに第二のentryを作らない。
-  `selfrionette.plugins.robots.fast_arm.core`をshared import APIにせず、runtimeで`sys.path`を書き換えない。
+  `xpotato_sim.plugins.robots.fast_arm.core`をshared import APIにせず、runtimeで`sys.path`を書き換えない。
 - `plugins/robots/fast_arm/adapter/`はSelfrionette schema、runtime、MuJoCo backend、viewer、diagnosticsへの
   projectionだけを所有する。旧module pathはadapter ownerからobjectをre-exportするthin compatibility moduleに
   限定し、数式、定数、resource resolver、factory、registrationを再実装しない。
 - generic `kinematics`はsolver Protocolだけ、generic `mujoco_backend`はnamed reference / site extraction、
   model load / reset、simulation primitiveだけを公開する。fast_arm固有solver、name contract、endpoint wrapper、
   diagnosticはplugin packageから公開する。
-- package root `selfrionette.runtime`は`RuntimeConfig`とcatalog resolverだけをlazy resolveし、package importだけで
+- package root `xpotato_sim.runtime`は`RuntimeConfig`とcatalog resolverだけをlazy resolveし、package importだけで
   concrete catalogをloadしない。interpreter-based `RuntimePipeline`はexportしない。
-- package root `selfrionette/`は`__init__.py`だけを持つ。空の`selfrionette.robots` namespaceと、
+- package root `selfrionette/`は`__init__.py`だけを持つ。空の`xpotato_sim.robots` namespaceと、
   `robot_profile.py`、`viewer_robot_declaration.py`、`loadcell_serial.py`をrootへ再導入しない。
 - production discoveryを起動できるgeneric moduleはcatalogだけとする。test fixtureはproduction namespaceへ
   置かず、明示的なtest discovery rootを使用する。
@@ -292,13 +292,13 @@ package-root exportとmodule-level exportは別のpublic surfaceである。
 
 - package-root `__all__`へ公開するのはcontract、concrete implementation、または
   canonical文書で維持理由を説明できるcompatibility helperに限定する。
-- `selfrionette.runtime`は各public nameをowner moduleとattribute nameの明示mappingで解決する。
+- `xpotato_sim.runtime`は各public nameをowner moduleとattribute nameの明示mappingで解決する。
   module scan、transitive import、module orderingへ解決先を依存させない。generic contractの参照では
   concrete catalogをloadせず、catalog-backed resolverを参照した時点だけcanonical catalog ownerをloadする。
 - 明示mappingのkey setは`__all__`と一致させ、全entryのowner object identityをarchitecture testで固定する。
 - `NoOp*`、`Zero*`、`Static*`などのtest doubleをproduction packageへ置かず、package-rootのstable APIにしない。
 - test doubleは`tests/support/`だけが所有する。production sourceは`tests`をimportしない。
-- `src/selfrionette/**/stubs.py`、`build_noop_pipeline()`、stub-default builderを再導入しない。
+- `src/xpotato_sim/**/stubs.py`、`build_noop_pipeline()`、stub-default builderを再導入しない。
 - replayのordered state retentionやinput-loopのlocal latest-state retentionなど、実runtime semanticsを持つ
   private adapterはtest doubleと区別し、production ownerのmodule内へ閉じる。
 

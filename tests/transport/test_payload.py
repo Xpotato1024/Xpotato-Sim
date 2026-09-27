@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from selfrionette.schemas import BodyTransform, MuJoCoState, SiteTransform
-from selfrionette.transport import TRANSPORT_PAYLOAD_VERSION, mujoco_state_to_payload
+from xpotato_sim.schemas import BodyTransform, MuJoCoState, SiteTransform
+from xpotato_sim.transport import TRANSPORT_PAYLOAD_VERSION, mujoco_state_to_payload
 
 
 def test_mujoco_state_to_payload_returns_json_compatible_payload() -> None:

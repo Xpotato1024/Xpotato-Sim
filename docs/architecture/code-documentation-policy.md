@@ -183,12 +183,12 @@ READMEはlocal entry pointとroutingを担い、catalog、declaration、schema�
 第二SoTを作らない。作成時は
 [`plugin-readme-templates.md`](../operations/plugin-readme-templates.md)を使用できる。
 
-plugin READMEのrepository rootからの基準pathは`src/selfrionette/plugins/`である。root直下に
+plugin READMEのrepository rootからの基準pathは`src/xpotato_sim/plugins/`である。root直下に
 別の`plugins/`を作らない。
 
 ### plugin root README
 
-`src/selfrionette/plugins/README.md`は次を説明する。
+`src/xpotato_sim/plugins/README.md`は次を説明する。
 
 - plugin system全体への入口とsix-axis composition
 - logical identityとbounded discovery
@@ -200,7 +200,7 @@ plugin READMEのrepository rootからの基準pathは`src/selfrionette/plugins/`
 
 ### axis README
 
-`src/selfrionette/plugins/<axis>/README.md`は次を説明する。
+`src/xpotato_sim/plugins/<axis>/README.md`は次を説明する。
 
 - axisの責務と、置けるもの / 置けないもの
 - required contract、input / output
@@ -212,7 +212,7 @@ plugin READMEのrepository rootからの基準pathは`src/selfrionette/plugins/`
 
 ### concrete production plugin README
 
-`src/selfrionette/plugins/<axis>/<plugin>/README.md`は、6軸のどのconcrete production pluginにも
+`src/xpotato_sim/plugins/<axis>/<plugin>/README.md`は、6軸のどのconcrete production pluginにも
 適用できる共通責務として次を説明する。対象はRobot、Input Source、Control Mapping、
 Environment、Task、Evaluationである。
 

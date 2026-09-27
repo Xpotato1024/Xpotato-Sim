@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
     InputSourceMode,
     InputSourcePlugin,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     ParameterContract,
     VersionedIdentity,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 CONFORMANCE_INPUT_SOURCE = VersionedIdentity("conformance_input_source", 1)

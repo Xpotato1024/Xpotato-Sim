@@ -14,7 +14,7 @@ export default defineConfig({
   publicDir: false,
   cacheDir: resolve(appRoot, "node_modules/.vite"),
   server: {
-    open: process.env.SELFRIONETTE_LAUNCHER === "1" ? false : "/apps/mujoco-viewer/",
+    open: process.env.XPOTATO_SIM_LAUNCHER === "1" ? false : "/apps/mujoco-viewer/",
     fs: {
       allow: [repoRoot, appRoot],
     },

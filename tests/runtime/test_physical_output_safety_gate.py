@@ -5,7 +5,7 @@ from hashlib import sha256
 
 import pytest
 
-from selfrionette.runtime.output.safety_gate import (
+from xpotato_sim.runtime.output.safety_gate import (
     PhysicalOutputSafetyEvaluation,
     PhysicalOutputSafetyTraceEvidence,
     PhysicalOutputSendableRequest,
@@ -14,9 +14,9 @@ from selfrionette.runtime.output.safety_gate import (
     physical_output_candidate_id,
     validate_physical_output_sendable_request,
 )
-from selfrionette.runtime.safety.limit_resolution import LimitResolutionStatus
-from selfrionette.runtime.safety.physical_safety_core import evaluate_physical_safety
-from selfrionette.schemas import PhysicalOutputRequest
+from xpotato_sim.runtime.safety.limit_resolution import LimitResolutionStatus
+from xpotato_sim.runtime.safety.physical_safety_core import evaluate_physical_safety
+from xpotato_sim.schemas import PhysicalOutputRequest
 
 from tests.runtime.test_physical_safety_core import _input
 from tests.schemas.test_physical_output_contract import _endpoint_request

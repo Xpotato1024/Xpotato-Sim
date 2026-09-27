@@ -7,7 +7,7 @@ from threading import Barrier
 
 import pytest
 
-from selfrionette.runtime.output import (
+from xpotato_sim.runtime.output import (
     bind_physical_output_safety,
     evaluate_and_bind_physical_output_safety,
     PhysicalOutputLifecycle,
@@ -16,11 +16,11 @@ from selfrionette.runtime.output import (
     PhysicalOutputRecordingSink,
     physical_output_candidate_id,
 )
-from selfrionette.runtime.output.permission import evaluate_physical_output_permission
-from selfrionette.runtime.safety.collision_policy import CollisionStatus
-from selfrionette.runtime.safety.limit_resolution import LimitResolutionStatus
-from selfrionette.runtime.safety.trajectory_feasibility import FeasibilityStatus
-from selfrionette.schemas import PhysicalOutputPermission
+from xpotato_sim.runtime.output.permission import evaluate_physical_output_permission
+from xpotato_sim.runtime.safety.collision_policy import CollisionStatus
+from xpotato_sim.runtime.safety.limit_resolution import LimitResolutionStatus
+from xpotato_sim.runtime.safety.trajectory_feasibility import FeasibilityStatus
+from xpotato_sim.schemas import PhysicalOutputPermission
 
 from tests.schemas.test_physical_output_contract import _endpoint_request
 from tests.runtime.test_physical_safety_core import _input as _safety_input_fixture

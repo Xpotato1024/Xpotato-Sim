@@ -22,7 +22,7 @@ def test_backend_viewer_source_has_no_control_mapping_import_or_algorithm() -> N
     path = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "plugins"
         / "input_sources"
         / "viewer"
@@ -35,7 +35,7 @@ def test_backend_viewer_source_has_no_control_mapping_import_or_algorithm() -> N
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom) and node.module is not None
     }
-    assert all(not module.startswith("selfrionette.plugins.mappings") for module in imported_modules)
+    assert all(not module.startswith("xpotato_sim.plugins.mappings") for module in imported_modules)
     assert "build_continuous_endpoint_velocity_intent" not in source
     assert "build_keyboard_continuous_velocity_intent" not in source
 
@@ -44,7 +44,7 @@ def test_mapping_does_not_read_legacy_viewer_control_summary() -> None:
     path = (
         ROOT
         / "src"
-        / "selfrionette"
+        / "xpotato_sim"
         / "plugins"
         / "mappings"
         / "viewer_keyboard_gamepad_mapping"
@@ -58,13 +58,13 @@ def test_mapping_does_not_read_legacy_viewer_control_summary() -> None:
 
 def test_input_source_registration_has_no_cross_axis_mapping_policy() -> None:
     source = _text(
-        "src/selfrionette/plugins/input_sources/viewer/plugin.py"
+        "src/xpotato_sim/plugins/input_sources/viewer/plugin.py"
     )
     assert "ControlMappingPlugin" not in source
     assert "VIEWER_CONTROL_MAPPING_PLUGIN" not in source
     assert "PluginSelection(" not in source
     assert "viewer_keyboard_gamepad_mapping" not in source
     policy = _text(
-        "src/selfrionette/runtime/control/input_source_mapping_policy.py"
+        "src/xpotato_sim/runtime/control/input_source_mapping_policy.py"
     )
     assert '"viewer": PluginSelection("viewer_keyboard_gamepad_mapping", 1)' in policy

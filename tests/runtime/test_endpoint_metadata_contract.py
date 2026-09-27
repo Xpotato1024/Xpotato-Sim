@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from selfrionette.schemas.endpoint import (
+from xpotato_sim.schemas.endpoint import (
     ControlFrameResolutionStatus,
     EndpointMetadata,
     EndpointProgressStatus,
 )
-from selfrionette.runtime.evaluation.endpoint_progress import calculate_endpoint_progress
-from selfrionette.runtime.control.viewer_motion_policy import build_viewer_local_motion_metadata
+from xpotato_sim.runtime.evaluation.endpoint_progress import calculate_endpoint_progress
+from xpotato_sim.runtime.control.viewer_motion_policy import build_viewer_local_motion_metadata
 
 
 def test_endpoint_metadata_contract_contains_canonical_and_compatibility_fields() -> None:

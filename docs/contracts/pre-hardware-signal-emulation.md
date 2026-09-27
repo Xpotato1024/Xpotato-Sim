@@ -287,7 +287,7 @@ uv run python scripts/diagnostics/run_prehardware_signal_e2e.py `
   --output-dir "$env:TEMP\selfrionette-gamepad-e2e"
 ```
 
-Selfrionetteはfixtureを`tests/fixtures/prehardware_signal/selfrionette.json`へ変更する。
+Selfrionetteはfixtureを`tests/fixtures/prehardware_signal/xpotato_sim.json`へ変更する。
 出力は`signal-trace.json`、`contact-task.jsonl`、`final-payload.json`と、最後に書く`summary.json`である。
 正常なTask失敗も正しい実行結果であり、CLI終了コード0をTask成功と解釈しない。summaryの終了理由と
 traceのmetricを読む。summaryがなければfile batch完了とは扱わない。

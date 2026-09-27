@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 
 
 class RecordingPublisher:

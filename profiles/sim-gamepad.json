@@ -1,5 +1,5 @@
 {
-  "schema_version": "selfrionette-launch-profile/v1",
+  "schema_version": "xpotato-sim-launch-profile/v1",
   "name": "sim-gamepad",
   "workspace": "..",
   "mode": "simulation",

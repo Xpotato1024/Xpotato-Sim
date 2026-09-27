@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 
 from tests.support.mujoco_doubles import NoOpMuJoCoSimulator
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
 from tests.support.mapped_pipeline_builders import build_noop_pipeline
-from selfrionette.schemas import MuJoCoState, RawInputFrame
+from xpotato_sim.schemas import MuJoCoState, RawInputFrame
 
 
 def test_build_noop_pipeline_returns_control_mapped_pipeline() -> None:

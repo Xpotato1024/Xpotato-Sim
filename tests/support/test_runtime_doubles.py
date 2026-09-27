@@ -6,7 +6,7 @@ from tests.support.input_source_doubles import StaticInputSource
 from tests.support.kinematics_solver_doubles import ZeroForwardKinematicsSolver, ZeroInverseKinematicsSolver
 from tests.support.motion_doubles import NoOpMotionGenerator
 from tests.support.mujoco_doubles import NoOpMuJoCoSimulator
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     InputIntent,
     JointCommand,
     MotionCommand,

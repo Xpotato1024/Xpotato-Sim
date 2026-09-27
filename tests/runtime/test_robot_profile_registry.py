@@ -4,40 +4,40 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-import selfrionette.plugins.robots.fast_arm.adapter.runtime as fast_arm_plugin_module
-from selfrionette.mujoco_backend.model_info import MuJoCoModelInfo
-from selfrionette.runtime.composition.robot_profile import (
+import xpotato_sim.plugins.robots.fast_arm.adapter.runtime as fast_arm_plugin_module
+from xpotato_sim.mujoco_backend.model_info import MuJoCoModelInfo
+from xpotato_sim.runtime.composition.robot_profile import (
     CoordinateUnitContract,
     EndpointReference,
     RobotProfile,
     robot_profile_runtime_metadata,
 )
-from selfrionette.plugins.robots.catalog import (
+from xpotato_sim.plugins.robots.catalog import (
     registered_robot_profile_ids,
     resolve_robot_profile,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import (
     FAST_ARM_RUNTIME_PLUGIN,
     FastArmRuntimePlugin,
 )
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
-from selfrionette.plugins.robots.catalog import (
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+from xpotato_sim.plugins.robots.catalog import (
     resolve_robot_runtime,
     registered_robot_runtime_plugin_ids,
     resolve_robot_runtime_plugin,
 )
-from selfrionette.runtime.composition.robot_resolution import (
+from xpotato_sim.runtime.composition.robot_resolution import (
     ImmutableRegistry,
     validate_production_robot_selection_consistency,
     validate_robot_profile_plugin_consistency,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     VersionedIdentity,
 )
-from selfrionette.transport import mujoco_state_to_payload
+from xpotato_sim.transport import mujoco_state_to_payload
 
 
 @dataclass(frozen=True)

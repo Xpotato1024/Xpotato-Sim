@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
 
-from selfrionette.runtime.experiment.contracts import ControlMappingPlugin
-from selfrionette.runtime.experiment.input_source import (
+from xpotato_sim.runtime.experiment.contracts import ControlMappingPlugin
+from xpotato_sim.runtime.experiment.input_source import (
     InputSourceHealth,
     InputSourceHealthStatus,
     InputSourceMode,
@@ -16,7 +16,7 @@ from selfrionette.runtime.experiment.input_source import (
     InputSourceRuntimeDependencies,
     ManagedInputSource,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 class TimestampSequencePolicy(str, Enum):

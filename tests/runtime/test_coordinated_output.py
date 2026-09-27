@@ -2,10 +2,10 @@
 from dataclasses import replace
 import socket
 import pytest
-from selfrionette.runtime.output.coordinated import CoordinatedPhysicalOutputGroup
-from selfrionette.runtime.output.fast_arm_adapter import FastArmPreparedSubmission
-from selfrionette.runtime.output.fast_arm_emulation import emulate_fast_arm_peer
-from selfrionette.schemas.coordinated import CoordinatedInput, EndpointVelocity
+from xpotato_sim.runtime.output.coordinated import CoordinatedPhysicalOutputGroup
+from xpotato_sim.runtime.output.fast_arm_adapter import FastArmPreparedSubmission
+from xpotato_sim.runtime.output.fast_arm_emulation import emulate_fast_arm_peer
+from xpotato_sim.schemas.coordinated import CoordinatedInput, EndpointVelocity
 from tests.runtime import test_fast_arm_physical_output as support
 
 
@@ -179,7 +179,7 @@ def test_missing_stop_capability_is_not_silently_enabled(monkeypatch):
 def test_runtime_named_command_reaches_both_physical_gates(monkeypatch):
     from tests.runtime.test_coordinated_gamepad import app
     from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message
-    from selfrionette.plugins.robots.fast_arm.adapter.assembly_output import FastArmOutputBinding, build_fast_arm_assembly_requests
+    from xpotato_sim.plugins.robots.fast_arm.adapter.assembly_output import FastArmOutputBinding, build_fast_arm_assembly_requests
     a,c=app()
     # 既存のsynthetic physical envelopeは全jointが[-1,1]。限界を緩和せず、
     # その内側にある明示initial stateから実MuJoCo共同更新を試す。

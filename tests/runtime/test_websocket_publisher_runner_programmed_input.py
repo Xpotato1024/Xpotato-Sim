@@ -6,13 +6,13 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import selfrionette.runtime.runners.websocket_publisher as websocket_runner_module
-from selfrionette.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
-from selfrionette.runtime.runners.live_websocket_delivery import LiveLatestStateWebSocketPublisher
+import xpotato_sim.runtime.runners.websocket_publisher as websocket_runner_module
+from xpotato_sim.runtime.runners.websocket_publisher import run_replay_mujoco_websocket_publisher
+from xpotato_sim.runtime.runners.live_websocket_delivery import LiveLatestStateWebSocketPublisher
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WEBSOCKET_RUNNER_MODULE = ROOT / "src" / "selfrionette" / "runtime" / "runners" / "websocket_publisher.py"
+WEBSOCKET_RUNNER_MODULE = ROOT / "src" / "xpotato_sim" / "runtime" / "runners" / "websocket_publisher.py"
 
 
 class _FakeWebSocketPublisherServer:
@@ -94,7 +94,7 @@ def test_websocket_runner_module_uses_programmed_input_source_and_not_noop_motio
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.ImportFrom)
-            and node.module == "selfrionette.plugins.input_sources.programmed_target"
+            and node.module == "xpotato_sim.plugins.input_sources.programmed_target"
         ):
             imported_names.update(alias.name for alias in node.names)
 

@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.runtime.experiment import motion_log_recorder
-from selfrionette.runtime.experiment.motion_log_recorder import (
+from xpotato_sim.runtime.experiment import motion_log_recorder
+from xpotato_sim.runtime.experiment.motion_log_recorder import (
     ExperimentMotionLogRecordingError,
     prepare_motion_log,
     write_motion_log_atomic,
 )
-from selfrionette.schemas.experiment_log import (
+from xpotato_sim.schemas.experiment_log import (
     ConfigurationRecord,
     TrialOutcomeRecord,
     TrialStartRecord,

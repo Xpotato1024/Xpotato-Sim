@@ -9,7 +9,7 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.neutral_initial_pose import (
     evaluate_fast_arm_neutral_initial_pose_candidates,
     format_neutral_pose_ranking,
 )

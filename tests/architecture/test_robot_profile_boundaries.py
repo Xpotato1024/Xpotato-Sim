@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_generic_runtime_files_do_not_import_fast_arm_implementation() -> None:
-    runtime = ROOT / "src" / "selfrionette" / "runtime"
+    runtime = ROOT / "src" / "xpotato_sim" / "runtime"
     for name in (
         "composition/config.py",
         "execution/pipeline.py",
@@ -22,9 +22,9 @@ def test_generic_runtime_files_do_not_import_fast_arm_implementation() -> None:
             assert "resolve_robot_runtime" not in source, name
 
     simulator_source = (
-        ROOT / "src" / "selfrionette" / "mujoco_backend" / "simulator.py"
+        ROOT / "src" / "xpotato_sim" / "mujoco_backend" / "simulator.py"
     ).read_text(encoding="utf-8")
-    assert "selfrionette.plugins.robots.fast_arm.profile" not in simulator_source
+    assert "xpotato_sim.plugins.robots.fast_arm.profile" not in simulator_source
     assert "default_fast_arm_scene_path" not in simulator_source
     assert "FAST_ARM_ROBOT_PROFILE.initial_keyframe_name" not in simulator_source
 
@@ -38,7 +38,7 @@ def test_generic_viewer_renderer_and_qpos_sync_do_not_embed_fast_arm() -> None:
 
 def test_profile_registries_do_not_use_arbitrary_dynamic_imports() -> None:
     paths = (
-        ROOT / "src" / "selfrionette" / "plugins" / "robots" / "catalog.py",
+        ROOT / "src" / "xpotato_sim" / "plugins" / "robots" / "catalog.py",
         ROOT / "apps" / "mujoco-viewer" / "src" / "robot-profiles" / "registry.ts",
     )
     for path in paths:
@@ -49,7 +49,7 @@ def test_profile_registries_do_not_use_arbitrary_dynamic_imports() -> None:
 
 
 def test_runtime_package_root_exports_resolvers_not_plugin_classes() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert "RobotRuntimePlugin" not in runtime.__all__
     assert "ResolvedRobotRuntime" not in runtime.__all__

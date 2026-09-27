@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.mujoco_backend.model_info import MuJoCoModelInfo
-from selfrionette.plugins.robots.fast_arm.adapter import model_contract as model_contract_module
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
-from selfrionette.plugins.robots.fast_arm.adapter.model_contract import (
+from xpotato_sim.mujoco_backend.model_info import MuJoCoModelInfo
+from xpotato_sim.plugins.robots.fast_arm.adapter import model_contract as model_contract_module
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.model_contract import (
     fast_arm_model_name_contract,
     resolve_fast_arm_end_effector_reference,
     resolve_fast_arm_tip_reference,

@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-from selfrionette.plugins.evaluations.contact_outcome import CONTACT_OUTCOME_PLUGIN
-from selfrionette.runtime.contact.task_contract import (
+from xpotato_sim.plugins.evaluations.contact_outcome import CONTACT_OUTCOME_PLUGIN
+from xpotato_sim.runtime.contact.task_contract import (
     CONTACT_TASK_OUTCOME_EVIDENCE,
     CONTACT_TASK_OUTCOME_PROVENANCE,
     CONTACT_TASK_TERMINAL_EVIDENCE,
@@ -14,7 +14,7 @@ from selfrionette.runtime.contact.task_contract import (
     ContactTaskPhase,
     ContactTrialIdentity,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     CanonicalEvidence,
     CanonicalEvidenceSet,
     EvidenceStatus,

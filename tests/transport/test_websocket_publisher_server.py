@@ -6,8 +6,8 @@ import socket
 
 from websockets.asyncio.client import connect
 
-from selfrionette.schemas import BodyTransform, MuJoCoState, SiteTransform
-from selfrionette.transport import WebSocketPublisherServer, WebSocketStatePublisher
+from xpotato_sim.schemas import BodyTransform, MuJoCoState, SiteTransform
+from xpotato_sim.transport import WebSocketPublisherServer, WebSocketStatePublisher
 
 
 def _find_free_port() -> int:

@@ -5,51 +5,51 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC_ROOT = ROOT / "src" / "selfrionette"
+SRC_ROOT = ROOT / "src" / "xpotato_sim"
 
 FORBIDDEN_IMPORTS = {
     Path("plugins/input_sources"): [
-        "selfrionette.plugins.mappings",
-        "selfrionette.motion",
-        "selfrionette.kinematics",
-        "selfrionette.mujoco_backend",
-        "selfrionette.transport",
+        "xpotato_sim.plugins.mappings",
+        "xpotato_sim.motion",
+        "xpotato_sim.kinematics",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.transport",
     ],
     Path("plugins/mappings"): [
-        "selfrionette.plugins.input_sources",
-        "selfrionette.motion",
-        "selfrionette.kinematics",
-        "selfrionette.mujoco_backend",
-        "selfrionette.transport",
+        "xpotato_sim.plugins.input_sources",
+        "xpotato_sim.motion",
+        "xpotato_sim.kinematics",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.transport",
     ],
     Path("motion"): [
-        "selfrionette.plugins.input_sources",
-        "selfrionette.plugins.mappings",
-        "selfrionette.mujoco_backend",
-        "selfrionette.transport",
-        "selfrionette.runtime",
+        "xpotato_sim.plugins.input_sources",
+        "xpotato_sim.plugins.mappings",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.transport",
+        "xpotato_sim.runtime",
     ],
     Path("kinematics"): [
-        "selfrionette.plugins.input_sources",
-        "selfrionette.plugins.mappings",
-        "selfrionette.mujoco_backend",
-        "selfrionette.transport",
-        "selfrionette.runtime",
+        "xpotato_sim.plugins.input_sources",
+        "xpotato_sim.plugins.mappings",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.transport",
+        "xpotato_sim.runtime",
     ],
     Path("mujoco_backend"): [
-        "selfrionette.plugins.input_sources",
-        "selfrionette.plugins.mappings",
-        "selfrionette.motion",
-        "selfrionette.transport",
-        "selfrionette.runtime",
+        "xpotato_sim.plugins.input_sources",
+        "xpotato_sim.plugins.mappings",
+        "xpotato_sim.motion",
+        "xpotato_sim.transport",
+        "xpotato_sim.runtime",
     ],
     Path("transport"): [
-        "selfrionette.plugins.input_sources",
-        "selfrionette.plugins.mappings",
-        "selfrionette.motion",
-        "selfrionette.kinematics",
-        "selfrionette.mujoco_backend",
-        "selfrionette.runtime",
+        "xpotato_sim.plugins.input_sources",
+        "xpotato_sim.plugins.mappings",
+        "xpotato_sim.motion",
+        "xpotato_sim.kinematics",
+        "xpotato_sim.mujoco_backend",
+        "xpotato_sim.runtime",
     ],
 }
 

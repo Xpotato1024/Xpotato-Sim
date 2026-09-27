@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 
 
 class StaticInputSource:

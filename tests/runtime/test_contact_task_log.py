@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-import selfrionette.runtime.contact.log as contact_task_log_module
-from selfrionette.plugins.tasks.contact_press_hold_task.implementation import (
+import xpotato_sim.runtime.contact.log as contact_task_log_module
+from xpotato_sim.plugins.tasks.contact_press_hold_task.implementation import (
     ContactTaskBinding,
     derive_contact_outcome,
 )
-from selfrionette.runtime.contact import (
+from xpotato_sim.runtime.contact import (
     ContactCubeObject,
     ContactEvidence,
     ContactEvidenceStatus,
@@ -50,7 +50,7 @@ from selfrionette.runtime.contact import (
     read_contact_task_log,
     write_contact_task_log,
 )
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     ROLE_ATTRIBUTE_WILDCARD,
     SemanticRole,

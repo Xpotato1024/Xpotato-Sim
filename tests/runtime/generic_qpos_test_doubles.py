@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from selfrionette.runtime.safety.qpos_feasibility import (
+from xpotato_sim.runtime.safety.qpos_feasibility import (
     QposFeasibilityDiagnostic,
     QposFeasibilityResult,
 )
-from selfrionette.schemas import JointCommand, MotionCommand
+from xpotato_sim.schemas import JointCommand, MotionCommand
 
 
 class RejectingGenericQposGuard:

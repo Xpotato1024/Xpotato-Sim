@@ -6,18 +6,18 @@ from types import SimpleNamespace
 
 import pytest
 
-import selfrionette.runtime.runners.live_selfrionette as live_selfrionette
-from selfrionette.runtime.runners.live_selfrionette import (
+import xpotato_sim.runtime.runners.live_selfrionette as live_selfrionette
+from xpotato_sim.runtime.runners.live_selfrionette import (
     LiveSelfrionetteRuntimeRunnerConfig,
     run_live_selfrionette_runtime_runner,
 )
-from selfrionette.schemas import RawInputFrame
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.schemas import RawInputFrame
+from xpotato_sim.plugins.input_sources.selfrionette import (
     NormalizedLoadcellInputIntent,
     normalize_loadcell_frame_for_mapping,
 )
-from selfrionette.runtime.experiment.contracts import PluginSelection, VersionedIdentity
-from selfrionette.runtime.experiment.input_source import InputSourceMappingAdapterContract
+from xpotato_sim.runtime.experiment.contracts import PluginSelection, VersionedIdentity
+from xpotato_sim.runtime.experiment.input_source import InputSourceMappingAdapterContract
 
 
 _TEST_MAPPING_ADAPTER = InputSourceMappingAdapterContract(

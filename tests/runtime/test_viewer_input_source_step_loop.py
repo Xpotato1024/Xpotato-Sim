@@ -1,27 +1,27 @@
 from __future__ import annotations
 
-from selfrionette.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
 
 import asyncio
 from math import dist
 
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.schemas import (
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.schemas import (
     JointPositionCommand,
     ViewerControlGamepadButtonMessage,
     ViewerControlGamepadMessage,
     ViewerControlKeyboardMessage,
     ViewerControlMessage,
 )
-from selfrionette.runtime.experiment.contracts import PluginSelection
+from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from tests.support.transport_doubles import NoOpStatePublisher
 
 

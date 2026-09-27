@@ -5,23 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from selfrionette.plugins.input_sources.viewer import ViewerInputSource
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import (
+from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import (
     FastArmJointLimitGuard,
     load_and_validate_fast_arm_joint_limit_config,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
-from selfrionette.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
-from selfrionette.runtime.composition.config import RuntimeConfig
-from selfrionette.runtime.composition.robot_resource import read_package_resource_bytes
-from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-from selfrionette.runtime.control.viewer_control_ingress import ingest_viewer_control_message
-from selfrionette.runtime.execution.input_step_loop import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.resources import FAST_ARM_JOINT_LIMIT_RESOURCE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
+from xpotato_sim.runtime.composition.concrete_mujoco_pipeline import build_concrete_mujoco_pipeline
+from xpotato_sim.runtime.composition.config import RuntimeConfig
+from xpotato_sim.runtime.composition.robot_resource import read_package_resource_bytes
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.control.viewer_control_ingress import ingest_viewer_control_message
+from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,
 )
-from selfrionette.schemas import (
+from xpotato_sim.schemas import (
     JointCommand,
     MotionCommand,
     ViewerControlKeyboardMessage,

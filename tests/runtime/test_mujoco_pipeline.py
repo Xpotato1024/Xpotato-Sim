@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
-from selfrionette.mujoco_backend import HeadlessMuJoCoSimulator
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
-from selfrionette.runtime.execution.pipeline import ControlMappedRuntimePipeline
-from selfrionette.schemas import MuJoCoState
+from xpotato_sim.mujoco_backend import HeadlessMuJoCoSimulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.mappings.replay_mapping import REPLAY_CONTROL_MAPPING_PLUGIN
+from xpotato_sim.runtime.execution.pipeline import ControlMappedRuntimePipeline
+from xpotato_sim.schemas import MuJoCoState
 from tests.support.input_source_doubles import StaticInputSource
 from tests.support.motion_doubles import NoOpMotionGenerator
 from tests.support.mapped_pipeline_builders import (
@@ -40,7 +40,7 @@ def test_build_mujoco_pipeline_returns_runtime_pipeline_and_state() -> None:
 
 
 def test_generic_builder_does_not_infer_fast_arm_when_model_is_absent() -> None:
-    import selfrionette.runtime as runtime
+    import xpotato_sim.runtime as runtime
 
     assert not hasattr(runtime, "build_mujoco_pipeline")
 

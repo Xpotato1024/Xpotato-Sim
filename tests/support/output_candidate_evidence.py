@@ -4,16 +4,16 @@ from dataclasses import replace
 
 import mujoco
 
-from selfrionette.runtime.output.safety_gate import compose_physical_output_safety_input
-from selfrionette.runtime.safety.collision_policy import (
+from xpotato_sim.runtime.output.safety_gate import compose_physical_output_safety_input
+from xpotato_sim.runtime.safety.collision_policy import (
     CollisionPolicy,
     build_mujoco_geometry_inventory,
     evaluate_collision_configuration,
     evaluate_mujoco_collision_configuration,
 )
-from selfrionette.runtime.safety.trajectory_feasibility import JacobianDiagnostic
-from selfrionette.runtime.safety.evaluated_candidate import EvaluatedJointRoute
-from selfrionette.schemas import JointPositionCommand
+from xpotato_sim.runtime.safety.trajectory_feasibility import JacobianDiagnostic
+from xpotato_sim.runtime.safety.evaluated_candidate import EvaluatedJointRoute
+from xpotato_sim.schemas import JointPositionCommand
 from tests.runtime.test_physical_safety_core import JOINTS, _dynamic_policy, _limits
 from tests.schemas.test_physical_output_contract import _endpoint_request
 

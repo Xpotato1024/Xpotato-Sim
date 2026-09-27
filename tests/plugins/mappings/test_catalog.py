@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from selfrionette.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
-from selfrionette.plugins.mappings.loadcell_endpoint_mapping import (
+from xpotato_sim.plugins.input_sources.selfrionette import NormalizedLoadcellInputIntent
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.mappings.catalog import CONTROL_MAPPING_REGISTRY
+from xpotato_sim.plugins.mappings.loadcell_endpoint_mapping import (
     LoadcellEndpointMappingConfig,
     LOADCELL_ENDPOINT_MAPPING_PLUGIN,
     LOADCELL_NORMALIZED_SAMPLE_SCHEMA,
     LOADCELL_VECTOR_SAMPLE_SCHEMA,
 )
-from selfrionette.plugins.mappings.replay_mapping import (
+from xpotato_sim.plugins.mappings.replay_mapping import (
     REPLAY_CONTROL_MAPPING_PLUGIN,
 )
-from selfrionette.runtime.experiment.composition import PluginParameters, compose_experiment
-from selfrionette.runtime.experiment.contracts import (
+from xpotato_sim.runtime.experiment.composition import PluginParameters, compose_experiment
+from xpotato_sim.runtime.experiment.contracts import (
     ENDPOINT_DELTA_TO_JOINT_POSITION_V1,
     JOINT_POSITION_COMMAND_V1,
     LOCAL_ENDPOINT_VELOCITY_TO_JOINT_POSITION_V1,
@@ -24,7 +24,7 @@ from selfrionette.runtime.experiment.contracts import (
     PluginSelection,
     REPLAY_COMMAND_TO_JOINT_POSITION_V1,
 )
-from selfrionette.schemas import RawInputFrame
+from xpotato_sim.schemas import RawInputFrame
 from tests.runtime.test_experiment_plugin_composition import (
     build_test_manifest,
     build_test_registries,

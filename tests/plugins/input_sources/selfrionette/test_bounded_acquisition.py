@@ -8,14 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from selfrionette.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
-from selfrionette.plugins.input_sources.selfrionette import (
+from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.plugins.input_sources.selfrionette import (
     SelfrionetteInputSource, SerialInputSource, SerialAcquisitionError, SerialFrameParseError, build_reader,
 )
-from selfrionette.plugins.input_sources.selfrionette.protocol import (
+from xpotato_sim.plugins.input_sources.selfrionette.protocol import (
     MAX_LINES_PER_FRAME, MAX_LINE_BYTES, MAX_DIAGNOSTICS,
 )
-from selfrionette.runtime.experiment.input_source import InputSourceRuntimeDependencies, InputSourceHealthStatus
+from xpotato_sim.runtime.experiment.input_source import InputSourceRuntimeDependencies, InputSourceHealthStatus
 
 LINE = "vector,2147483648,0.5,0,0,0,0,0,0"
 ZERO = "vector,0,0,0,0,0,0,0,0"
@@ -251,8 +251,8 @@ def test_factory_uses_existing_clock_dependency():
 @pytest.mark.parametrize("entry", ("loop", "run_once"))
 @pytest.mark.parametrize("failure", (b"", b"vector,1,1,2\n", b"vector,2,0,0,0,0,0,0,0", OSError("unplugged")))
 def test_acquisition_failure_after_motion_cannot_replay_last_command(monkeypatch, entry, failure):
-    from selfrionette.runtime.control.input_source_selection import select_runtime_input_source
-    from selfrionette.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
+    from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+    from xpotato_sim.runtime.execution.input_step_loop import build_runtime_input_source_step_loop_plan, run_runtime_input_source_step_loop
 
     clock = Clock()
     reader, port = serial_reader(monkeypatch, (LINE.encode() + b"\n", failure, ZERO.encode() + b"\n"), clock)

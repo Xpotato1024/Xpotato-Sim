@@ -7,20 +7,20 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from selfrionette.mujoco_backend.endpoint_extraction import extract_mujoco_site_endpoint_from_state
-from selfrionette.mujoco_backend.model_info import MuJoCoModelInfo
-from selfrionette.mujoco_backend.model_loader import load_mujoco_model
-from selfrionette.mujoco_backend.simulator import HeadlessMuJoCoSimulator
-from selfrionette.plugins.robots.fast_arm.adapter.kinematics import FastArmMuJoCoModelForwardKinematicsSolver
-from selfrionette.plugins.robots.fast_arm.adapter.model_contract import FAST_ARM_TIP_SITE_NAME
-from selfrionette.plugins.robots.fast_arm.adapter.feasibility import (
+from xpotato_sim.mujoco_backend.endpoint_extraction import extract_mujoco_site_endpoint_from_state
+from xpotato_sim.mujoco_backend.model_info import MuJoCoModelInfo
+from xpotato_sim.mujoco_backend.model_loader import load_mujoco_model
+from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
+from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import FastArmMuJoCoModelForwardKinematicsSolver
+from xpotato_sim.plugins.robots.fast_arm.adapter.model_contract import FAST_ARM_TIP_SITE_NAME
+from xpotato_sim.plugins.robots.fast_arm.adapter.feasibility import (
     load_and_validate_fast_arm_joint_limit_config,
 )
-from selfrionette.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
-from selfrionette.plugins.robots.fast_arm.adapter.runtime import FAST_ARM_RUNTIME_PLUGIN
-from selfrionette.runtime.composition.robot_plugin import validate_profile_model_dimensions
-from selfrionette.runtime.composition.robot_resolution import validate_robot_profile_plugin_consistency
-from selfrionette.schemas import MuJoCoState
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import FAST_ARM_RUNTIME_PLUGIN
+from xpotato_sim.runtime.composition.robot_plugin import validate_profile_model_dimensions
+from xpotato_sim.runtime.composition.robot_resolution import validate_robot_profile_plugin_consistency
+from xpotato_sim.schemas import MuJoCoState
 from tests.support.robot_runtime_plugin_conformance import (
     FailClosedCase,
     InverseKinematicsRoundTripCase,
@@ -138,11 +138,11 @@ def _failure_joint_order_mismatch(_tmp_path: Path) -> None:
     info = MuJoCoModelInfo(joint_names=wrong_order, body_names=(), site_names=())
     model = SimpleNamespace(nq=4, nv=4)
     with patch(
-        "selfrionette.plugins.robots.fast_arm.adapter.runtime.inspect_mujoco_model",
+        "xpotato_sim.plugins.robots.fast_arm.adapter.runtime.inspect_mujoco_model",
         return_value=info,
     ):
         with patch(
-            "selfrionette.plugins.robots.fast_arm.adapter.runtime."
+            "xpotato_sim.plugins.robots.fast_arm.adapter.runtime."
             "validate_fast_arm_model_name_contract"
         ):
             FAST_ARM_RUNTIME_PLUGIN.validate_model(model)
@@ -166,7 +166,7 @@ def _failure_home_outside_joint_limits(tmp_path: Path) -> None:
     source = FAST_ARM_ROBOT_PROFILE.joint_limit_config_asset
     if source is None:
         raise AssertionError("fast_arm conformance case requires a joint-limit config")
-    from selfrionette.runtime.composition.robot_resource import read_package_resource_bytes
+    from xpotato_sim.runtime.composition.robot_resource import read_package_resource_bytes
 
     text = read_package_resource_bytes(source).decode("utf-8")
     invalid = text.replace(

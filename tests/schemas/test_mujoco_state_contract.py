@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import fields
 
-from selfrionette.schemas import BodyTransform, MuJoCoState, SiteTransform
+from xpotato_sim.schemas import BodyTransform, MuJoCoState, SiteTransform
 
 
 def test_mujoco_state_contract_fields_and_units() -> None:

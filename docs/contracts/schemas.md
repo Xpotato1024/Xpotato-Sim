@@ -5,7 +5,7 @@ last_verified: 2026-07-29
 canonical_for:
   - schema contracts
 related:
-  - src/selfrionette/schemas/README.md
+  - src/xpotato_sim/schemas/README.md
   - docs/contracts/motion-command.md
   - docs/contracts/mujoco-state.md
 ---
@@ -20,7 +20,7 @@ related:
 
 ## Schema一覧
 
-canonical importはpackage public surfaceの`selfrionette.schemas`を使用する。実装moduleは次のwire domainを
+canonical importはpackage public surfaceの`xpotato_sim.schemas`を使用する。実装moduleは次のwire domainを
 ownerとし、1型1fileの旧pathはcompatibility facadeなしで退役する。
 
 | wire domain | canonical module | 主な型 |

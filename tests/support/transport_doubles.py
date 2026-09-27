@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from selfrionette.schemas import MuJoCoState
+from xpotato_sim.schemas import MuJoCoState
 
 
 class NoOpStatePublisher:

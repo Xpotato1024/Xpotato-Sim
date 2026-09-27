@@ -10,7 +10,7 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from selfrionette.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
+from xpotato_sim.plugins.robots.fast_arm.adapter.diagnostics.endpoint_motion_sanity import (
     build_fast_arm_endpoint_diagnostic_log_rows,
     build_fast_arm_fk_site_consistency_log_rows,
     build_fast_arm_ik_fk_sanity_log_rows,

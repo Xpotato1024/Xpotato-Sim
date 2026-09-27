@@ -1,0 +1,7 @@
+interface:
+  display_name: "Selfrionette Change Validation"
+  short_description: "変更層に応じた検証を選択して報告する"
+  default_prompt: "Use $xpotato-sim-change-validation to select and report scoped validation."
+
+policy:
+  allow_implicit_invocation: true

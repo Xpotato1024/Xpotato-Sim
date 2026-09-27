@@ -8,7 +8,7 @@ related:
   - docs/contracts/mujoco-state.md
   - docs/contracts/transport-payload.md
   - docs/contracts/kinematics-command-contract.md
-  - src/selfrionette/plugins/robots/fast_arm/adapter/model_contract.py
+  - src/xpotato_sim/plugins/robots/fast_arm/adapter/model_contract.py
   - docs/reports/implementation/r7-e-followup-joint-convention-fast-arm-model-contract.md
   - docs/reports/implementation/r7-e-followup-viewer-backend-endpoint-separation.md
 ---
@@ -22,7 +22,7 @@ related:
 
 - canonical model: `fast_arm`
 - canonical physical model owner: `fast_arm_core:resources/model/arm.xml`
-- canonical scene owner: `selfrionette.plugins.robots.fast_arm.adapter:resources/mujoco/scene.xml`
+- canonical scene owner: `xpotato_sim.plugins.robots.fast_arm.adapter:resources/mujoco/scene.xml`
 - stable logical scene identifier: `assets/mujoco/fast_arm/scene.xml`
 
 ## 採用する名前
@@ -86,9 +86,9 @@ strict validation では silent fallback をしない。
 
 名前とframe/unitのpure specificationは`fast_arm_core.model_spec`がsource of truthである。
 MuJoCo model inspectionとの接続は
-`src/selfrionette/plugins/robots/fast_arm/adapter/model_contract.py`に置く。旧module pathは
+`src/xpotato_sim/plugins/robots/fast_arm/adapter/model_contract.py`に置く。旧module pathは
 adapter objectのthin re-exportだけを提供する。
-generic named-reference contractとsite extractionは`src/selfrionette/mujoco_backend/`が所有し、
+generic named-reference contractとsite extractionは`src/xpotato_sim/mujoco_backend/`が所有し、
 fast_arm名、fallback選択、convenience constructorを公開しない。
 `apps/mujoco-viewer` はこれを推定しないし、MuJoCo を再ロードして検証しない。
 

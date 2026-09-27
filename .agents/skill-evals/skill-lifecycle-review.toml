@@ -16,8 +16,8 @@ negative_triggers = [
   "このrepositoryと無関係な一般質問に答えてください。"
 ]
 route_boundaries = [
-  "変更に必要なtest commandの選択はselfrionette-change-validationへrouteする。",
-  "PRのhead、CI、Draft stateの突合はselfrionette-pr-handoffへrouteする。"
+  "変更に必要なtest commandの選択はxpotato-sim-change-validationへrouteする。",
+  "PRのhead、CI、Draft stateの突合はxpotato-sim-pr-handoffへrouteする。"
 ]
 required_inputs = ["skill-system.toml", "AGENTS.md", "agent-skill-governance.md", "candidate・Skill・eval registry", "persisted GitHub / Git evidence"]
 expected_major_steps = ["opt-in確認", "知識分類", "evidence確認", "5軸scoring", "overlap確認", "status / action判断", "candidate記録とvalidation"]
@@ -30,7 +30,7 @@ stale_reference_risk = "candidate evidenceのcurrent stateを再取得せず、�
 
 [[routing_cases]]
 prompt = "plugin追加taskの完了時に反復workflowのsignalを評価し、必要ならCandidate Reviewを行ってください。"
-expected_skills = ["skill-lifecycle-review", "selfrionette-plugin-change"]
+expected_skills = ["skill-lifecycle-review", "xpotato-sim-plugin-change"]
 primary_skill = "skill-lifecycle-review"
 automatic_chain = false
 permission_grant = false

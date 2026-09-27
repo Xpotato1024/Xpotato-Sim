@@ -63,4 +63,4 @@ implementation recordは変更しない。current FK/IK contractはgeneric Plana
 所有し、このmoduleはgeneric test doubleだけを所有する境界を固定した。
 
 production sourceは`tests.support`またはこのmoduleをimportしてはならない。doubleは`tests/`配下に留め、
-`selfrionette.kinematics`、他production package、runtime compositionからexportしない。
+`xpotato_sim.kinematics`、他production package、runtime compositionからexportしない。

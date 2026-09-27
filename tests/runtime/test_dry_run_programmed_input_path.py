@@ -4,11 +4,11 @@ import ast
 import json
 from pathlib import Path
 
-from selfrionette.runtime.runners.dry_run import run_replay_mujoco_dry_run
+from xpotato_sim.runtime.runners.dry_run import run_replay_mujoco_dry_run
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DRY_RUN_MODULE = ROOT / "src" / "selfrionette" / "runtime" / "runners" / "dry_run.py"
+DRY_RUN_MODULE = ROOT / "src" / "xpotato_sim" / "runtime" / "runners" / "dry_run.py"
 
 
 def _assert_endpoint_evaluation(payload: dict[str, object]) -> None:
@@ -44,7 +44,7 @@ def test_dry_run_module_uses_programmed_input_source_and_not_noop_motion_generat
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.ImportFrom)
-            and node.module == "selfrionette.plugins.input_sources.programmed_target"
+            and node.module == "xpotato_sim.plugins.input_sources.programmed_target"
         ):
             imported_names.update(alias.name for alias in node.names)
 

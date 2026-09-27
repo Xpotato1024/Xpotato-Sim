@@ -1,1 +1,0 @@
-"""Selfrionette MuJoCo migration package."""
