@@ -20,10 +20,12 @@ WebSocket、viewer、serial、OSC、hardware は起動しない。
 
 robot は Robot Catalog ID で明示する。
 
+改名後のCLIは `xpotato-sim` である。出力するpayloadの形式と、実機出力を行わない境界は従来どおりである。
+
 ```bash
 uv run xpotato-sim replay --robot fast_arm --steps 1
 uv run xpotato-sim replay --robot fast_arm --steps 3 --dt-s 0.0166666667
-uv run xpotato-sim replay --robot fast_arm --steps 3 --output /tmp/selfrionette_payload.ndjson
+uv run xpotato-sim replay --robot fast_arm --steps 3 --output /tmp/xpotato_sim_payload.ndjson
 uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
 uv run xpotato-sim replay --robot fast_arm --steps 1 --input-source replay
 uv run xpotato-sim replay --robot fast_arm --steps 1 --input-source noop

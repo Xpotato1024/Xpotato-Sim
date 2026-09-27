@@ -26,6 +26,8 @@ MuJoCo backendがsimulation stateを所有し、browserは受信qposの描画と
 
 リポジトリrootで実行する。依存のinstallと毎回の起動を分ける。
 
+基盤名の移行後は `xpotato-sim` CLIを使う。旧形式のprofile JSONも引き続き検証して読み込める。
+
 ```powershell
 uv sync --frozen --group dev
 npm --prefix apps/mujoco-viewer ci

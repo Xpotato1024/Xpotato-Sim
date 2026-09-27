@@ -23,6 +23,8 @@ Issue #567は双腕モデルより先に入力経路を成立させる変更。�
 
 新profileを明示的に選ぶ。既存sim-gamepad／sim-gamepad-world-xyの設定は変更しない。
 
+以下は改名後の `xpotato-sim` コマンドである。入力装置の割当と各profileの操作条件は変更しない。
+
 ```powershell
 uv run xpotato-sim profile sim-gamepad-left-xyz
 uv run xpotato-sim app --profile sim-gamepad-left-xyz
