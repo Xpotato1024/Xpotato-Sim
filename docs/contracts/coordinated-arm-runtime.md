@@ -15,7 +15,9 @@ related:
 ## 対象と実行意味
 
 左右のGamepad入力を名前付き手先速度へ写し、FastArm assemblyの全腕を一つのpre-step snapshotから計算する。
-単腕original、単腕mirrored、双腕を同じproviderで扱う。左右の物理取付位置・実機校正は推測しない。
+単腕original、単腕mirrored、双腕を同じproviderで扱う。双腕diagnosticでは利用者が提示した取付板の
+30 degree開きを左`+30 degree` / 右`-30 degree`のX軸mount rotationとして明示する。
+`position_m=(0, +/-0.4, 0)`は引き続き合成配置であり、実機mount位置・高さ、motor sign、encoder zero等は推測しない。
 
 この入口は `coordinated_joint_position_kinematic/v1` の**運動学診断**である。
 従来viewerのdirect-qpos意味を明示して共同更新へ拡張し、全腕の位置をまとめて反映して `mj_forward` を行う。
@@ -99,7 +101,8 @@ uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/
 
 入力は `coordinated-gamepad-diagnostic/v1`。明示assembly、side binding、Mapping parameters、epoch、dt、
 入力期限、host時刻付き保存メッセージを指定する。標準入力デバイスやnetworkを開かず、最大10000 sample、
-最大4 MiBのJSONを検査する。重複key・NaN・不正schemaを拒否する。fixtureは合成の操作条件であり実機設定ではない。
+最大4 MiBのJSONを検査する。重複key・NaN・不正schemaを拒否する。fixture内の左右mount orientationは
+30 degree取付条件を意図して固定するが、position、入力sample、motor校正は合成値でありhardware evidenceではない。
 結果は各tickの入力、before/after、モデルdigest、関節要求とterminal状態をJSONへ出力する。
 元の設定/入力、ソフトウェアrevisionと実行commandも一緒に保存する。正式なparticipant artifactには数えない。
 

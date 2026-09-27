@@ -1,13 +1,14 @@
 ---
 status: canonical
 owner: robot
-last_verified: 2026-09-25
+last_verified: 2026-09-26
 canonical_for:
   - fast_arm mirrored assembly and named output binding
 related:
   - docs/contracts/robot-profile-runtime-viewer-profile.md
   - docs/contracts/physical-output.md
   - docs/architecture/dependency-boundaries.md
+  - docs/reports/audits/fast-arm-router-mount-geometry-2026-09-26.md
 ---
 
 # FastArmの片腕・双腕assemblyと名前付き出力対応
@@ -34,6 +35,22 @@ IDがleftだから鏡映する、接続順で右を決める、mount幅を実機
 単位quatを検査し、q/-qを同じ姿勢へ正規化する。宣言後の設定はimmutable。
 `FastArmAssembly`は重複のない1〜2個を宣言順に保持する。生成名は `arm_id__local_name`。
 操作者の左右、機体arm_id、OSC target、画面左右は別のidentityである。
+
+## 肩mountの30 degree開き
+
+利用者から提示された双腕の取付構造は、正面視で`<arm>━/  \━<arm>`となり、
+左右の取付板が鉛直からそれぞれ30 degree傾く。これは関節のzero offsetではなく、
+arm全体より上流の固定base geometryとして扱う。
+
+assembly座標では正面をYZ平面とし、既存の左右鏡映後にX軸まわりのmount rotationを適用する。
+左armは`+30 degree`、右armは`-30 degree`とし、`quaternion_wxyz`はそれぞれ
+`(cos(15 degree), +sin(15 degree), 0, 0)`、`(cos(15 degree), -sin(15 degree), 0, 0)`である。
+これにより同じlocal joint configurationでもworld上のtip pose、Jacobian、workspaceはmount姿勢を含んで変化する。
+
+この30 degreeはjoint q、MuJoCo joint `ref`、wire angle offset、motor zeroへ加算しない。
+current `fast-arm-router`は差動肩関節のjoint-to-motor変換を持つが、3Dのmount frameを所有しない。
+一方、現行diagnosticの`position_m=(0, +/-0.4, 0)`は合成fixtureであり、実機のmount間隔・高さを
+測定済み寸法として扱わない。角度の反映から位置寸法や実機校正を推論しない。
 
 ## 鏡映の規約
 
@@ -97,7 +114,7 @@ UDP二送信の同時到達・原子的送信・実機同時停止も保証し�
 
 | 経路 | 今回の到達点 | 完成までの残存事項 |
 |---|---|---|
-| 片腕/双腕生成 | 原型・鏡映・同一world、名前対応API | 起動profile/GUIからの選択、実験用mount・初期姿勢 |
+| 片腕/双腕生成 | 原型・鏡映・同一world、名前対応API、双腕diagnosticの左右30 degree mount姿勢 | 起動profile/GUIからの選択、実機mount位置・高さ、初期姿勢の実測確定 |
 | 入力→両手先 | 入力側は別PR #568、今回とは独立 | multi-endpoint provider/typed route、単一snapshotの両側候補と共同更新 |
 | Selfrionette二台 | 従来の単台経路を維持 | 個体binding・別校正・skew/切断・同側例外なしの取得経路 |
 | scene/接触 | 状態addressはfreejoint追加へ対応 | 接触用geometry、腕間/自己/対象の区別、全体feasibility |

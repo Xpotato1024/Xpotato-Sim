@@ -40,8 +40,10 @@ backendへ直接渡されない。
 `adapter/physical_output.py`はFastArm固有のversion付きjoint mapping、rad-to-degree変換、OSC command semantics、
 router observation parserを所有する。profile順、wire順、unit、source tokenは明示設定とし、暗黙defaultを置かない。
 per-joint coordinate sign (`-1` / `1`)、angle offsetと`rad` / `degree` unitを必須にし、pure mapping digestへ含める。
-変換はcommand座標のsign / zero offsetだけを扱い、router側motor calibrationやshoulder-mount補正を複製しない。
-profile軸とrouter semantic軸の対応・zero基準は未確定で、実機用mapping値は#509 / #516 preflightで確認する。
+変換はcommand座標のsign / zero offsetだけを扱う。`fast-arm-router` revision `8d8c3a6`の4DOF変換は
+`(j0-j1, j0+j1, j2, j3)`であり、30 degreeのbase mount geometryは実装していない。
+左右の30 degree shoulder mountはassemblyの固定姿勢としてMuJoCoへ反映し、output mapping / router offsetへ重複させない。
+profile軸とrouter semantic軸、motor sign、encoder zeroは未確定で、実機用mapping値は#509 / #516 preflightで確認する。
 `profile_id`はrobot type、`target_robot_id`はruntime上の出力先logical identityとして別に扱い、plugin / profileと
 runtime target / transport / accepted evidenceをそれぞれ照合する。
 pure mapping moduleはruntimeやgeneric transportへ依存しない。P5 lifecycle、accepted #509 physical-measurement handoff、

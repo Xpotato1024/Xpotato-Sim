@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-20
+last_verified: 2026-09-26
 canonical_for:
   - versioned physical output request and permission boundary
 related:
@@ -213,9 +213,12 @@ generic transportへ埋め込まない。
 Profile、P5 lifecycle、二つのpermission、operator enable、generic transportを結ぶ。mapping / wire semanticsの
 ownerは`plugins.robots.fast_arm.adapter.physical_output`であり、profile joint orderとwire joint orderの完全な対応、
 jointごとのcoordinate sign (`-1` / `1`)、offset値と`rad` / `degree` offset unitをversion付きmappingの必須fieldとし、
-digestへ含める。request radにsignを適用し、明示unitのoffsetを加えてwire degreeへ純粋変換する。これはrouter側の
-motor calibrationやshoulder-mount補正を複製しない。profile / router軸とzero基準は未確定のためmapping値を推測せず、
-実際の対応選択は#509 / #516 preflightへ残す。joint command、router observation parser、endpoint、revision、cadenceも
+digestへ含める。request radにsignを適用し、明示unitのoffsetを加えてwire degreeへ純粋変換する。
+2026-09-26の`fast-arm-router` revision `8d8c3a6`監査では、4DOF経路は`(j0-j1, j0+j1, j2, j3)`の差動変換と
+degree-to-radian変換だけを行い、30 degreeのshoulder mount transformやtarget別のmount offsetは持たない。
+したがって左右の30 degree取付姿勢はRobot assembly / MuJoCo geometryの責務とし、wire mappingやrouterで補償しない。
+profile / router semantic軸、motor sign、encoder zeroは別の未確定事項であり、実際の対応選択は#509 / #516 preflightへ残す。
+joint command、router observation parser、endpoint、revision、cadenceも
 明示してbindingする。
 
 `profile_id`はrobot typeを識別し、`target_robot_id`は物理出力先のlogical identityを識別する。sessionは
