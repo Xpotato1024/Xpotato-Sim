@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-07-31
+last_verified: 2026-09-28
 canonical_for:
   - repository-local agent Skill governance
 related:
@@ -236,3 +236,7 @@ stale riskを再確認する。draft、未検証、未解決approval、side-effe
 Skill関連変更も通常のbranch、actual diff、commit、push、Draft PR gateに従う。merge、Ready化、
 Issue close、branch削除、release、deploy、外部mutationは、既存workflowと明示承認なしに行わない。
 Skill候補だけの変更は可能なら独立commitにし、product変更と混在した場合はdiffと最終報告で分離を明示する。
+
+## 担当・再利用・復旧の継承
+
+[Codex workflow](codex-workflow.md)をSkillにも適用する。参照先Skillの全手順を自動連鎖させず、失敗・不足・失効した範囲だけを確認する。通常実装の担当交代、model pin、全件再実行、全面fresh reviewを追加の完了条件にしない。必要な独立性・権限・Skill変更時の関連evalは維持する。

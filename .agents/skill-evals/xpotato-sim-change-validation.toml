@@ -20,7 +20,7 @@ route_boundaries = [
   "PR head、CI、Draft stateの監査はxpotato-sim-pr-handoffへrouteする。"
 ]
 required_inputs = ["AGENTS.md", "docs/operations/validation.md", "actual diff", "contract owner", "failure mode", "available project environment"]
-expected_major_steps = ["scope確認", "層とfailure mode特定", "focused validation選択", "該当smoke追加", "docs / Git audit", "結果とNot Run理由の報告", "impact判定"]
+expected_major_steps = ["既存証拠の条件照合と部分再開", "scope確認", "層とfailure mode特定", "focused validation選択", "該当smoke追加", "docs / Git audit", "結果とNot Run理由の報告", "impact判定"]
 expected_outputs = ["category別command", "pass / fail / not run", "代替証拠", "残存risk", "impact判定"]
 forbidden_actions = ["全taskへのfull suite機械適用", "test削除・skip・弱体化", "未実行の成功扱い", "simulation smokeのhardware validation扱い", "serial / OSC / robot output"]
 representative_dry_run = "metadata matchによるimplicit候補として、governance docsとvalidatorのdocs-only変更についてfocused test、UTF-8、link、diff checkを選択し、MuJoCoとhardwareを不要と判定する。"
