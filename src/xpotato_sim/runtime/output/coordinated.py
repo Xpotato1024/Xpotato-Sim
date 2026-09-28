@@ -6,6 +6,10 @@ from threading import RLock
 from time import monotonic
 from types import MappingProxyType
 from xpotato_sim.runtime.output.fast_arm_adapter import FastArmPhysicalOutputSession, FastArmPreparedSubmission
+from xpotato_sim.runtime.output.fast_arm_observation import (
+    FastArmRouterHealthEvidence,
+    resolve_fast_arm_router_health_datagram,
+)
 from xpotato_sim.runtime.output.safety_gate import PhysicalOutputSafetyEvaluation
 from xpotato_sim.schemas.coordinated import CoordinatedInput, identifier, number
 
@@ -25,6 +29,7 @@ class CoordinatedPhysicalOutputGroup:
     def __init__(self, sessions: Mapping[str, FastArmPhysicalOutputSession], *,
                  scene_preflight: Callable[[Mapping[str, PhysicalOutputSafetyEvaluation]], bool],
                  stop_requesters: Mapping[str, Callable[[], object]], max_input_age_s: float,
+                 max_router_health_age_s: float | None = None,
                  clock: Callable[[], float] = monotonic) -> None:
         if not isinstance(sessions, Mapping) or not 1 <= len(sessions) <= 2:
             raise ValueError("one or two explicit arm sessions required")
@@ -44,9 +49,14 @@ class CoordinatedPhysicalOutputGroup:
         self.stop_requesters = MappingProxyType(dict(stop_requesters))
         self.scene_preflight, self.clock = scene_preflight, clock
         self.max_input_age_s = number(max_input_age_s, "max_input_age_s", positive=True)
+        self.max_router_health_age_s = (
+            None if max_router_health_age_s is None
+            else number(max_router_health_age_s, "max_router_health_age_s", positive=True)
+        )
         self.state, self.reason = "disarmed", None
         self._last_input: CoordinatedInput | None = None
         self._last_now: float | None = None
+        self._router_health: dict[str, FastArmRouterHealthEvidence] = {}
         self._busy = False
         self._generation = 0
         self._stop_results: tuple[tuple[str, str, str], ...] = ()
@@ -78,6 +88,21 @@ class CoordinatedPhysicalOutputGroup:
             if value.source_sequence == old.source_sequence and value != old:
                 raise ValueError("input_sequence_reused")
         self._last_input = value
+
+    def _require_router_health(self, now: float) -> None:
+        if self.max_router_health_age_s is None:
+            return
+        for arm, session in self.sessions.items():
+            evidence = self._router_health.get(arm)
+            if evidence is None:
+                raise ValueError("router_health_missing:" + arm)
+            if evidence.target_robot_id != session.target_robot_id:
+                raise ValueError("router_health_target_mismatch:" + arm)
+            age = now - evidence.observed_at_s
+            if not 0 <= age < self.max_router_health_age_s:
+                raise ValueError("router_health_stale:" + arm)
+            if evidence.status != "healthy" or evidence.watchdog_tripped:
+                raise ValueError("router_health_unhealthy:" + arm + ":" + evidence.status)
 
     def _result(self, dispatched=(), attempted=()):
         return CoordinatedOutputResult(self.state, self.reason, tuple(dispatched), self._stop_results,
@@ -125,6 +150,7 @@ class CoordinatedPhysicalOutputGroup:
                 if not isinstance(permissions, Mapping) or set(permissions) != set(self.sessions):
                     raise ValueError("all_permissions_required")
                 self._input(neutral, now, require_neutral=True)
+                self._require_router_health(now)
                 for arm, session in self.sessions.items():
                     pair = permissions[arm]
                     if type(pair) is not tuple or len(pair) != 2:
@@ -148,6 +174,7 @@ class CoordinatedPhysicalOutputGroup:
                 if self._busy:
                     raise RuntimeError("concurrent_batch_submission")
                 self._input(input, now)
+                self._require_router_health(now)
                 if (not isinstance(evaluations, Mapping) or set(evaluations) != set(self.sessions)
                         or any(type(e) is not PhysicalOutputSafetyEvaluation for e in evaluations.values())):
                     raise ValueError("all_arm_evaluations_required")
@@ -175,7 +202,9 @@ class CoordinatedPhysicalOutputGroup:
                 with self._lock:
                     if generation != self._generation or self.state not in ("armed", "active"):
                         raise RuntimeError("group_state_changed_during_preflight")
-                    self._input(input, self._now(now_s))
+                    dispatch_now = self._now(now_s)
+                    self._input(input, dispatch_now)
+                    self._require_router_health(dispatch_now)
                     attempted.append(arm)
                     result = session.dispatch_submission(prepared[arm], now_s=now_s)
                     if (result.status != "transmission_attempted" or result.transport_result is None
@@ -191,6 +220,42 @@ class CoordinatedPhysicalOutputGroup:
             self.stop(f"{type(exc).__name__}:{exc}", fault=True)
             with self._lock:
                 return self._result(dispatched, attempted)
+
+    def observe_health(self, arm_id: str, datagram: bytes, *, now_s=None):
+        """router healthをACKとは別入口で受け、active時の異常を全体faultへ昇格する。"""
+        try:
+            identifier(arm_id, "arm_id")
+            now = self._now(now_s)
+            with self._lock:
+                session = self.sessions[arm_id]
+            evidence = resolve_fast_arm_router_health_datagram(
+                datagram,
+                expected_target_robot_id=session.target_robot_id,
+                now_s=now,
+            )
+            with self._lock:
+                self._router_health[arm_id] = evidence
+                running = self.state in ("armed", "active")
+            if running and (evidence.status != "healthy" or evidence.watchdog_tripped):
+                self.stop(
+                    "router_health_unhealthy:" + arm_id + ":" + evidence.status,
+                    fault=True,
+                )
+            return evidence
+        except Exception as exc:
+            with self._lock:
+                if type(arm_id) is str and arm_id in self.sessions:
+                    self._router_health.pop(arm_id, None)
+                else:
+                    self._router_health.clear()
+                running = self.state in ("armed", "active")
+            if running:
+                label = arm_id if type(arm_id) is str else "invalid_arm_id"
+                self.stop(
+                    "router_health_observation_error:" + label + ":" + type(exc).__name__,
+                    fault=True,
+                )
+            return None
 
     def observe(self, arm_id: str, datagram: bytes, *, now_s=None):
         try:
@@ -215,6 +280,7 @@ class CoordinatedPhysicalOutputGroup:
                 if self.state not in ("armed", "active"):
                     return self._result()
                 self._input(self._last_input, now)
+                self._require_router_health(now)
             for arm, session in self.sessions.items():
                 session.expire_acknowledgement(now_s=now)
                 if session.state not in ("armed", "active"):

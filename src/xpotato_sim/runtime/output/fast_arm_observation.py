@@ -10,6 +10,7 @@ from typing import Literal, Protocol, runtime_checkable
 from xpotato_sim.plugins.robots.fast_arm.adapter.physical_output import (
     FastArmJointWireCommand,
     parse_fast_arm_router_observation,
+    parse_fast_arm_router_target_health,
     router_observation_matches,
 )
 from xpotato_sim.transport.osc import decode_osc_message
@@ -161,6 +162,46 @@ def resolve_fast_arm_router_datagram(
         "simulated_router_observation_correlated" if simulated else "router_command_processed",
         **identity,
     ))
+
+
+@dataclass(frozen=True, slots=True)
+class FastArmRouterHealthEvidence:
+    """router healthの受信事実。router内部clockとhost clockを比較しない。"""
+
+    target_robot_id: str
+    status: str
+    state_age_s: float | None
+    watchdog_tripped: bool
+    observed_at_s: float
+    schema_version: str = "fast-arm-router-health-evidence/v1"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "fast-arm-router-health-evidence/v1":
+            raise ValueError("unsupported FastArm router health evidence schema_version")
+        _identifier("target_robot_id", self.target_robot_id)
+        object.__setattr__(self, "observed_at_s", observation_timestamp(self.observed_at_s))
+
+
+def resolve_fast_arm_router_health_datagram(
+    datagram: bytes,
+    *,
+    expected_target_robot_id: str,
+    now_s: float,
+) -> FastArmRouterHealthEvidence:
+    """health datagramをstrictにparseし、呼出側targetと相関する。"""
+    now = observation_timestamp(now_s)
+    expected = _identifier("expected_target_robot_id", expected_target_robot_id)
+    message = decode_osc_message(datagram)
+    health = parse_fast_arm_router_target_health(message.address, message.arguments)
+    if health.target_robot_id != expected:
+        raise ValueError("router health target mismatch")
+    return FastArmRouterHealthEvidence(
+        target_robot_id=health.target_robot_id,
+        status=health.status,
+        state_age_s=health.state_age_s,
+        watchdog_tripped=health.watchdog_tripped,
+        observed_at_s=now,
+    )
 
 
 @runtime_checkable

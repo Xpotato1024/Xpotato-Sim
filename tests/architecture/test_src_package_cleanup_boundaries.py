@@ -43,6 +43,7 @@ FAST_ARM_NO_IO_COMPOSITION_IMPORTS = {
         FAST_ARM_PHYSICAL_OUTPUT_MODULE,
         f"{FAST_ARM_PHYSICAL_OUTPUT_MODULE}.FastArmJointWireCommand",
         f"{FAST_ARM_PHYSICAL_OUTPUT_MODULE}.parse_fast_arm_router_observation",
+        f"{FAST_ARM_PHYSICAL_OUTPUT_MODULE}.parse_fast_arm_router_target_health",
         f"{FAST_ARM_PHYSICAL_OUTPUT_MODULE}.router_observation_matches",
     }),
     SRC / "runtime" / "output" / "fast_arm_emulation.py": frozenset({
