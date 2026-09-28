@@ -207,7 +207,6 @@ function createGamepadProvider(options: ViewerInputProviderOptions): ViewerInput
           get visibilityState(): "visible" | "hidden" {
             return options.document.visibilityState === "visible" ? "visible" : "hidden";
           },
-          hasFocus: () => options.document.hasFocus(),
           addEventListener: (type, listener) => options.document.addEventListener(type, listener),
           removeEventListener: (type, listener) => options.document.removeEventListener(type, listener),
         },

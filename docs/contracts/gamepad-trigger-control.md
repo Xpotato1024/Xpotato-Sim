@@ -75,6 +75,11 @@ fresh sampleを受け取るまで運動を開始しない。bumper単独は速�
 triggerがneutralになった時点でbumper状態をZ符号としてラッチする。
 disconnect、stale、device change、provider session changeではtrigger符号のarmingをresetする。
 
+ViewerのGamepad取得はPage Visibilityをactivation境界とし、documentが`visible`なら
+`document.hasFocus()`の値に依存せずpoll / publishする。DevToolsや別windowへfocusが移っても
+visibleなViewerはGamepad入力を継続する。一方、別tabへの切替などで`hidden`になった場合は
+即時zero snapshotを送り、heartbeatとactive publicationを停止する。
+
 ## 表示と診断
 
 backendは`metadata.gamepad_trigger_control_v1`へ次を出す。

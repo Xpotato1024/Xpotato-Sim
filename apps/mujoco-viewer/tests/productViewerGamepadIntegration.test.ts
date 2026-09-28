@@ -44,7 +44,6 @@ class FakeTimer {
 
 class FakeBrowser {
   public visibilityState: "visible" | "hidden" = "visible";
-  public focused = true;
   public currentGamepads: ArrayLike<ViewerGamepadLike | null | undefined> = [];
   public getGamepadsCalls = 0;
 
@@ -60,9 +59,6 @@ class FakeBrowser {
     this.document = {
       get visibilityState() {
         return browser.visibilityState;
-      },
-      hasFocus() {
-        return browser.focused;
       },
       addEventListener: (_type, listener) => {
         browser.documentListeners.add(listener);
@@ -146,40 +142,7 @@ function createTestLifecycle(browser: FakeBrowser, timer: FakeTimer, published: 
   });
 }
 
-function testBlurAndHiddenTransitionsGateTheActualPollingLifecycle(): void {
-  for (const transition of ["blur", "hidden"] as const) {
-    const browser = new FakeBrowser();
-    browser.currentGamepads = [activePad(0.5)];
-    const timer = new FakeTimer();
-    const published: ViewerGamepadSnapshot[] = [];
-    const lifecycle = createTestLifecycle(browser, timer, published);
-
-    lifecycle.start();
-    assert.equal(published.length, 1, `${transition}: active sample must publish on start`);
-    assert.equal(timer.pendingCount, 1);
-
-    if (transition === "blur") {
-      browser.focused = false;
-      browser.dispatchWindow("blur");
-    } else {
-      browser.visibilityState = "hidden";
-      browser.dispatchVisibilityChange();
-    }
-
-    assert.equal(published.length, 2, `${transition}: transition must publish zero immediately`);
-    assert.equal(published.at(-1)?.zero_state, true);
-    assert.equal(timer.pendingCount, 0, `${transition}: heartbeat must stop`);
-
-    browser.currentGamepads = [activePad(-0.8)];
-    browser.runAnimationFrame();
-    assert.equal(published.length, 2, `${transition}: inactive polling must not publish active input`);
-    assert.ok(browser.getGamepadsCalls >= 2, `${transition}: polling must still sample the browser gamepad`);
-
-    lifecycle.dispose();
-  }
-}
-
-function testVisibleWithoutFocusStaysInactiveThenFocusedResumeUsesFreshSample(): void {
+function testBlurAndFocusEventsDoNotGateVisibleGamepadPublication(): void {
   const browser = new FakeBrowser();
   browser.currentGamepads = [activePad(0.5)];
   const timer = new FakeTimer();
@@ -187,48 +150,79 @@ function testVisibleWithoutFocusStaysInactiveThenFocusedResumeUsesFreshSample():
   const lifecycle = createTestLifecycle(browser, timer, published);
 
   lifecycle.start();
-  browser.visibilityState = "hidden";
-  browser.dispatchVisibilityChange();
-  const callsBeforeVisible = browser.getGamepadsCalls;
+  assert.equal(published.length, 1, "visible gamepad sample must publish on start");
+  assert.equal(timer.pendingCount, 1);
 
-  browser.visibilityState = "visible";
-  browser.focused = false;
-  browser.currentGamepads = [activePad(-0.8)];
-  browser.dispatchVisibilityChange();
-  browser.runAnimationFrame();
-  assert.equal(published.length, 2, "visible without focus must remain inactive");
-  assert.ok(browser.getGamepadsCalls > callsBeforeVisible, "inactive RAF must still poll current gamepad state");
-
-  browser.focused = true;
-  browser.dispatchWindow("focus");
-  assert.equal(published.length, 3, "focused resume must publish immediately");
-  assert.deepEqual(published.at(-1), sampleViewerGamepadSnapshot([activePad(-0.8)], { deadzone: 0.1 }));
-  assert.equal(timer.pendingCount, 1, "resume must create exactly one heartbeat");
-
-  browser.dispatchWindow("focus");
-  assert.equal(timer.pendingCount, 1, "repeated focus must not duplicate heartbeat");
-  timer.runNext();
-  assert.equal(published.length, 4, "one resumed heartbeat must publish");
-  lifecycle.dispose();
-}
-
-function testRepeatedInactiveEventsAndDisposeCannotRevivePublication(): void {
-  const browser = new FakeBrowser();
-  browser.currentGamepads = [activePad(0.5)];
-  const timer = new FakeTimer();
-  const published: ViewerGamepadSnapshot[] = [];
-  const lifecycle = createTestLifecycle(browser, timer, published);
-
-  lifecycle.start();
-  browser.focused = false;
   browser.dispatchWindow("blur");
+  browser.currentGamepads = [activePad(-0.8)];
+  browser.runAnimationFrame();
+  assert.equal(published.length, 2, "window blur must not suppress visible gamepad input");
+  assert.deepEqual(
+    published.at(-1),
+    sampleViewerGamepadSnapshot([activePad(-0.8)], { deadzone: 0.1 }),
+  );
+  assert.equal(timer.pendingCount, 1, "visible blur must keep one heartbeat");
+
+  browser.dispatchWindow("focus");
+  browser.currentGamepads = [activePad(0.7)];
+  browser.runAnimationFrame();
+  assert.equal(published.length, 3, "window focus must not create a separate activation boundary");
+  assert.deepEqual(
+    published.at(-1),
+    sampleViewerGamepadSnapshot([activePad(0.7)], { deadzone: 0.1 }),
+  );
+
+  lifecycle.dispose();
+}
+
+function testHiddenTransitionStopsAndVisibleResumeUsesFreshSample(): void {
+  const browser = new FakeBrowser();
+  browser.currentGamepads = [activePad(0.5)];
+  const timer = new FakeTimer();
+  const published: ViewerGamepadSnapshot[] = [];
+  const lifecycle = createTestLifecycle(browser, timer, published);
+
+  lifecycle.start();
   browser.visibilityState = "hidden";
   browser.dispatchVisibilityChange();
-  assert.equal(published.length, 2, "blur followed by hidden must not duplicate zero publication");
+  assert.equal(published.length, 2, "hidden transition must publish zero immediately");
+  assert.equal(published.at(-1)?.zero_state, true);
+  assert.equal(timer.pendingCount, 0, "hidden transition must stop heartbeat");
+
+  const callsBeforeHiddenPoll = browser.getGamepadsCalls;
+  browser.currentGamepads = [activePad(-0.8)];
+  browser.runAnimationFrame();
+  assert.equal(published.length, 2, "hidden polling must not publish active input");
+  assert.ok(browser.getGamepadsCalls > callsBeforeHiddenPoll, "hidden RAF may sample but must not publish");
+
+  browser.visibilityState = "visible";
+  browser.dispatchVisibilityChange();
+  assert.equal(published.length, 3, "visible resume must publish the current fresh sample immediately");
+  assert.deepEqual(
+    published.at(-1),
+    sampleViewerGamepadSnapshot([activePad(-0.8)], { deadzone: 0.1 }),
+  );
+  assert.equal(timer.pendingCount, 1, "visible resume must restore one heartbeat");
+
+  lifecycle.dispose();
+}
+
+function testRepeatedVisibilityEventsAndDisposeCannotRevivePublication(): void {
+  const browser = new FakeBrowser();
+  browser.currentGamepads = [activePad(0.5)];
+  const timer = new FakeTimer();
+  const published: ViewerGamepadSnapshot[] = [];
+  const lifecycle = createTestLifecycle(browser, timer, published);
+
+  lifecycle.start();
+  browser.visibilityState = "hidden";
+  browser.dispatchVisibilityChange();
+  browser.dispatchWindow("blur");
+  browser.dispatchVisibilityChange();
+  assert.equal(published.length, 2, "repeated hidden/blur events must not duplicate zero publication");
 
   lifecycle.dispose();
   browser.visibilityState = "visible";
-  browser.focused = true;
   browser.dispatchWindow("focus");
   browser.dispatchVisibilityChange();
   assert.equal(browser.pendingAnimationFrameCount, 0, "dispose must cancel animation-frame polling");
@@ -236,8 +230,8 @@ function testRepeatedInactiveEventsAndDisposeCannotRevivePublication(): void {
   assert.equal(timer.pendingCount, 0, "dispose must block heartbeat revival");
 }
 
-testBlurAndHiddenTransitionsGateTheActualPollingLifecycle();
-testVisibleWithoutFocusStaysInactiveThenFocusedResumeUsesFreshSample();
-testRepeatedInactiveEventsAndDisposeCannotRevivePublication();
+testBlurAndFocusEventsDoNotGateVisibleGamepadPublication();
+testHiddenTransitionStopsAndVisibleResumeUsesFreshSample();
+testRepeatedVisibilityEventsAndDisposeCannotRevivePublication();
 
 console.log("product viewer gamepad lifecycle integration tests passed");

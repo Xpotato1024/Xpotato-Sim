@@ -322,7 +322,7 @@ managed sourceをstartせず、frameをreadしない。
 
 責務は次の通り固定する。
 
-- frontend `ViewerInputProviderRegistry`: known static IDs、provider lifecycle、browser event / Gamepad API、focus / visibility / disconnect、raw device neutral state、timestamp / sequence、raw payload。normalized `axes`はwire / overlay compatibility projectionである。
+- frontend `ViewerInputProviderRegistry`: known static IDs、provider lifecycle、browser event / Gamepad API、keyboard focus、Gamepad visibility / disconnect、raw device neutral state、timestamp / sequence、raw payload。GamepadはDOM focusをactivation条件にせず、visible documentでpollを継続しhidden時にzero/suspendする。normalized `axes`はwire / overlay compatibility projectionである。
 - backend `ViewerInputSource`: parse / validation、provider identity / schema、latest sample、active / stale / invalid / disconnected health、250 ms timeout、cleanup、canonical sample、legacy metadata projection。
 - `ViewerKeyboardGamepadMappingStrategy`: canonical sampleのkeyboard binding、gamepad raw axis、sign、speed /
   gain、deadzone、button 0/1 supplement、world / tool frame、typed endpoint-velocity intent。mappingは

@@ -17,7 +17,6 @@ export interface ViewerGamepadLifecycleWindowLike {
 
 export interface ViewerGamepadLifecycleDocumentLike {
   visibilityState: "visible" | "hidden";
-  hasFocus(): boolean;
   addEventListener(type: "visibilitychange", listener: () => void): void;
   removeEventListener(type: "visibilitychange", listener: () => void): void;
 }
@@ -48,7 +47,7 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
   });
   let disposed = false;
   let started = false;
-  let lifecycleActive = options.document.visibilityState === "visible" && options.document.hasFocus();
+  let lifecycleActive = options.document.visibilityState === "visible";
   let animationFrameId = 0;
 
   const publishGamepadState = (): void => {
@@ -91,14 +90,8 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
   const onGamepadDisconnected = (): void => {
     publishGamepadState();
   };
-  const onWindowBlur = (): void => {
-    setLifecycleActive(false);
-  };
-  const onWindowFocus = (): void => {
-    setLifecycleActive(options.document.visibilityState === "visible" && options.document.hasFocus());
-  };
   const onVisibilityChange = (): void => {
-    setLifecycleActive(options.document.visibilityState === "visible" && options.document.hasFocus());
+    setLifecycleActive(options.document.visibilityState === "visible");
   };
 
   const start = (): void => {
@@ -116,8 +109,6 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
     animationFrameId = options.window.requestAnimationFrame(schedulePoll);
     options.window.addEventListener("gamepadconnected", onGamepadConnected);
     options.window.addEventListener("gamepaddisconnected", onGamepadDisconnected);
-    options.window.addEventListener("blur", onWindowBlur);
-    options.window.addEventListener("focus", onWindowFocus);
     options.document.addEventListener("visibilitychange", onVisibilityChange);
   };
 
@@ -136,8 +127,6 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
     publication.dispose();
     options.window.removeEventListener("gamepadconnected", onGamepadConnected);
     options.window.removeEventListener("gamepaddisconnected", onGamepadDisconnected);
-    options.window.removeEventListener("blur", onWindowBlur);
-    options.window.removeEventListener("focus", onWindowFocus);
     options.document.removeEventListener("visibilitychange", onVisibilityChange);
   };
 

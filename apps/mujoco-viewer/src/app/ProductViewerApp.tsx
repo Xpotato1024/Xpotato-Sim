@@ -189,9 +189,11 @@ export function ProductViewerApp() {
   const inputStartup = useMemo(() => readViewerInputStartup(
     typeof window === "undefined" ? "" : window.location.search,
   ), []);
-  const gamepadNeutralHeartbeat = inputStartup === "scene" || state.inputOverlay?.gamepadPlaneControl != null;
-  const coordinatedStopped = state.inputOverlay?.gamepadPlaneControl?.outputScope === "coordinated"
-    && (state.inputOverlay.motionStatus === "faulted" || state.inputOverlay.motionStatus === "stopped");
+  const gamepadControlPresentation =
+    state.inputOverlay?.gamepadTriggerControl ?? state.inputOverlay?.gamepadPlaneControl ?? null;
+  const gamepadNeutralHeartbeat = inputStartup === "scene" || gamepadControlPresentation !== null;
+  const coordinatedStopped = gamepadControlPresentation?.outputScope === "coordinated"
+    && (state.inputOverlay?.motionStatus === "faulted" || state.inputOverlay?.motionStatus === "stopped");
   const liveInputEnabled = !inputPaused && !coordinatedStopped && inputSelection.error === null
     && isProductViewerLiveInputEnabled(state, inputStartup);
 
