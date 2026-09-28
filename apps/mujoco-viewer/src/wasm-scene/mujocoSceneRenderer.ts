@@ -82,6 +82,7 @@ export interface MujocoSceneRendererOptions {
   profile: ViewerRobotProfile | null;
   expectedProfileId?: string | null;
   websocketUrl?: string | null;
+  initialCameraView?: CameraView;
   onStateChange: (state: ProductViewerState) => void;
   onProfileResolved?: (profile: ViewerRobotProfile) => void;
   onError?: (error: Error) => void;
@@ -605,7 +606,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     applyStartupPose();
   };
 
-  let selectedCameraView: CameraView = "iso";
+  let selectedCameraView: CameraView = options.initialCameraView ?? "iso";
   const setCameraView = (view: CameraView | "fit"): void => {
     if (view !== "fit") selectedCameraView = view;
     if (data === null) return;
@@ -949,7 +950,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
       hasLoaded = true;
       syncToLatestSource();
-      setCameraView("iso");
+      setCameraView(selectedCameraView);
       updateRendererStatus({
         status: "ready",
         sceneSummaryText: `loaded ${model.ngeom} geoms and ${model.nmesh} compiled meshes`,

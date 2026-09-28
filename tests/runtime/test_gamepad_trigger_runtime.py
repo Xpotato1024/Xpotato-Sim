@@ -59,48 +59,50 @@ def keyboard_message(key=None):
     )
 
 
-@pytest.mark.parametrize("side", ("left", "right"))
-@pytest.mark.parametrize("key,axis,sign", [
-    ("KeyD", 0, 1), ("KeyA", 0, -1),
-    ("KeyW", 1, 1), ("KeyS", 1, -1),
-    ("Space", 2, 1), ("ShiftLeft", 2, -1),
+@pytest.mark.parametrize("side,horizontal,vertical,trigger_index,sign_button", [
+    ("left", 0, 1, 0, 4),
+    ("right", 2, 3, 1, 5),
 ])
-def test_six_directions_match_keyboard_in_mujoco(side, key, axis, sign):
+@pytest.mark.parametrize("motion", ("forward", "backward", "left", "right", "up", "down"))
+def test_operator_tps_directions_resolve_to_body_world_axes(
+    side, horizontal, vertical, trigger_index, sign_button, motion,
+):
     source, plan = make_plan(side)
-    offset = 0 if side == "left" else 2
-    sign_button = 4 if side == "left" else 5
-    trigger_index = 0 if side == "left" else 1
     raw = [0.] * 4
     triggers = [0., 0.]
     held = ()
+    expected = {
+        "forward": (0.1, 0.0, 0.0),
+        "backward": (-0.1, 0.0, 0.0),
+        "left": (0.0, 0.1, 0.0),
+        "right": (0.0, -0.1, 0.0),
+        "up": (0.0, 0.0, 0.1),
+        "down": (0.0, 0.0, -0.1),
+    }[motion]
 
-    if axis < 2:
-        raw[offset + axis] = 1.0 * sign if axis == 0 else -1.0 * sign
+    if motion == "forward":
+        raw[vertical] = -1.0
+    elif motion == "backward":
+        raw[vertical] = 1.0
+    elif motion == "left":
+        raw[horizontal] = -1.0
+    elif motion == "right":
+        raw[horizontal] = 1.0
     else:
         triggers[trigger_index] = 1.0
-        held = (sign_button,) if sign < 0 else ()
+        held = (sign_button,) if motion == "down" else ()
 
     neutral = message(held=held, sequence=0)
     move = message(tuple(raw), triggers=tuple(triggers), held=held, sequence=1)
     record = run_sequence(source, plan, [neutral, move])[-1]
 
-    keyboard_source = ViewerInputSource(clock=lambda: 0.)
-    keyboard_plan = build_runtime_input_source_step_loop_plan(
-        select_runtime_input_source("viewer", steps=1),
-        viewer_clock=lambda: 0.,
-        viewer_input_source=keyboard_source,
-        publisher=NoOpStatePublisher(),
-    )
-    expected = run_sequence(
-        keyboard_source, keyboard_plan,
-        [keyboard_message(), keyboard_message(key)],
-    )[-1]
-    assert record.state.qpos == pytest.approx(expected.state.qpos, abs=1e-12)
-    assert record.state.metadata["actual_tip_delta_m"] == pytest.approx(
-        expected.state.metadata["actual_tip_delta_m"], abs=1e-12,
-    )
+    assert record.intent.metadata["local_endpoint_velocity_m_s"] == pytest.approx(expected, abs=1e-12)
+    assert record.intent.metadata["resolved_world_endpoint_velocity_m_s"] == pytest.approx(expected, abs=1e-12)
+    actual = record.state.metadata["actual_tip_delta_m"]
+    assert sum(actual[i] * expected[i] for i in range(3)) > 0.0
     assert record.state.metadata["gamepad_trigger_control_v1"]["output_side"] == side
-    assert record.intent.metadata["local_endpoint_velocity_m_s"] == expected.intent.metadata["local_endpoint_velocity_m_s"]
+
+
 def test_pipeline_session_reset_isolates_trigger_sign_state():
     source, plan = make_plan("left")
     source2, plan2 = make_plan("left")
@@ -142,9 +144,12 @@ def test_invalid_input_drops_mapping_session():
 @pytest.mark.parametrize("side", ("left", "right"))
 def test_xyz_profiles_use_trigger_control_and_old_generic_profile_is_unchanged(side):
     profile = load_launch_profile(f"sim-gamepad-{side}-xyz")
-    assert profile.mapping_parameters == parameters(side)
     resolved = profile.to_dict()["resolved"]["mapping_parameters"]["gamepad_trigger_control"]
     assert resolved["output_side"] == side
+    assert resolved["left"]["axes"] == [1, 0]
+    assert resolved["left"]["signs"] == [-1, -1]
+    assert resolved["right"]["axes"] == [3, 2]
+    assert resolved["right"]["signs"] == [-1, -1]
     assert resolved[side]["trigger_button"] == (6 if side == "left" else 7)
     assert resolved[side]["sign_button"] == (4 if side == "left" else 5)
     assert load_launch_profile("sim-gamepad").mapping_parameters == {}

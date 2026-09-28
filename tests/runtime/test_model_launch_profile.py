@@ -23,7 +23,13 @@ def test_peer_model_profiles_share_loader_and_endpoint_contract(name,model,endpo
     assert set(p.side_to_endpoint.values())==set(endpoints)
     assert p.name in list_application_profiles()
     assert parse_qs(urlparse(application_url(p)).query)["inputStartup"]==["scene"]
-    assert p.to_dict()["resolved"]["physical_output"]=="disabled"
+    resolved = p.to_dict()["resolved"]
+    assert resolved["physical_output"]=="disabled"
+    control = resolved["mapping_parameters"]["gamepad_trigger_control"]
+    assert control["left"]["axes"] == [1, 0]
+    assert control["left"]["signs"] == [-1, -1]
+    assert control["right"]["axes"] == [3, 2]
+    assert control["right"]["signs"] == [-1, -1]
 
 
 def test_old_single_profile_configuration_and_digest_are_not_rewritten():

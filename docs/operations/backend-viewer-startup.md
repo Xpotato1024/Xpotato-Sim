@@ -106,6 +106,8 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 ## 左右独立の1スティックXYZ操作
 
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`とFastArmのGamepad profileはstick XY + analog trigger Zを使用する。
+起動時はFastArmの`+X`前方と操作方向を合わせた`operator` camera presetを使い、stick上を前進、右を胴体右へ対応させる。
+cameraを手動回転しても入力Mappingはcamera-relativeに変更しない。
 操作と表示は[Gamepad trigger操作契約](../contracts/gamepad-trigger-control.md)を参照する。
 旧XY/XZ切替は[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)の互換経路である。
 
