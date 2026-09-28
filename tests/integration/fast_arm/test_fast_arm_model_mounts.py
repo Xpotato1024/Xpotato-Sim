@@ -3,7 +3,10 @@ from math import sqrt
 import mujoco
 import numpy as np
 import pytest
-from fast_arm_core.models import resolve_fast_arm_model, torso_shoulder_instance
+from fast_arm_core.models import (
+    resolve_fast_arm_model, torso_shoulder_instance,
+    SHOULDER_CENTER_SPACING_M, SHOULDER_CENTER_HEIGHT_M,
+)
 from fast_arm_core.assembly_model import build_fast_arm_assembly_model
 from fast_arm_core.assembly import FastArmAssembly
 from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
@@ -26,7 +29,7 @@ def test_mount_normal_shoulder_pivot_and_home_direction(name):
     for arm in definition.assembly.instances:
         side = 1 if arm.arm_id == "left" else -1
         center = data.xanchor[model.joint(arm.name("sholder_joint_1")).id]
-        assert center == pytest.approx((0., side * .4, .7), abs=1e-12)
+        assert center == pytest.approx((0., side * SHOULDER_CENTER_SPACING_M / 2, SHOULDER_CENTER_HEIGHT_M), abs=1e-12)
         # sourceの取付板はlocal XZ面。鏡映時は極性vectorの法線も鏡映する。
         normal_local = np.array((0., 1. if arm.mirror_y else -1., 0.))
         normal = data.xmat[model.body(arm.name("base_link")).id].reshape(3,3) @ normal_local
@@ -91,3 +94,51 @@ def test_mount_translation_fixes_shoulder_center_at_arbitrary_cant():
         model=mujoco.MjModel.from_xml_string(built.xml.decode(),dict(built.assets)); data=mujoco.MjData(model)
         mujoco.mj_forward(model,data)
         assert data.xanchor[model.joint("custom__sholder_joint_1").id] == pytest.approx((.3,.2,1.1),abs=1e-12)
+
+
+
+def test_image_inferred_spacing_is_a_shoulder_datum_not_the_98mm_hole_distance():
+    _, model, data = loaded("bimanual")
+    left = data.xanchor[model.joint("left__sholder_joint_1").id]
+    right = data.xanchor[model.joint("right__sholder_joint_1").id]
+    # 採用した画像推定値を固定するacceptance。定数のコピーで旧0.8 mを見逃さない。
+    assert left - right == pytest.approx((0., .290, 0.), abs=1e-12)
+    assert left[2] == right[2] == pytest.approx(.7)
+    plates = []
+    for side in ("left", "right"):
+        body = model.body(side + "__base_link").id
+        # 原本BaseLinkの平板はlocal y=0..0.006 m。その中央面を測る。
+        plates.append(data.xpos[body] + data.xmat[body].reshape(3,3) @ np.array((0., .003 if side == "left" else -.003, 0.)))
+    separation = plates[0][1] - plates[1][1]
+    assert separation == pytest.approx(.290 - 2 * .072 * sqrt(3) / 2, abs=1e-12)
+    assert .14 < separation < .18  # CAD投影からの約0.16 mと整合。98 mmの穴間ではない。
+    assert plates[0][2] == pytest.approx(plates[1][2], abs=1e-12)
+
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_shortening_only_translates_each_arm_without_rescaling_or_reorienting(side):
+    from dataclasses import replace
+    chosen = resolve_fast_arm_model("single_" + side).assembly
+    current = chosen.instances[0]
+    sign = 1 if side == "left" else -1
+    shift = sign * (.400 - .145)
+    old = replace(current, position_m=(current.position_m[0], current.position_m[1] + shift, current.position_m[2]))
+    models = []
+    for assembly in (chosen, FastArmAssembly((old,))):
+        artifact = build_fast_arm_assembly_model(assembly)
+        model = mujoco.MjModel.from_xml_string(artifact.xml.decode(), dict(artifact.assets))
+        data = mujoco.MjData(model)
+        mujoco.mj_resetDataKeyframe(model, data, 0); mujoco.mj_forward(model, data)
+        models.append((artifact, model, data))
+    (a, ma, da), (b, mb, db) = models
+    assert a.source_sha256 == b.source_sha256
+    assert a.assets == b.assets
+    assert a.model_sha256 != b.model_sha256
+    assert da.qpos == pytest.approx(db.qpos)
+    assert ma.body_mass == pytest.approx(mb.body_mass)
+    assert ma.actuator_forcerange == pytest.approx(mb.actuator_forcerange)
+    for suffix in ("base_link", "sholder_link_1", "sholder_link_2", "upper_arm_link", "fore_arm_link"):
+        i, j = ma.body(side + "__" + suffix).id, mb.body(side + "__" + suffix).id
+        assert db.xpos[j] - da.xpos[i] == pytest.approx((0., shift, 0.), abs=1e-12)
+        assert db.xmat[j] == pytest.approx(da.xmat[i], abs=1e-12)

@@ -132,7 +132,7 @@ uv run xpotato-sim app --profile fast-arm-bimanual-gamepad
 旧v1の単腕keyboard/replay等は既存の開始順序・設定digestを維持する。
 
 左・右肩の取付姿勢と回転中心は[FastArm assembly契約](../contracts/fast-arm-assembly.md)を参照する。
-肩中心(0,+/-0.4,0.7) mは合成値で、実機寸法ではない。従来のsource原点へのRx(+/-30度)だけの取付は誤りである。
+肩中心は(0,+/-0.145,0.7) m。間隔0.290 mはCAD画像の穴間寸法を縮尺として推定した暫定値で、高さ0.7 mは合成値のままである。98 mmを肩間隔へ直用せず、plate/shoulder基準点の違いを補正した。実機寸法の確定値ではない。従来のsource原点へのRx(+/-30度)だけの取付は誤りである。
 
 初回は新鮮な中立を待つ。stale・切断・不正入力・model/joint不整合では選択モデル全体のfaultを保持し、
 残りの有限session中は固定姿勢と理由を表示する。正常入力復帰だけで再開しない。

@@ -63,7 +63,14 @@ p_world = R (p_source - (0,0,0.7)) + c
 一致させる目的のzero補正はしない。これは写真とユーザー指定の30 degreeから構成した
 simulation幾何であり、写真の射影から全寸法・joint zero・可動域を測定したという意味ではない。
 
-初期モデルのc=(0,+/-0.4,0.7) mは合成値であり、肩中心間隔0.8 mと高さ0.7 mは実測値ではない。
+肩中心間隔は画像に基づく暫定値`SHOULDER_CENTER_SPACING_M=0.290 m`とし、
+`c=(0,+/-0.145,0.7) m`へ短縮した。画像の98 mmは別部品の取付穴間距離であり、肩間隔として直用しない。
+穴間約491 pxを縮尺とし、取付板中心間約800 px（約160 mm）と、原本の板中央面から肩関節基準までの
+片側72 mmのoffsetを30 degree取付で合成すると、肩中心間隔は約284 mmとなる。設計値は290 mmを仮採用した。
+画像の視点・板の対応点・93 mm併記の意味が未確定のため、270〜310 mmを感度確認用の幅とする。
+これは統計的な信頼区間・部品公差・実機測定値ではない。高さ0.7 mは未実測の合成値を維持する。
+`single_left`、`single_right`、`bimanual`はこの共通定義を使い、`single_original`は不変。
+読取点と計算は[モデル訂正note](../experiment-notes/2026-09-28-fast-arm-mount-model-correction.md)に記録する。
 原本XML/STL、joint ref/home、motor sign、wire offset、routerの差動変換は変更しない。
 取付姿勢はcoreの幾何だけで適用し、Viewer、入力写像、OSC側で重ねて補正しない。
 
@@ -98,7 +105,7 @@ free-space Environmentの「Robot-owned base sceneを使う」既存契約に従
 元XMLのrobot meshはcontype/conaffinityとも0である。この設定は左右へそのまま継承する。
 モデルの描画・FK・actuatorの時間発展が成功しても、腕間衝突、自己干渉、物体接触が検証済みとはしない。
 接触用形状・pair分類・全sceneのfeasibilityを整備するまで、接触研究や実機許可の根拠に使わない。
-±0.4 m等のテスト配置は合成fixtureであり、実機mount値・共通作業域・実験配置の採択ではない。
+画像推定の肩間隔および診断用の合成fixtureは、実機mount値・共通作業域・実験配置の採択ではない。旧±0.4 mの結果と同一条件として混在させない。
 
 ## 左右のOSC要求への共通投影
 

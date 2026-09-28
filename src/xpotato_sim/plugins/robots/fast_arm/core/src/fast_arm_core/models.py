@@ -1,7 +1,7 @@
 """FastArmの原型・左右単腕・双腕を同列のモデル定義として保持する。
 
 胴体座標は+X前方、+Y左、+Z上。sourceの肩中心(0,0,0.7)を取付点へ写す。
-写真で指定された30度の取付姿勢と、未実測の合成位置を混同しない。
+写真指定の30度、CAD画像から推定した肩間隔、未実測の高さを実機校正値と混同しない。
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -50,19 +50,26 @@ class FastArmModelDefinition:
     placement_evidence: str
 
 
-# 位置は従来の合成肩中心間隔0.8 m、高さ0.7 mを保持。実機寸法ではない。
-_LEFT = torso_shoulder_instance(arm_id="left", side="left", shoulder_center_m=(0., .4, .7))
-_RIGHT = torso_shoulder_instance(arm_id="right", side="right", shoulder_center_m=(0., -.4, .7))
+# 別部品の穴間98 mmを画像縮尺に使用。板中心間約160 mmに原本の肩基準offsetを加えた暫定値。
+# 直接CAD計測・実機校正ではない。推定根拠は2026-09-28のモデル訂正noteを参照。
+SHOULDER_CENTER_SPACING_M = 0.290
+SHOULDER_CENTER_HEIGHT_M = 0.700  # 高さは未計測の合成値を維持する。
+_LEFT = torso_shoulder_instance(
+    arm_id="left", side="left",
+    shoulder_center_m=(0., SHOULDER_CENTER_SPACING_M / 2, SHOULDER_CENTER_HEIGHT_M))
+_RIGHT = torso_shoulder_instance(
+    arm_id="right", side="right",
+    shoulder_center_m=(0., -SHOULDER_CENTER_SPACING_M / 2, SHOULDER_CENTER_HEIGHT_M))
 FAST_ARM_MODEL_DEFINITIONS = (
     FastArmModelDefinition("single_original", 1,
         FastArmAssembly((FastArmInstance("arm", False, (0.,0.,0.), (1.,0.,0.,0.)),)),
         "canonical source frame; not an anatomical side"),
     FastArmModelDefinition("single_left", 1, FastArmAssembly((_LEFT,)),
-        "30 degree photo constraint; synthetic unmeasured shoulder position"),
+        "30 degree photo constraint; 0.290 m image-inferred shoulder spacing; synthetic height; not hardware-calibrated"),
     FastArmModelDefinition("single_right", 1, FastArmAssembly((_RIGHT,)),
-        "30 degree photo constraint; synthetic unmeasured shoulder position"),
+        "30 degree photo constraint; 0.290 m image-inferred shoulder spacing; synthetic height; not hardware-calibrated"),
     FastArmModelDefinition("bimanual", 1, FastArmAssembly((_LEFT, _RIGHT)),
-        "30 degree photo constraint; synthetic unmeasured shoulder positions"),
+        "30 degree photo constraint; 0.290 m image-inferred shoulder spacing; synthetic height; not hardware-calibrated"),
 )
 
 
