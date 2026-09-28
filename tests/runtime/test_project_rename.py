@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import xpotato_sim
 from xpotato_sim.runtime.composition.launch_profile import (
-    LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
+    LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
 )
 from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 
@@ -25,17 +25,29 @@ def test_distribution_and_console_scripts_use_new_namespace():
 
 
 @pytest.mark.parametrize("path", sorted((ROOT / "profiles").glob("*.json")), ids=lambda p: p.stem)
-def test_legacy_launch_profile_keeps_original_configuration_and_digest(path):
+def test_shipped_profile_schema_and_legacy_configuration_digest(path):
     raw = json.loads(path.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == LAUNCH_PROFILE_SCHEMA
+    assert raw["schema_version"] in (LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA)
     current = decode_launch_profile(json.dumps(raw).encode(), source_path=path)
-    raw["schema_version"] = LEGACY_LAUNCH_PROFILE_SCHEMA
-    legacy = decode_launch_profile(json.dumps(raw).encode(), source_path=path)
     canonical = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    assert legacy.document_json == canonical
-    assert legacy.configuration_sha256 == sha256(canonical.encode()).hexdigest()
-    assert legacy.to_dict()["resolved"] == current.to_dict()["resolved"]
-    assert legacy.to_dict()["resolved"]["physical_output"] == "disabled"
+    assert current.document_json == canonical
+    assert current.configuration_sha256 == sha256(canonical.encode()).hexdigest()
+    assert current.to_dict()["resolved"]["physical_output"] == "disabled"
+    if raw["schema_version"] == MODEL_LAUNCH_PROFILE_SCHEMA:
+        # v2を旧名v1へ単純置換し、モデル選択を黙って落とす移行は拒否する。
+        assert current.model is not None
+        for old_schema in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA):
+            old = {**raw, "schema_version": old_schema}
+            with pytest.raises(ValueError, match="unknown fields"):
+                decode_launch_profile(json.dumps(old).encode(), source_path=path)
+    else:
+        raw["schema_version"] = LEGACY_LAUNCH_PROFILE_SCHEMA
+        legacy = decode_launch_profile(json.dumps(raw).encode(), source_path=path)
+        canonical = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        assert legacy.document_json == canonical
+        assert legacy.configuration_sha256 == sha256(canonical.encode()).hexdigest()
+        assert legacy.to_dict()["resolved"] == current.to_dict()["resolved"]
+        assert legacy.to_dict()["resolved"]["physical_output"] == "disabled"
     raw["schema_version"] = "xpotato-sim-launch-profile/v999"
     with pytest.raises(ValueError, match="schema_version"):
         decode_launch_profile(json.dumps(raw).encode(), source_path=path)
