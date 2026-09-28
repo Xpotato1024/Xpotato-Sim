@@ -111,3 +111,12 @@ genericなDTO、resolver、providerはruntimeが所有する。
 従来のsource原点へのRxだけの取付は訂正済み。単腕モデルの対応する肩と双腕内の肩は同一の幾何となる。
 共通の[起動手順](../../../../../docs/operations/backend-viewer-startup.md)からモデルを選択する。
 既存単腕v1のprofile identity・joint規約と実機校正は変更しない。
+
+
+## 共通base sceneと床（#580再訂正）
+
+4種の登録モデルは`adapter/assembly_scene.py`から旧単腕の`resources/mujoco/scene.xml`を再利用する。
+そのinclude先だけを生成assemblyへ結び、床z=0・照明・材質を単腕/双腕で一度ずつ共有する。
+coreのarm.xmlには床を埋め込まず、Viewerだけの見せかけの床も作らない。
+providerとViewerには同じcomposed artifactを渡し、digestはsceneと全依存を覆う。
+床があっても原本meshのcollision無効と運動学更新の意味は変わらず、接触力評価が完成したとは扱わない。

@@ -46,7 +46,7 @@ def test_bimanual_mounts_orient_actual_plate_normals_not_only_roll():
         body = model.body(arm.name("base_link")).id
         local = [0., 1. if arm.mirror_y else -1., 0.]
         normal = data.xmat[body].reshape(3,3) @ local
-        np.testing.assert_allclose(normal, [0., side * np.sqrt(3)/2, -.5], atol=1e-12)
+        np.testing.assert_allclose(normal, [0., side * np.sqrt(3)/2, .5], atol=1e-12)
 
 
 def test_random_pose_fk_jacobian_mass_and_gravity_are_true_reflections():

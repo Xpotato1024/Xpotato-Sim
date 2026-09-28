@@ -73,6 +73,13 @@ class FastArmAssemblyModel:
     model_sha256: str
 
 
+def fast_arm_model_digest(xml: bytes, assets: Mapping[str, bytes]) -> str:
+    """XMLと全依存資源を同じ規約で識別する。scene側の床もdigestに含める。"""
+    value = {"xml": sha256(xml).hexdigest(),
+             "assets": {name: sha256(data).hexdigest() for name, data in sorted(assets.items())}}
+    return sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def build_fast_arm_assembly_model(assembly: FastArmAssembly) -> FastArmAssemblyModel:
     """coreの原本だけを読む。ネットワーク、MuJoCo実行、実機I/Oを行わない。"""
     if type(assembly) is not FastArmAssembly:
@@ -133,8 +140,5 @@ def build_fast_arm_assembly_model(assembly: FastArmAssembly) -> FastArmAssemblyM
         keys.append(combined)
     ET.indent(output, space="  ")
     xml = (ET.tostring(output, encoding="unicode") + "\n").encode("utf-8")
-    asset_hashes = {name: sha256(data).hexdigest() for name, data in sorted(assets.items())}
-    def digest(xml_bytes: bytes) -> str:
-        value = {"xml": sha256(xml_bytes).hexdigest(), "assets": asset_hashes}
-        return sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    return FastArmAssemblyModel(assembly, xml, MappingProxyType(assets), digest(source), digest(xml))
+    return FastArmAssemblyModel(assembly, xml, MappingProxyType(assets),
+                                fast_arm_model_digest(source, assets), fast_arm_model_digest(xml, assets))

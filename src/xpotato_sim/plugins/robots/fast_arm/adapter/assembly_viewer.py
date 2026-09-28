@@ -1,6 +1,6 @@
 """FastArm assemblyからViewer用resource bundleを決定的に生成する。
 
-coreのarm.xml/STLを唯一のmodel sourceとし、生成物はapplication sessionの一時resourceとして扱う。
+腕はcoreのarm.xml/STL、床・照明は既存base sceneが正本。供給されたscene全体を同じ一時resourceへ投影する。
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from xpotato_sim.runtime.composition.viewer_robot_declaration import (
     viewer_robot_declaration_digest,
 )
 
-FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION = "fast_arm-assembly-mujoco-model/v2"
+FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION = "fast_arm-assembly-mujoco-model/v3"
 _DYNAMIC_ROOT = "assets/mujoco/fast_arm_assembly"
 
 def _normalized_match(value: str) -> str:

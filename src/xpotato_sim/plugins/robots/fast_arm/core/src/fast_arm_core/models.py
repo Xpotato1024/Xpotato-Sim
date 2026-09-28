@@ -15,7 +15,7 @@ SOURCE_OUTWARD_NORMAL = (1.0, 0.0, 0.0)
 def torso_shoulder_instance(*, arm_id: str, side: str,
                             shoulder_center_m: tuple[float, float, float],
                             cant_degrees: float = 30.0) -> FastArmInstance:
-    """水平外向きから下へcantする肩を、肩中心を固定して配置する。
+    """取付板上端を胴体側へ傾け、外側ほど下がる取付を肩中心固定で構成する。
 
     原型の+X法線を左右へ振る基準姿勢Rz(+/-90)と、胴体Xまわりのcantを合成。
     左は原型、右はXZ鏡映。原型の負elbow角が両側で胴体前方へ曲がる配置になる。
@@ -28,7 +28,8 @@ def torso_shoulder_instance(*, arm_id: str, side: str,
     if not 0 <= angle < 90:
         raise ValueError("cant_degrees must be in [0, 90)")
     direction = 1 if side == "left" else -1
-    roll = -direction * radians(angle)
+    # 板の傾きと法線の向きを区別する。上端が内側なら外向き法線は上を向く。
+    roll = direction * radians(angle)
     yaw = direction * radians(90.0)
     cr, sr, cy, sy = cos(roll / 2), sin(roll / 2), cos(yaw / 2), sin(yaw / 2)
     # qx(roll) * qz(yaw)。sourceのbase内にあるRz(90)はここで二重適用しない。

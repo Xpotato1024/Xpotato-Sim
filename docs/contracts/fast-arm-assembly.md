@@ -45,19 +45,22 @@ IDがleftだから鏡映する、接続順で右を決める、mount幅を実機
 横方向変位へ混入させる。以前のテストは左右対称性だけを示し、実機の取付幾何の妥当性を示していなかった。
 
 `fast_arm_core.models.torso_shoulder_instance`が、取付先肩中心cを固定し、原型の基準方向を左右へ
-向けるRz(+/-90 degree)と、外向き法線を水平から下へ30 degree傾ける胴体Xまわりの回転を合成する。
+向けるRz(+/-90 degree)と、取付板の上端を胴体側へ30 degree傾ける胴体Xまわりの回転を合成する。
+板の上端が内側・下端が外側、すなわち外側ほど下がる向きである。外向き法線のZ成分は正となる。
+以前の「法線を下向き」という定義は板自体を外上がりにしていたため、利用者の再指摘を受けて訂正した。
 左は原型、右はsource XZ面鏡映を使用し、同じ負のelbow角が両側で胴体前方へ曲がるように置く。
 原型モデル単体には解剖学的な左右ラベルを付けない。
 
 ```text
-left:  R = Rx(-30 degree) Rz(+90 degree), mirror_y = false
-right: R = Rx(+30 degree) Rz(-90 degree), mirror_y = true
+left:  R = Rx(+30 degree) Rz(+90 degree), mirror_y = false
+right: R = Rx(-30 degree) Rz(-90 degree), mirror_y = true
 p_world = R (p_source - (0,0,0.7)) + c
 ```
 
 実装quaternionの文字列一致ではなく、コンパイル済みmodelの取付板法線が
-左(0,+sqrt(3)/2,-1/2)、右(0,-sqrt(3)/2,-1/2)となること、肩中心がcに留まることを検査する。
-homeでは上腕が下向き、両前腕が+X方向となる。これは写真とユーザー指定の30 degreeから構成した
+左(0,+sqrt(3)/2,+1/2)、右(0,-sqrt(3)/2,+1/2)となること、肩中心がcに留まることを検査する。
+さらに取付板上端が下端より内側であることを直接検査する。joint homeは変更せず、写真の上腕姿勢へ
+一致させる目的のzero補正はしない。これは写真とユーザー指定の30 degreeから構成した
 simulation幾何であり、写真の射影から全寸法・joint zero・可動域を測定したという意味ではない。
 
 初期モデルのc=(0,+/-0.4,0.7) mは合成値であり、肩中心間隔0.8 mと高さ0.7 mは実測値ではない。
@@ -87,6 +90,10 @@ configuration_sha256は配置宣言、source_sha256は元XML/STL、model_sha256�
 qpos、dof、actuator、siteのindexを混同しない。対象物にfreejointがある場合、位置7成分と速度6成分になるため、
 単純な先頭4個/次4個という切出しは使わない。
 全armsは同じmodel/dataに置く。追加物体や支持面の構成はEnvironmentの責務であり、このcore assemblyは床を生成しない。
+登録モデルの共通factoryは`adapter/assembly_scene.py`で旧単腕と同じbase `scene.xml`を一度だけ合成する。
+include先の`arm.xml`だけを生成assemblyへ結び、床・照明・材質の定義を再実装しない。
+free-space Environmentの「Robot-owned base sceneを使う」既存契約に従う。低位のbare assembly診断とは区別する。
+最終sceneと全include/mesh bytesをmodel digestへ含め、backendとViewerは同じartifactを使う。
 
 元XMLのrobot meshはcontype/conaffinityとも0である。この設定は左右へそのまま継承する。
 モデルの描画・FK・actuatorの時間発展が成功しても、腕間衝突、自己干渉、物体接触が検証済みとはしない。

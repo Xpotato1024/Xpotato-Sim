@@ -18,14 +18,14 @@ related:
 原型の取付面法線は+X、肩中心は(0,0,0.7) mであり、旧配置では法線方向を胴体左右へ向けず、
 source高さを横方向変位へ混入させていた。旧モデルの描画成功を実機幾何の受入証拠としない。
 
-## 訂正条件
+## 初回訂正条件（v2・傾斜方向は再訂正前）
 
 胴体+X前方、+Y左、+Z上。leftは原型にRx(-30)Rz(+90)、rightはY鏡映にRx(+30)Rz(-90)。
 肩中心cを(0,+/-0.4,0.7) mへ置き、p_world=R(p_source-(0,0,0.7))+cとする。
 cの間隔/高さは合成値であり写真からの測量結果ではない。joint ref/homeと元のassetは不変。
 `single_left` / `single_right` / `bimanual`は同じinstance定義を共有する。
 
-## 観測結果と再検証
+## 初回訂正時の観測結果（現在の取付条件の証拠としては使わない）
 
 ```powershell
 uv run pytest tests/integration/fast_arm/test_fast_arm_model_mounts.py tests/integration/fast_arm/test_fast_arm_assembly_model.py -q
@@ -43,3 +43,20 @@ home tipはleft (0.2459512147,+0.4,0.22) m、right (0.2459512147,-0.4,0.22) m。
 これはsoftware-onlyのモデル訂正記録で、実Gamepad操作受入・実機測定・参加者実験ではない。
 再現にはcommit、`profile`出力のconfiguration/model digest、実行ソフトウェアversionを保存する。
 旧誤配置のworkspace/到達姿勢と訂正後を同じ実験条件として比較しない。
+
+
+## 再訂正：取付板の傾斜方向と共通床（v3）
+
+利用者の「傾きが上向きで実物写真と逆」という指摘を受け、板の傾きと法線の向きを再照合した。
+初回訂正の下向き法線は取付板を外上がりにしていた。正しい条件を上端内側・下端外側として固定し、
+leftはRx(+30)Rz(+90)、rightはRx(-30)Rz(-90)へ変更した。肩中心の固定と原型/鏡映対応は維持する。
+法線はleft(0,+sqrt(3)/2,+0.5)、right(0,-sqrt(3)/2,+0.5)。上端と下端の位置関係を別assertで検査する。
+joint homeは不変で、home tipはleft(0.2459512147,+0.8156921938,0.46) m、right(0.2459512147,-0.8156921938,0.46) m。
+肩位置は合成値であり、写真の関節姿勢に合わせるためのzero補正は行っていない。
+
+床の欠落原因は新モデルfactoryがarm.xmlだけを構築し、旧scene.xmlを合成していなかったこと。
+旧単腕のscene.xmlを再利用し、生成assemblyをincludeする共通factoryへ変更した。
+床はz=0に一つ、関節数は4/8のまま。最終XMLと依存bytesを同じmodel digestへ含める。
+変更前に傾斜3条件・床4モデルの計7条件で失敗を再現し、修正後は同条件を通過した。
+合成Gamepadとheadless Edgeで床を含む13 geom/8関節の実描画・同時操作・停止保持を確認した。
+本再訂正もsoftware-onlyのモデル条件修正で、実機寸法/校正・接触力学・参加者実験を示さない。

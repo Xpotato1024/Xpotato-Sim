@@ -30,10 +30,16 @@ def test_mount_normal_shoulder_pivot_and_home_direction(name):
         # sourceの取付板はlocal XZ面。鏡映時は極性vectorの法線も鏡映する。
         normal_local = np.array((0., 1. if arm.mirror_y else -1., 0.))
         normal = data.xmat[model.body(arm.name("base_link")).id].reshape(3,3) @ normal_local
-        assert normal == pytest.approx((0., side * sqrt(3)/2, -.5), abs=1e-12)
-        # 取付板の鉛直に対する30度と、source homeで上腕が下向きになること。
-        upper = data.xpos[model.body(arm.name("fore_arm_link")).id] - data.xpos[model.body(arm.name("upper_arm_link")).id]
-        assert upper / np.linalg.norm(upper) == pytest.approx((0.,0.,-1.), abs=1e-12)
+        assert normal == pytest.approx((0., side * sqrt(3)/2, .5), abs=1e-12)
+        # 法線の上下だけでなく、板の上端が下端より胴体側へ寄ることを独立に固定する。
+        plate_up = data.xmat[model.body(arm.name("base_link")).id].reshape(3,3) @ np.array((0.,0.,1.))
+        top = center + .1 * plate_up
+        bottom = center - .1 * plate_up
+        assert top[2] > bottom[2]
+        assert side * (top[1] - bottom[1]) < 0  # 上端は内側、下端は外側
+        assert abs(top[1] - bottom[1]) / (top[2] - bottom[2]) == pytest.approx(1 / sqrt(3), abs=1e-12)
+        # 取付を変えてもjoint homeを見た目に合わせて補正しない。実物の関節姿勢は未校正。
+        assert tuple(data.qpos) == tuple(model.key_qpos[0])
         tip = data.site_xpos[model.site(arm.name("tip")).id]
         assert tip[0] > center[0]  # 両前腕は胴体前方。片側だけ後ろへ曲げない。
 

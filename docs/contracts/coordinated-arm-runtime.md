@@ -128,3 +128,8 @@ latest-state配信と既存の絶対deadline pacerを使い、遅い描画consum
 ブラウザが既存の中立heartbeatを開始できるようにする。不正入力やstaleは全体faultへ移り、
 正常入力が戻っても両腕を再開しない。表示とWeb接続は有限session終了まで保持する。
 操作手順は[backend/viewer起動手順](../operations/backend-viewer-startup.md)を参照する。
+
+
+登録モデルはbare armだけでなく、旧単腕と同じbase scene（床・照明・材質）を一度だけ合成する。
+共通factoryで構成し、1腕/2腕どちらも同じsceneをbackend・Viewerへ渡す。保存assembly診断はbareのまま保持する。
+床の復元は接触判定・力学評価の追加ではなく、モデルのscene欠落修正である。
