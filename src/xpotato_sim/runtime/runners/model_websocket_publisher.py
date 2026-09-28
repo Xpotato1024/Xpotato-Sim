@@ -40,9 +40,12 @@ def _runtime_metadata(
     })
     if state in {"faulted", "stopped"}:
         metadata.update(source_active=False, stale_reason=reason or state)
-    presentation = runtime.latest_plane_presentation
-    if presentation is not None:
-        metadata["gamepad_plane_control_v1"] = presentation
+    plane_presentation = runtime.latest_plane_presentation
+    if plane_presentation is not None:
+        metadata["gamepad_plane_control_v1"] = plane_presentation
+    trigger_presentation = runtime.latest_trigger_presentation
+    if trigger_presentation is not None:
+        metadata["gamepad_trigger_control_v1"] = trigger_presentation
     return metadata
 
 

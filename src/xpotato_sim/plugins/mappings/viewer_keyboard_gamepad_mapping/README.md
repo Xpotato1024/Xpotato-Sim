@@ -68,8 +68,9 @@ activeなsampleで明示選択した軸が欠落すればrejectする。inactive
 
 ## 左右独立の1スティックXYZ操作
 
-新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
-[Gamepad平面操作契約](../../../../../docs/contracts/gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`とFastArmの標準Gamepad profileはstick XY + analog trigger Zを使用する。
+trigger量・bumper符号ラッチ・session・表示は[Gamepad trigger操作契約](../../../../../docs/contracts/gamepad-trigger-control.md)を参照する。
+旧XY/XZ切替は[Gamepad平面操作契約](../../../../../docs/contracts/gamepad-plane-control.md)の互換経路として残す。
 
 ## 複数手先へのtyped projection
 

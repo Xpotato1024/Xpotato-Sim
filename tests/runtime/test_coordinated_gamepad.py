@@ -115,6 +115,22 @@ def test_receipt_age_not_refreshed_by_repeated_tick_and_fault_needs_new_epoch():
     a.ingest(fresh);assert a.tick(epoch="run-3").state=="running"
 
 
+@pytest.mark.parametrize("bad", [
+    lambda m:replace(m,gamepad=replace(m.gamepad,connected=False)),
+    lambda m:replace(m,gamepad=replace(m.gamepad,stale=True)),
+])
+def test_initial_unavailable_input_stays_waiting_and_recovers_on_fresh_neutral(bad):
+    a,c=app()
+    before=a.runtime.provider.snapshot()
+    row=step(a,c,bad(message(sequence=0)))
+    assert row.state=="waiting_neutral"
+    assert row.reason=="input_unavailable"
+    assert a.runtime.provider.snapshot()==before
+    row=step(a,c,message(sequence=1))
+    assert row.state=="running" and row.reason is None
+    assert a.runtime.provider.snapshot()==before
+
+
 @pytest.mark.parametrize("bad", [lambda m:replace(m,gamepad=replace(m.gamepad,connected=False)),
     lambda m:replace(m,gamepad=replace(m.gamepad,stale=True)),
     lambda m:replace(m,gamepad=replace(m.gamepad,raw_axes=(.5,0.))),

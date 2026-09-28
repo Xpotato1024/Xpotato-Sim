@@ -143,5 +143,6 @@ keyboard、buttonのZ補助、速度・deadzone・frame resolution、最終指�
 
 ## 左右独立の1スティックXYZ操作
 
-新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
-[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`の標準XYZ操作は、stick XY + analog trigger Zへ移行した。
+trigger量・bumper符号ラッチ・取得session・表示の規約は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
+旧XY/XZ切替は互換経路として[Gamepad平面操作契約](gamepad-plane-control.md)に残す。

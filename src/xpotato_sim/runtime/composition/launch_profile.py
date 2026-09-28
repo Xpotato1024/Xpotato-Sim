@@ -268,8 +268,9 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         if factory is None:
             raise ValueError("named-endpoint execution requires a session Mapping")
         strategy = factory()
-        if not callable(getattr(strategy, "map_coordinated_input", None)) or "gamepad_plane_control" not in mapping["parameters"]:
-            raise ValueError("Mapping does not support explicit named-endpoint plane control")
+        controls = {"gamepad_plane_control", "gamepad_trigger_control"} & set(mapping["parameters"])
+        if not callable(getattr(strategy, "map_coordinated_input", None)) or len(controls) != 1:
+            raise ValueError("Mapping does not support exactly one explicit named-endpoint Gamepad control")
         route = VersionedIdentity("coordinated_endpoint_velocity_to_joint_position", 1)
     else:
         bundle = ROBOT_CATALOG.resolve_bundle(robot)

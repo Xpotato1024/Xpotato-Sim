@@ -50,7 +50,7 @@ export interface ViewerGamepadControlSender {
 }
 
 export interface ViewerGamepadPublicationControllerOptions {
-  /** 接続中の中立sampleも送り、平面切替の中立確認を有効に保つ。省略時は旧cadence。 */
+  /** 接続中の中立sampleも送り、runtimeの中立確認を有効に保つ。省略時は旧cadence。 */
   neutralHeartbeat?: boolean;
   publish(snapshot: ViewerGamepadSnapshot): void;
   heartbeatIntervalMs?: number;

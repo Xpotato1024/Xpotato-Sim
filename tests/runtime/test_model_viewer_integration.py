@@ -29,14 +29,11 @@ async def _until(ws, predicate):
                 return value
 
 
-def _sample(raw, seq, held=()):
-    value = json.loads(message(raw, seq))
-    for index in held:
-        value["gamepad"]["buttons"][index] = {"pressed": True, "value": 1.0}
-    return json.dumps(value)
+def _sample(raw, seq, held=(), triggers=(0.0, 0.0)):
+    return message(raw, seq, triggers=triggers, held=held)
 
 
-def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
+def test_live_websocket_both_sticks_trigger_z_and_fault_latch():
     async def scenario():
         profile = replace(load_launch_profile("fast-arm-bimanual-gamepad"),
                           backend_port=_free_port(), steps=1000, interval_s=.01,
@@ -50,8 +47,8 @@ def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
                 first = json.loads(await ws.recv())
                 assert len(first["qpos"]) == 8
                 assert first["metadata"]["physical_output"] == "disabled"
-                assert first["metadata"]["gamepad_plane_control_v1"]["output_scope"] == "coordinated"
-                assert all(s["status"] == "waiting_neutral" for s in first["metadata"]["gamepad_plane_control_v1"]["sides"].values())
+                assert first["metadata"]["gamepad_trigger_control_v1"]["output_scope"] == "coordinated"
+                assert all(s["status"] == "waiting_trigger_neutral" for s in first["metadata"]["gamepad_trigger_control_v1"]["sides"].values())
                 await ws.send(_sample((0.,0.,0.,0.), 0))
                 neutral = await _until(ws, lambda p: p["metadata"]["motion_status"] == "running")
                 assert neutral["qpos"] == first["qpos"]
@@ -59,20 +56,16 @@ def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
                 moved = await _until(ws, lambda p: p["qpos"][:4] != first["qpos"][:4] and p["qpos"][4:] != first["qpos"][4:])
                 assert moved["metadata"]["robot_joint_names"] == list(profile.model_registration().joint_names)
                 assert moved["metadata"]["coordinated_runtime_v1"]["tick"] > 0
-                await ws.send(_sample((.55,0.,0.,-.55), 2, (5,)))
-                waiting = await _until(ws, lambda p: p["metadata"]["gamepad_plane_control_v1"]["sides"]["right"]["status"] == "waiting_neutral")
-                sides = waiting["metadata"]["gamepad_plane_control_v1"]["sides"]
-                assert sides["right"]["velocity_m_s"] == [0.,0.,0.]
-                assert sides["left"]["velocity_m_s"][0] > 0
-                await ws.send(_sample((.55,0.,0.,0.), 3, (5,)))
-                await _until(ws, lambda p: p["metadata"]["gamepad_plane_control_v1"]["sides"]["right"]["plane"] == "xz")
-                await ws.send(_sample((.55,0.,0.,-.55), 4, (5,)))
-                vertical = await _until(ws, lambda p: p["metadata"]["gamepad_plane_control_v1"]["sides"]["right"]["velocity_m_s"][2] > 0)
-                assert vertical["metadata"]["gamepad_plane_control_v1"]["sides"]["left"]["plane"] == "xy"
+                await ws.send(_sample((.55,0.,0.,0.), 2, (5,)))
+                signed = await _until(ws, lambda p: p["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["z_sign"] == -1)
+                assert signed["metadata"]["gamepad_trigger_control_v1"]["sides"]["left"]["velocity_m_s"][0] > 0
+                await ws.send(_sample((.55,0.,0.,0.), 3, triggers=(0., .55)))
+                vertical = await _until(ws, lambda p: p["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["velocity_m_s"][2] < 0)
+                assert vertical["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["trigger_value"] == pytest.approx(.55)
                 fault = await _until(ws, lambda p: p["metadata"]["motion_status"] == "faulted")
                 assert "stale" in fault["metadata"]["motion_rejection_reason"]
                 assert not fault["metadata"]["source_active"]
-                await ws.send(_sample((0.,0.,0.,0.), 5))
+                await ws.send(_sample((0.,0.,0.,0.), 4))
                 later = json.loads(await ws.recv())
                 assert later["metadata"]["motion_status"] == "faulted"
                 assert later["qpos"] == fault["qpos"]

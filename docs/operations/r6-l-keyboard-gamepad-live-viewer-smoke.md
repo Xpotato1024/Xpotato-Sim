@@ -27,7 +27,7 @@ payload stateとoverlay stateを表示する。
 - backendが`--input-source viewer`とviewer inbound control messageをsupportするcurrent checkoutを使う
 - viewer control schema、runtime ingress、overlayのfocused validationが成功している
 - `apps/mujoco-viewer` dependencyをinstall済みである
-- keyboard focusを受けられるbrowserを使い、gamepad smokeではgamepadを接続する
+- keyboard smokeではfocusを受けられるbrowserを使う。gamepad smokeではgamepadを接続し、Viewer documentをvisibleに保つ（GamepadはDOM focusを要求しない）
 - このsmokeではserial deviceをopenせず、OSCを送信せず、robot hardwareへaccessしない
 
 ## backend起動
