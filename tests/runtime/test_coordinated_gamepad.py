@@ -4,14 +4,13 @@ from math import cos, pi, sin
 import socket
 import pytest
 from fast_arm_core.assembly import FastArmAssembly, FastArmInstance
+from fast_arm_core.models import resolve_fast_arm_model
 from xpotato_sim.plugins.robots.fast_arm.adapter.coordinated import FastArmAssemblyMotionProvider
 from xpotato_sim.runtime.composition.fast_arm_coordinated import FastArmCoordinatedGamepadRuntime
 from xpotato_sim.schemas.coordinated import EndpointVelocity
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message, parameters
 
 
-MOUNT_W = cos(pi / 12.0)
-MOUNT_X = sin(pi / 12.0)
 
 
 @pytest.fixture(autouse=True)
@@ -23,15 +22,8 @@ def no_network(monkeypatch):
 
 
 def assembly(ids=("left", "right")):
-    return FastArmAssembly(tuple(
-        FastArmInstance(
-            side,
-            side == "left",
-            (0, .4 if side == "left" else -.4, 0),
-            (MOUNT_W, MOUNT_X if side == "left" else -MOUNT_X, 0, 0),
-        )
-        for side in ids
-    ))
+    by_id = {item.arm_id: item for item in resolve_fast_arm_model("bimanual").assembly.instances}
+    return FastArmAssembly(tuple(by_id[arm_id] for arm_id in ids))
 
 
 def app(ids=("left", "right")):
@@ -159,8 +151,8 @@ def test_diagnostic_document_runs_both_and_records_terminal_fault():
     from xpotato_sim.runtime.runners.coordinated_gamepad import run_document
     raw=json.loads((Path(__file__).parents[1]/"fixtures/coordinated_gamepad/bimanual.json").read_text(encoding="utf-8"))
     mounts = {item["arm_id"]: item["quaternion_wxyz"] for item in raw["assembly"]}
-    assert mounts["left"] == pytest.approx((MOUNT_W, MOUNT_X, 0, 0))
-    assert mounts["right"] == pytest.approx((MOUNT_W, -MOUNT_X, 0, 0))
+    for item in resolve_fast_arm_model("bimanual").assembly.instances:
+        assert mounts[item.arm_id] == pytest.approx(item.quaternion_wxyz)
     result=run_document(raw)
     assert result["state"]=="stopped" and len(result["rows"])==6
     assert result["physical_output"]=="disabled"

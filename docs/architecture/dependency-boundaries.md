@@ -402,14 +402,18 @@ CLIやPowerShellはこのownerへ委譲し、別control loop、physics、hardwar
 `runtime/execution/coordinated.py` はtyped providerとschemasだけを使い、Robot IK・geometry・送信を所有しない。
 `runtime/output/coordinated.py` は既存physical sessionを監督し、codecやevidence判定を複製しない。
 
-## 双腕Viewerの描画資源接続（#574）
+## 同列モデル選択と共通描画資源（#574 / #580）
 
-`runtime/composition/coordinated_viewer_profile.py`だけが、Robot所有の
-`adapter.assembly_viewer`のbundle型とbuilderを直接参照する。runtime runnerとCLIはこのprofileを
-介し、concrete Robot importの許可を一般化しない。file/symbol単位の限定例外をarchitecture testで固定する。
-`application.py`は同じworker所有権を使い、双腕時だけ生成資源の一時rootをViteへ渡す。
-`coordinated_websocket_publisher.py`は既存coordinated runtimeとlatest-state配信・pacerを接続し、
-IKや別の状態機械を持たない。Robot providerの同じMuJoCo model/dataからtransport stateを取得する。
+`RobotPluginRegistration.models`がRobot所有のモデル集合を宣言する。`RobotCatalog.resolve_model`は
+既存Robot選択からそのモデルを解決し、concrete Robot名や腕数でdispatchしない。
+`runtime/composition/robot_model.py`は型と整合検査を持ち、Robot側factoryが同じ生成artifactから
+providerとViewer resourceを構築する。原型・左単腕・右単腕・双腕は同じ登録型を使う。
 
-Viewer側は宣言された8関節のname/order/dimensionとdigestを検査して受信qposを描画するだけである。
-生成XML/STLはsession内の一時資源であり、別の原本や永続の左腕modelを新設しない。
+共通`LaunchProfile/v2`はモデルidentityと入力bindingだけを持ち、配置quaternionやXMLを複製しない。
+`model_websocket_publisher.py`と`coordinated_input.py`は登録済みprovider・Mappingを結び、
+Robot coreやconcrete builderをimportしない。旧`coordinated_viewer_profile.py`への具体import例外と
+双腕専用publisherは退役する。保存assembly診断の`fast_arm_coordinated.py`は共通入力runtimeへのthin入口に限定する。
+
+`application.py`はモデル選択時の生成資源を同じworker所有権で配信する。1手先も2手先も同じ経路で、
+Viewerはmodel digest、関節名・順序・次元を検査して受信stateを描画する。
+旧LaunchProfile/v1の単腕keyboard/replay等の実行意味は互換境界として維持し、旧形式を新モデルへ暗黙変更しない。

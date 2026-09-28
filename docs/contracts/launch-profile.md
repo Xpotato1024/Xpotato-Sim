@@ -99,19 +99,36 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
 [Gamepad平面操作契約](gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
 
-## 双腕Viewerの明示profile（#574）
+## 同列モデル選択を持つv2（#574 / #580）
 
-`profiles/coordinated/fast-arm-bimanual-gamepad.json`は別schemaの
-`fast-arm-coordinated-viewer-profile/v1`である。単腕の`LaunchProfile/v1`やRobot Catalogへ
-8関節を混ぜず、`app`／`profile`だけがschemaを見て明示的に振り分ける。
+単腕と双腕で別のprofile型・フォルダー・launcherを作らない。全設定は`profiles/`直下へ置き、
+`LaunchProfile`と`decode_launch_profile`で解決する。v2はv1のfieldに`model`と`coordination`を加える。
 
-必須fieldは`schema_version`、`name`、`workspace`、2件の`assembly`、`side_to_arm`、
-`mapping_parameters`、`epoch`、`execution`、`web`。各assembly要素は`arm_id`、`mirror_y`、
-`position_m`、`quaternion_wxyz`を持ち、left/rightのside bindingは両armを重複なく覆う。
-`execution`は単腕と同じ有限実行値に`max_input_age_s`を加える。Mappingは既存の
-`gamepad_plane_control`を必須とし、未知field・重複key・非finite値・非loopbackを拒否する。
+```json
+{
+  "model": {"name": "bimanual", "version": 1},
+  "coordination": {
+    "side_to_endpoint": {"left": "left", "right": "right"},
+    "epoch": "trial-1",
+    "max_input_age_s": 0.2
+  }
+}
+```
 
-`runtime/composition/coordinated_viewer_profile.py`が設定とRobot描画資源の接続を所有する。
-decode／profile表示ではmodel実行・process・networkを開始しない。資源生成は明示した
-`build_viewer_bundle()`からのみ行い、資源はlauncher所有の一時directoryへ置く。
-既存単腕profileの設定・digest・操作意味は変えない。GUIでのprofile切替やTask/spawnは別Issue。
+`robot`は既存Robot Catalogを選び、`model`はその登録の`models`から同じ`RobotModelRegistration`型で
+解決する。FastArmは`single_original`、`single_left`、`single_right`、`bimanual`を同列に持つ。
+各定義はcoreが保持し、profileへ配置quaternionやモデル形状を複写しない。Robot登録のidentity bytesには
+モデルidentity、手先/関節名、configuration digestも含む。
+
+`coordination.side_to_endpoint`は入力側とモデルの手先IDの明示対応であり、選択した全手先を重複なく覆う。
+単腕も1要素の対応として同じ制御loopを通る。バインドしないスティックは表示上も入力診断と区別する。
+現行v2実行はsimulation・gamepad/v1・名前付き手先のplane Mappingを要求する。他の組合せは代用せず拒否する。
+
+モデル構築は登録factoryを通し、同じ生成modelからproviderとViewer resourceを作り、artifact digest、関節順、
+次元を照合する。v2の入力開始は腕数に関係なくscene準備後で、physical outputはdisabledのまま。
+旧v1は単腕keyboard/replay等の既存意味・digestを保持する互換境界として残す。互換分岐はversion/command意味に
+よるもので、双腕専用schemaへの分岐ではない。未マージだった`fast-arm-coordinated-viewer-profile/v1`、
+`CoordinatedViewerProfile`、`profiles/coordinated/`は退役し、誤った取付設定を黙って移行しない。
+
+配布profileは`fast-arm-single-gamepad`、`fast-arm-left-gamepad`、`fast-arm-right-gamepad`、
+`fast-arm-bimanual-gamepad`。GUI task/spawnとruntime中の切替は別Issueである。

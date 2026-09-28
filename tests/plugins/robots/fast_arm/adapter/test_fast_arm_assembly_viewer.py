@@ -8,9 +8,9 @@ import mujoco
 import pytest
 
 from fast_arm_core.assembly import FastArmAssembly, FastArmInstance
+from fast_arm_core.models import resolve_fast_arm_model
 from xpotato_sim.plugins.robots.fast_arm.adapter.assembly_viewer import (
     FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION,
-    FAST_ARM_ASSEMBLY_VIEWER_PROFILE_ID,
     build_fast_arm_assembly_viewer_bundle,
 )
 from xpotato_sim.runtime.composition.viewer_robot_declaration import (
@@ -19,18 +19,14 @@ from xpotato_sim.runtime.composition.viewer_robot_declaration import (
 
 
 def assembly():
-    w, x = cos(pi / 12), sin(pi / 12)
-    return FastArmAssembly((
-        FastArmInstance("left", True, (0, .4, 0), (w, x, 0, 0)),
-        FastArmInstance("right", False, (0, -.4, 0), (w, -x, 0, 0)),
-    ))
+    return resolve_fast_arm_model("bimanual").assembly
 
 
 def test_bimanual_bundle_uses_assembly_joint_order_and_loadable_model():
     value = assembly()
     bundle = build_fast_arm_assembly_viewer_bundle(value)
     declaration = bundle.declaration
-    assert declaration.profile_id == FAST_ARM_ASSEMBLY_VIEWER_PROFILE_ID
+    assert declaration.profile_id == "fast_arm_assembly"
     assert declaration.model_contract_version == FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION
     assert declaration.joint_names == value.joint_names
     assert declaration.qpos_dimension == 8
@@ -68,8 +64,7 @@ def test_resource_tree_is_model_digest_scoped_and_round_trips(tmp_path):
 
 def test_bundle_requires_exactly_two_arms_and_empty_resource_root(tmp_path):
     single = FastArmAssembly((assembly().instances[0],))
-    with pytest.raises(ValueError, match="two-arm"):
-        build_fast_arm_assembly_viewer_bundle(single)
+    assert build_fast_arm_assembly_viewer_bundle(single).declaration.qpos_dimension == 4
 
     bundle = build_fast_arm_assembly_viewer_bundle(assembly())
     (tmp_path / "existing.txt").write_text("occupied", encoding="utf-8")

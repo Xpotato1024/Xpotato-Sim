@@ -15,9 +15,9 @@ related:
 ## 対象と実行意味
 
 左右のGamepad入力を名前付き手先速度へ写し、FastArm assemblyの全腕を一つのpre-step snapshotから計算する。
-単腕original、単腕mirrored、双腕を同じproviderで扱う。双腕diagnosticでは利用者が提示した取付板の
-30 degree開きを左`+30 degree` / 右`-30 degree`のX軸mount rotationとして明示する。
-`position_m=(0, +/-0.4, 0)`は引き続き合成配置であり、実機mount位置・高さ、motor sign、encoder zero等は推測しない。
+原型・左単腕・右単腕・双腕を同じproviderとモデル登録型で扱う。
+取付面の正しい基準姿勢・回転中心は[FastArm assembly契約](fast-arm-assembly.md)を正本とする。
+source原点へのRxだけという以前の記述は誤りで、joint zeroやwire offsetで補正してはならない。
 
 この入口は `coordinated_joint_position_kinematic/v1` の**運動学診断**である。
 従来viewerのdirect-qpos意味を明示して共同更新へ拡張し、全腕の位置をまとめて反映して `mj_forward` を行う。
@@ -32,14 +32,15 @@ related:
 | Mapping `map_coordinated_input` | 既存平面状態機械・正規化・ゲインを共有し、明示side bindingからtyped要求を返す |
 | Robot `adapter/coordinated.py` | 原本assembly、名前address、既存DLSと限界の適用、全腕候補と一括反映 |
 | `runtime/execution/coordinated.py` | epoch、入力鮮度・系列、中立、実行・停止・fault latchと再開 |
-| `runtime/composition/fast_arm_coordinated.py` | Source、Mapping、Robot provider、共同runtimeを接続する唯一の具体owner |
+| `runtime/composition/coordinated_input.py` | 登録providerとSource/Mappingを結ぶ共通実行。腕数による別loopを作らない |
+| `runtime/composition/fast_arm_coordinated.py` | 既存保存assembly診断のthin入口。共通実行へ委譲 |
 | `runtime/output/coordinated.py` | 全側prepare、追加scene veto、逐次dispatch、全体fault、全側停止試行 |
 
 legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左右velocityをcommandへ逆生成しない。
 旧 `map_input` と新しいtyped入口は同じ `_build_plane_intents` を使い、写像を二重実装しない。
 `side_to_arm` は明示・copy/freezeし、選択した全armを重複なく覆う。旧 `output_side` はsingle-endpoint用であり、
 共同入口のbindingを上書きしない。既存launch profile/v1・Robot Plugin/v1の意味は維持する。
-このproviderは明示composition用である。#574の専用Viewer profileへ接続するが、
+このproviderは登録モデルの明示composition用である。#574の共通v2 profileへ接続するが、
 単腕Robot Catalogのidentityや既存launch profile/v1を双腕へ読み替えない。
 
 ## 同一状態からの候補とcommit
@@ -113,9 +114,9 @@ uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/
 servo/contact経路、ばね/搬送taskは後続。OSCの具体receiver停止・全体scene評価と実機検証は未実施。
 本経路の成功をそれらの完了や高トルク機体の安全認定へ読み替えない。
 
-## 双腕Viewer接続（#574）
+## 単腕・双腕共通のViewer接続（#574）
 
-`fast-arm-bimanual-gamepad`を明示すると、Robot-ownedなassembly builderから8関節のViewer declaration、
+v2の`model`を明示すると、Robot-ownedなassembly builderから選択モデルのViewer declaration、
 MJCF、mesh、home fixtureを生成する。model digest別の一時URLへ置き、backend snapshotのmodel digest、
 joint names、qpos順序・次元が宣言と一致した場合だけ配信する。原本XML/STLは複製管理しない。
 

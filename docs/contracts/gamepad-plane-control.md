@@ -127,3 +127,12 @@ GUI decoder・React markup、neutral heartbeatと復帰をsoftware testで検証
 左右のmode・中立待ちはMappingが所有し、UIは結果の表示だけを行う。初回未取得・fault時の表示resetは
 運動指令や新鮮な観測を生成しない。全体faultでは両腕停止を表示し、操作可能と表示し続けない。
 二台Selfrionetteの取得や実Gamepad機種ごとの操作受入は含まない。
+
+
+## 同列モデルの入力binding（#580修正）
+
+共通LaunchProfile/v2では、単腕も双腕も`coordination.side_to_endpoint`で1〜2手先へ明示対応させる。
+`coordinated`は複数の可能性を持つ名前付き更新方式を表し、必ず2腕であることは意味しない。
+表示にはruntime所有の`endpoint_bindings`を付け、未割当側を「入力診断のみ」と表示する。
+Robotモデルの姿勢とInput側のleft/right割当は独立し、配線・画面方向から推測しない。
+旧single_endpoint presentationと旧v1の単腕操作は互換維持する。

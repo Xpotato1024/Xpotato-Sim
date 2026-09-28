@@ -41,13 +41,14 @@ const coordinated = parseGamepadPlanePresentation({
   ...value,
   output_scope: "coordinated",
   output_side: null,
+  endpoint_bindings: {left: "left", right: "right"},
 });
 assert.ok(coordinated);
 assert.equal(coordinated.outputScope, "coordinated");
 assert.equal(coordinated.outputSide, null);
 const coordinatedHtml = renderToStaticMarkup(<GamepadPlaneStatus value={coordinated} live={true} />);
-assert.match(coordinatedHtml, /双腕へ適用/);
-assert.match(coordinatedHtml, /対応する腕へ適用/);
+assert.match(coordinatedHtml, /モデル手先への適用/);
+assert.match(coordinatedHtml, /leftへ適用/);
 assert.equal(
   parseGamepadPlanePresentation({...value, output_scope: "coordinated", output_side: "left"}),
   null,
@@ -58,7 +59,16 @@ assert.equal(
 );
 
 const stoppedHtml = renderToStaticMarkup(<GamepadPlaneStatus value={coordinated} live={false} motionStatus="faulted" />);
-assert.match(stoppedHtml, /双腕全体停止/);
+assert.match(stoppedHtml, /モデル全体停止/);
 assert.match(stoppedHtml, /停止中/);
 assert.doesNotMatch(stoppedHtml, /操作可能/);
 assert.doesNotMatch(stoppedHtml, /前回値/);
+
+const singleModel = parseGamepadPlanePresentation({...value,output_scope:"coordinated",output_side:null,endpoint_bindings:{left:"arm"}});
+assert.ok(singleModel);
+const singleHtml=renderToStaticMarkup(<GamepadPlaneStatus value={singleModel} live={true} />);
+assert.match(singleHtml,/armへ適用/);
+assert.match(singleHtml,/入力診断のみ/);
+for (const bindings of [{},{left:"same",right:"same"},{other:"arm"},{left:2}]) {
+  assert.equal(parseGamepadPlanePresentation({...value,output_scope:"coordinated",output_side:null,endpoint_bindings:bindings}),null);
+}

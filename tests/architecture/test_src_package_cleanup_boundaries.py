@@ -35,11 +35,6 @@ FAST_ARM_RUNTIME_COMPOSITION_IMPORTS = frozenset(
     }
 )
 FAST_ARM_NO_IO_COMPOSITION_IMPORTS = {
-    SRC / "runtime" / "composition" / "coordinated_viewer_profile.py": frozenset({
-        f"{FAST_ARM_PACKAGE}.adapter.assembly_viewer",
-        f"{FAST_ARM_PACKAGE}.adapter.assembly_viewer.FastArmAssemblyViewerBundle",
-        f"{FAST_ARM_PACKAGE}.adapter.assembly_viewer.build_fast_arm_assembly_viewer_bundle",
-    }),
     SRC / "runtime" / "composition" / "fast_arm_coordinated.py": frozenset({
         f"{FAST_ARM_PACKAGE}.adapter.coordinated",
         f"{FAST_ARM_PACKAGE}.adapter.coordinated.FastArmAssemblyMotionProvider",

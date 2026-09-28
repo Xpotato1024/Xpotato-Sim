@@ -26,8 +26,7 @@ from xpotato_sim.runtime.composition.viewer_robot_declaration import (
     viewer_robot_declaration_digest,
 )
 
-FAST_ARM_ASSEMBLY_VIEWER_PROFILE_ID = "fast_arm_bimanual"
-FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION = "fast_arm-assembly-mujoco-model/v1"
+FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION = "fast_arm-assembly-mujoco-model/v2"
 _DYNAMIC_ROOT = "assets/mujoco/fast_arm_assembly"
 
 def _normalized_match(value: str) -> str:
@@ -123,6 +122,7 @@ class FastArmAssemblyViewerBundle:
         return MappingProxyType(
             {
                 "robot_profile_id": self.declaration.profile_id,
+                "model_sha256": self.built.model_sha256,
                 "model_contract_version": self.declaration.model_contract_version,
                 "robot_joint_names": list(self.declaration.joint_names),
                 "robot_qpos_dimension": self.declaration.qpos_dimension,
@@ -151,10 +151,15 @@ class FastArmAssemblyViewerBundle:
 
 def build_fast_arm_assembly_viewer_bundle(
     assembly: FastArmAssembly,
+    *, profile_id: str = "fast_arm_assembly",
+    built: FastArmAssemblyModel | None = None,
 ) -> FastArmAssemblyViewerBundle:
-    if type(assembly) is not FastArmAssembly or len(assembly.instances) != 2:
-        raise ValueError("bimanual viewer requires an explicit two-arm FastArmAssembly")
-    built = build_fast_arm_assembly_model(assembly)
+    if type(assembly) is not FastArmAssembly:
+        raise ValueError("viewer requires an explicit FastArmAssembly")
+    if built is None:
+        built = build_fast_arm_assembly_model(assembly)
+    if built.assembly != assembly:
+        raise ValueError("viewer/provider assembly mismatch")
     prefix = f"{_DYNAMIC_ROOT}/{built.model_sha256}"
     model_path = f"{prefix}/model.xml"
     fixture_path = f"{prefix}/fixture.json"
@@ -170,7 +175,7 @@ def build_fast_arm_assembly_viewer_bundle(
     )
     declaration = ViewerRobotDeclaration(
         schema_version=VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION,
-        profile_id=FAST_ARM_ASSEMBLY_VIEWER_PROFILE_ID,
+        profile_id=profile_id,
         profile_contract_version=1,
         model_contract_version=FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION,
         model_url=repository_resource_public_url(model_path),
@@ -204,7 +209,6 @@ def build_fast_arm_assembly_viewer_bundle(
 
 __all__ = [
     "FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION",
-    "FAST_ARM_ASSEMBLY_VIEWER_PROFILE_ID",
     "FastArmAssemblyViewerBundle",
     "build_fast_arm_assembly_viewer_bundle",
 ]

@@ -25,6 +25,7 @@ from xpotato_sim.runtime.experiment.contracts import PluginSelection, VersionedI
 from xpotato_sim.runtime.experiment.input_source import InputSourceMode
 
 LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v1"
+MODEL_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v2"
 LEGACY_LAUNCH_PROFILE_SCHEMA = "selfrionette-launch-profile/v1"
 MAX_PROFILE_BYTES = 262144
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -130,6 +131,28 @@ class LaunchProfile:
     open_browser: bool
     document_json: str
     effective_parameters_json: str
+    model: PluginSelection | None = None
+    coordination_json: str = "{}"
+
+    @property
+    def side_to_endpoint(self) -> dict[str, str]:
+        return json.loads(self.coordination_json)["side_to_endpoint"]
+
+    @property
+    def epoch(self) -> str:
+        return json.loads(self.coordination_json)["epoch"]
+
+    @property
+    def max_input_age_s(self) -> float:
+        return float(json.loads(self.coordination_json)["max_input_age_s"])
+
+    def model_registration(self):
+        if self.model is None:
+            raise ValueError("explicit model selection required")
+        return ROBOT_CATALOG.resolve_model(self.robot, self.model)
+
+    def build_model(self):
+        return self.model_registration().build()
 
     @property
     def mapping_parameters(self) -> dict:
@@ -152,6 +175,12 @@ class LaunchProfile:
                 "simulation_duration_s": self.steps * self.dt_s,
                 "scheduled_duration_s": self.steps * self.interval_s,
                 "physical_output": "disabled",
+                **({} if self.model is None else {
+                    "model": {"name": self.model.plugin_id, "version": self.model.contract_version},
+                    "model_configuration": json.loads(self.model_registration().configuration_json),
+                    "model_configuration_sha256": self.model_registration().configuration_sha256,
+                    "side_to_endpoint": self.side_to_endpoint,
+                }),
             },
         }
 
@@ -164,9 +193,13 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         raw = json.loads(document.decode("utf-8"), object_pairs_hook=_unique, parse_constant=_invalid_constant)
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise ValueError("profile must be valid UTF-8 JSON") from exc
-    raw = _object(raw, {"schema_version", "name", "workspace", "mode", "robot", "input", "mapping", "execution", "web"}, "profile")
-    if raw["schema_version"] not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA):
+    if type(raw) is not dict:
+        raise ValueError("profile must be a JSON object")
+    schema = raw.get("schema_version")
+    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA):
         raise ValueError("unsupported launch profile schema_version")
+    model_fields = {"model", "coordination"} if schema == MODEL_LAUNCH_PROFILE_SCHEMA else set()
+    raw = _object(raw, {"schema_version", "name", "workspace", "mode", "robot", "input", "mapping", "execution", "web"} | model_fields, "profile")
     name = _string(raw["name"], "name")
     if not _NAME.fullmatch(name):
         raise ValueError("invalid launch profile name")
@@ -215,15 +248,41 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         control_mapping_selection=mapping_selection, control_mapping_parameters=mapping["parameters"])
     if selected.plugin_selection != source_selection or selected.control_mapping is None:
         raise ValueError("resolved input/mapping identity differs from profile")
-    bundle = ROBOT_CATALOG.resolve_bundle(robot)
-    command = resolve_command_execution(selected.control_mapping, bundle, selected.command_semantics_route_selection)
-    for capability in (RESET_INITIAL_STATE_V1, ENDPOINT_POSE_V1, QPOS_FEASIBILITY_V1):
-        bundle.provider(capability)
-    if command.binding.requires_motion_generator:
-        bundle.provider(ENDPOINT_COMMAND_V1)
+    model_selection = None
+    coordination = {}
+    if schema == MODEL_LAUNCH_PROFILE_SCHEMA:
+        model_selection = _selection(raw["model"], "model")
+        model = ROBOT_CATALOG.resolve_model(robot, model_selection)
+        if mode != "simulation" or provider != "gamepad/v1":
+            raise ValueError("named-endpoint model execution requires simulation and gamepad/v1")
+        coordination = _object(raw["coordination"], {"side_to_endpoint", "epoch", "max_input_age_s"}, "coordination")
+        sides = coordination["side_to_endpoint"]
+        if (type(sides) is not dict or not sides or not set(sides) <= {"left", "right"}
+                or len(sides) != len(model.endpoint_ids) or set(sides.values()) != set(model.endpoint_ids)):
+            raise ValueError("side_to_endpoint must cover each selected model endpoint exactly once")
+        epoch = _string(coordination["epoch"], "coordination.epoch")
+        if len(epoch) > 256:
+            raise ValueError("coordination epoch is too long")
+        _seconds(coordination["max_input_age_s"], "coordination.max_input_age_s")
+        factory = selected.control_mapping.session_strategy_factory
+        if factory is None:
+            raise ValueError("named-endpoint execution requires a session Mapping")
+        strategy = factory()
+        if not callable(getattr(strategy, "map_coordinated_input", None)) or "gamepad_plane_control" not in mapping["parameters"]:
+            raise ValueError("Mapping does not support explicit named-endpoint plane control")
+        route = VersionedIdentity("coordinated_endpoint_velocity_to_joint_position", 1)
+    else:
+        bundle = ROBOT_CATALOG.resolve_bundle(robot)
+        command = resolve_command_execution(selected.control_mapping, bundle, selected.command_semantics_route_selection)
+        for capability in (RESET_INITIAL_STATE_V1, ENDPOINT_POSE_V1, QPOS_FEASIBILITY_V1):
+            bundle.provider(capability)
+        if command.binding.requires_motion_generator:
+            bundle.provider(ENDPOINT_COMMAND_V1)
+        route = command.route.identity
     return LaunchProfile(source_path, workspace, name, mode, robot, source_selection, mapping_selection,
-        _json(mapping["parameters"]), command.route.identity, provider, preset, steps, dt, interval, grace,
-        host, web_port, backend_port, web["open_browser"], canonical, _json(_projection(selected.control_mapping_parameters)))
+        _json(mapping["parameters"]), route, provider, preset, steps, dt, interval, grace,
+        host, web_port, backend_port, web["open_browser"], canonical, _json(_projection(selected.control_mapping_parameters)),
+        model_selection, _json(coordination))
 
 
 def load_launch_profile(selector: str | Path) -> LaunchProfile:

@@ -82,3 +82,10 @@ activeなsampleで明示選択した軸が欠落すればrejectする。inactive
 `latest_plane_presentation`はMapping sessionが計算した表示情報のcopyを返す。
 `reset_coordinated_presentation`は未取得・fault時に中立待ち／速度ゼロの表示へ戻すだけで、
 新たな入力観測や運動指令を生成しない。共同入口のscopeは`coordinated`、single-endpoint入口は従来どおり。
+
+
+## モデルと入力bindingの分離
+
+共通LaunchProfile/v2では、選択モデルの1〜2手先を`side_to_endpoint`で明示的に結ぶ。
+Mappingは肩姿勢・原型/鏡映・腕数ごとのIKを所有せず、共通の平面操作から名前付き要求を作る。
+runtimeが表示へ`endpoint_bindings`を付け、未割当stickを稼働中の腕として表示しない。

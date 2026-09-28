@@ -1,4 +1,4 @@
-"""FastArm双腕Gamepad runtimeを既存Viewer WebSocketへ投影する。"""
+"""モデル選択に基づく名前付き手先runtimeを既存Viewer WebSocketへ投影する。"""
 from __future__ import annotations
 
 import asyncio
@@ -7,18 +7,15 @@ from time import monotonic
 
 from xpotato_sim.runtime.execution.live_timing import AbsoluteDeadlinePacer
 from xpotato_sim.runtime.runners.live_websocket_delivery import LiveLatestStateWebSocketPublisher
-from xpotato_sim.runtime.composition.coordinated_viewer_profile import (
-    CoordinatedViewerProfile,
-)
-from xpotato_sim.runtime.composition.fast_arm_coordinated import (
-    FastArmCoordinatedGamepadRuntime,
-)
+from xpotato_sim.runtime.composition.launch_profile import LaunchProfile
+from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
+from xpotato_sim.runtime.composition.coordinated_input import CoordinatedInputRuntime
 from xpotato_sim.schemas import parse_viewer_control_message_json
 from xpotato_sim.transport import WebSocketPublisherServer
 
 
 def _runtime_metadata(
-    runtime: FastArmCoordinatedGamepadRuntime,
+    runtime: CoordinatedInputRuntime,
     declaration_metadata: Mapping[str, object],
     *,
     state: str,
@@ -50,7 +47,7 @@ def _runtime_metadata(
 
 
 def _ingest_message(
-    runtime: FastArmCoordinatedGamepadRuntime,
+    runtime: CoordinatedInputRuntime,
     message: str,
 ) -> None:
     if runtime.runtime.state in {"faulted", "stopped"}:
@@ -69,17 +66,23 @@ def _ingest_message(
         raise
 
 
-async def _run_coordinated_gamepad_websocket_publisher_async(
-    profile: CoordinatedViewerProfile,
+async def _run_model_websocket_publisher_async(
+    profile: LaunchProfile,
     *,
     clock: Callable[[], float],
     on_ready: Callable[[], None] | None,
 ) -> None:
-    bundle = profile.build_viewer_bundle()
-    runtime = FastArmCoordinatedGamepadRuntime(
-        assembly=profile.assembly,
+    instance = profile.build_model()
+    bundle = instance.viewer
+    selected = select_runtime_input_source(profile.input_source.plugin_id, steps=1,
+        control_mapping_selection=profile.mapping, control_mapping_parameters=profile.mapping_parameters)
+    mapping = selected.control_mapping
+    if mapping is None or mapping.session_strategy_factory is None:
+        raise ValueError("session Mapping required")
+    runtime = CoordinatedInputRuntime(
+        provider=instance.provider, mapping_factory=mapping.session_strategy_factory,
         mapping_parameters=profile.mapping_parameters,
-        side_to_arm=profile.side_to_arm,
+        side_to_arm=profile.side_to_endpoint,
         epoch=profile.epoch,
         dt_s=profile.dt_s,
         max_input_age_s=profile.max_input_age_s,
@@ -117,7 +120,7 @@ async def _run_coordinated_gamepad_websocket_publisher_async(
                         reason=runtime_reason, epoch=profile.epoch, tick=runtime_tick,
                     )
                     snapshot = runtime.runtime.provider.snapshot()
-                    if (snapshot.model_sha256 != bundle.built.model_sha256
+                    if (snapshot.model_sha256 != bundle.metadata["model_sha256"]
                             or snapshot.joint_names != bundle.declaration.joint_names
                             or len(snapshot.joint_positions_rad) != bundle.declaration.qpos_dimension):
                         raise ValueError("backend/viewer assembly declaration mismatch")
@@ -137,21 +140,21 @@ async def _run_coordinated_gamepad_websocket_publisher_async(
         runtime.stop()
 
 
-def run_coordinated_gamepad_websocket_publisher(
-    profile: CoordinatedViewerProfile,
+def run_model_websocket_publisher(
+    profile: LaunchProfile,
     *,
     clock: Callable[[], float] = monotonic,
     on_ready: Callable[[], None] | None = None,
 ) -> None:
-    if type(profile) is not CoordinatedViewerProfile:
-        raise TypeError("CoordinatedViewerProfile is required")
+    if type(profile) is not LaunchProfile or profile.model is None:
+        raise TypeError("LaunchProfile is required")
     if not callable(clock):
         raise TypeError("monotonic clock is required")
     if on_ready is not None and not callable(on_ready):
         raise TypeError("on_ready must be callable")
-    asyncio.run(_run_coordinated_gamepad_websocket_publisher_async(
+    asyncio.run(_run_model_websocket_publisher_async(
         profile, clock=clock, on_ready=on_ready,
     ))
 
 
-__all__ = ["run_coordinated_gamepad_websocket_publisher"]
+__all__ = ["run_model_websocket_publisher"]

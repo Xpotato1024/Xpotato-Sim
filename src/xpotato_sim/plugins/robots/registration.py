@@ -15,6 +15,7 @@ from xpotato_sim.runtime.experiment.contracts import (
     PluginSelection,
     VersionedIdentity,
 )
+from xpotato_sim.runtime.composition.robot_model import RobotModelRegistration
 from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1,
     ENDPOINT_POSE_V1,
@@ -267,8 +268,13 @@ class RobotPluginRegistration:
     bundle: RobotBundle
     viewer: ViewerRobotDeclaration
     resources: RobotResourceDeclaration
+    models: tuple[RobotModelRegistration, ...] = ()
 
     def __post_init__(self) -> None:
+        if type(self.models) is not tuple or any(type(m) is not RobotModelRegistration for m in self.models):
+            raise TypeError("models must contain typed RobotModelRegistration values")
+        if len({m.identity for m in self.models}) != len(self.models):
+            raise ValueError("duplicate Robot model identity")
         robot_id = self.identity.name
         if self.onboarding_contract_version != ROBOT_ONBOARDING_CONTRACT_VERSION:
             raise ValueError(
@@ -463,6 +469,11 @@ class RobotPluginRegistration:
                 "version": self.identity.version,
             },
             "onboardingContractVersion": self.onboarding_contract_version,
+            **({} if not self.models else {"models": [
+                {"identity": m.identity.canonical_id, "endpointIds": m.endpoint_ids,
+                 "jointNames": m.joint_names, "configurationSha256": m.configuration_sha256}
+                for m in self.models
+            ]}),
             "profile": {
                 "profileId": self.bundle.profile.profile_id,
                 "profileContractVersion": self.bundle.profile.profile_contract_version,

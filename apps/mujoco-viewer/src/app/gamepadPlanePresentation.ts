@@ -11,6 +11,7 @@ export interface StickPlanePresentation {
 export interface GamepadPlanePresentation {
   outputScope: PlaneOutputScope;
   outputSide: PlaneSide | null;
+  endpointBindings: Partial<Record<PlaneSide, string>>;
   reason: string | null;
   sides: Record<PlaneSide, StickPlanePresentation>;
 }
@@ -29,6 +30,16 @@ export function parseGamepadPlanePresentation(value: unknown): GamepadPlanePrese
   } else if (outputSide !== null) {
     return null;
   }
+  const endpointBindings: Partial<Record<PlaneSide, string>> = {};
+  if (outputScope === "coordinated") {
+    if (!record(value.endpoint_bindings)) return null;
+    const entries = Object.entries(value.endpoint_bindings);
+    if (entries.length < 1 || entries.length > 2 || new Set(entries.map(([, name]) => name)).size !== entries.length) return null;
+    for (const [side, name] of entries) {
+      if ((side !== "left" && side !== "right") || typeof name !== "string" || !/^[a-z][a-z0-9_]{0,31}$/.test(name)) return null;
+      endpointBindings[side] = name;
+    }
+  }
   const sides = {} as Record<PlaneSide, StickPlanePresentation>;
   for (const side of ["left", "right"] as const) {
     const item = value.sides[side];
@@ -44,6 +55,7 @@ export function parseGamepadPlanePresentation(value: unknown): GamepadPlanePrese
   }
   return {
     outputScope,
+    endpointBindings,
     outputSide: outputScope === "single_endpoint" ? outputSide as PlaneSide : null,
     reason: value.reason,
     sides,

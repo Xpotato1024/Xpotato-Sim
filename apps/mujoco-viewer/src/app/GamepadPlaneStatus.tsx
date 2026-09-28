@@ -8,15 +8,15 @@ export function GamepadPlaneStatus({ value, live, motionStatus }: {
   const coordinated = value.outputScope === "coordinated";
   const stopped = coordinated && (motionStatus === "faulted" || motionStatus === "stopped");
   const scopeLabel = coordinated
-    ? "双腕へ適用: 左右独立"
+    ? `モデル手先への適用: ${Object.values(value.endpointBindings).join(" / ")}`
     : `単腕への適用: ${value.outputSide === "left" ? "左スティック" : "右スティック"}`;
   return <section className="gamepad-plane-status" aria-label="スティックの操作平面" data-testid="gamepad-plane-status">
     <p className="inspector-note">{scopeLabel}{!live && !stopped && " · 前回値（更新待ち）"}</p>
-    {stopped && <p className="inspector-note tone-warning">双腕全体停止：設定を確認して新しいsessionで再起動してください。</p>}
+    {stopped && <p className="inspector-note tone-warning">モデル全体停止：設定を確認して新しいsessionで再起動してください。</p>}
     {(["left", "right"] as const).map(side => {
       const item = value.sides[side];
       const destination = coordinated
-        ? "対応する腕へ適用"
+        ? (value.endpointBindings[side] ? `${value.endpointBindings[side]}へ適用` : "入力診断のみ")
         : side === value.outputSide ? "単腕へ適用" : "入力診断のみ";
       return <div key={side} className="gamepad-plane-row" data-testid={`plane-${side}`}>
         <strong>{side === "left" ? "左" : "右"} · {item.plane.toUpperCase()}</strong>

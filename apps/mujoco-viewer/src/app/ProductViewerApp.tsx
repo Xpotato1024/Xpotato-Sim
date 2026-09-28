@@ -415,7 +415,7 @@ export function ProductViewerApp() {
             <span className="section-kicker">SCENE</span>
             <span className="scene-source">{state.sourceLabel}</span>
             <div className="camera-actions" aria-label="カメラ方向">
-              {([['iso', '斜め'], ['front', '正面'], ['side', '側面'], ['top', '上面'], ['fit', '全体']] as const).map(([view, label]) => (
+              {([['iso', '斜め'], ['front', 'XZ面'], ['side', 'YZ面'], ['top', 'XY面'], ['fit', '全体']] as const).map(([view, label]) => (
                 <button key={view} type="button" disabled={state.qposStatus !== "ready"}
                   onClick={() => rendererRef.current?.setCameraView(view)}>{label}</button>
               ))}

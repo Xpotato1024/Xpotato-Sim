@@ -10,9 +10,9 @@ from time import monotonic
 import pytest
 from websockets.asyncio.client import connect
 
-from xpotato_sim.runtime.composition.coordinated_viewer_profile import load_coordinated_viewer_profile
-from xpotato_sim.runtime.runners.coordinated_websocket_publisher import _run_coordinated_gamepad_websocket_publisher_async
-from tests.runtime.test_coordinated_websocket_publisher import message
+from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
+from xpotato_sim.runtime.runners.model_websocket_publisher import _run_model_websocket_publisher_async
+from tests.runtime.test_model_websocket_publisher import message
 
 
 def _free_port():
@@ -38,11 +38,11 @@ def _sample(raw, seq, held=()):
 
 def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
     async def scenario():
-        profile = replace(load_coordinated_viewer_profile("fast-arm-bimanual-gamepad"),
+        profile = replace(load_launch_profile("fast-arm-bimanual-gamepad"),
                           backend_port=_free_port(), steps=1000, interval_s=.01,
-                          grace_period_s=2., max_input_age_s=.15)
+                          grace_period_s=2.)
         ready = asyncio.Event()
-        task = asyncio.create_task(_run_coordinated_gamepad_websocket_publisher_async(
+        task = asyncio.create_task(_run_model_websocket_publisher_async(
             profile, clock=monotonic, on_ready=ready.set))
         try:
             await asyncio.wait_for(ready.wait(), 4)
@@ -57,7 +57,7 @@ def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
                 assert neutral["qpos"] == first["qpos"]
                 await ws.send(_sample((.55,0.,-.55,0.), 1))
                 moved = await _until(ws, lambda p: p["qpos"][:4] != first["qpos"][:4] and p["qpos"][4:] != first["qpos"][4:])
-                assert moved["metadata"]["robot_joint_names"] == list(profile.assembly.joint_names)
+                assert moved["metadata"]["robot_joint_names"] == list(profile.model_registration().joint_names)
                 assert moved["metadata"]["coordinated_runtime_v1"]["tick"] > 0
                 await ws.send(_sample((.55,0.,0.,-.55), 2, (5,)))
                 waiting = await _until(ws, lambda p: p["metadata"]["gamepad_plane_control_v1"]["sides"]["right"]["status"] == "waiting_neutral")
@@ -86,10 +86,10 @@ def test_live_websocket_both_sticks_mode_switch_and_fault_latch():
 @pytest.mark.parametrize("bad", ["not-json", '{"type":"unknown"}', message((0.,0.,0.,0.),0).replace('gamepad/v1','keyboard/v1')])
 def test_invalid_initial_input_preserves_fault_reason_and_home(bad):
     async def scenario():
-        profile = replace(load_coordinated_viewer_profile("fast-arm-bimanual-gamepad"),
+        profile = replace(load_launch_profile("fast-arm-bimanual-gamepad"),
                           backend_port=_free_port(), steps=40, interval_s=.01, grace_period_s=2.)
         ready = asyncio.Event()
-        task = asyncio.create_task(_run_coordinated_gamepad_websocket_publisher_async(
+        task = asyncio.create_task(_run_model_websocket_publisher_async(
             profile, clock=monotonic, on_ready=ready.set))
         try:
             await asyncio.wait_for(ready.wait(), 4)

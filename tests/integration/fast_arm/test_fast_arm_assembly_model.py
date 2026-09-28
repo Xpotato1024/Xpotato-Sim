@@ -9,17 +9,11 @@ import pytest
 
 from fast_arm_core.assembly import FastArmAssembly, FastArmInstance, resolve_assembly_addresses
 from fast_arm_core.assembly_model import build_fast_arm_assembly_model
+from fast_arm_core.models import resolve_fast_arm_model
 
 S = np.diag([1.,-1.,1.])
-MOUNT_W = cos(pi / 12.0)
-MOUNT_X = sin(pi / 12.0)
-
-
 def assembly():
-    return FastArmAssembly((
-        FastArmInstance("right",False,(0,-.4,0),(MOUNT_W,-MOUNT_X,0,0)),
-        FastArmInstance("left",True,(0,.4,0),(MOUNT_W,MOUNT_X,0,0)),
-    ))
+    return FastArmAssembly(tuple(reversed(resolve_fast_arm_model("bimanual").assembly.instances)))
 
 
 def load(spec):
@@ -45,13 +39,14 @@ def test_single_original_single_mirror_and_both_share_one_model(selected):
                                       [[-24,24],[-24,24],[-12,12],[-12,12]])
 
 
-def test_bimanual_mounts_use_opposite_30_degree_x_rotations():
+def test_bimanual_mounts_orient_actual_plate_normals_not_only_roll():
     model, data, _ = load(assembly())
-    for side, angle in (("right", -pi / 6.0), ("left", pi / 6.0)):
-        c, s = cos(angle), sin(angle)
-        expected = np.array(((1.,0.,0.),(0.,c,-s),(0.,s,c)))
-        mount = model.body(f"{side}__mount").id
-        np.testing.assert_allclose(data.xmat[mount].reshape(3,3), expected, atol=1e-12)
+    for arm in assembly().instances:
+        side = 1 if arm.arm_id == "left" else -1
+        body = model.body(arm.name("base_link")).id
+        local = [0., 1. if arm.mirror_y else -1., 0.]
+        normal = data.xmat[body].reshape(3,3) @ local
+        np.testing.assert_allclose(normal, [0., side * np.sqrt(3)/2, -.5], atol=1e-12)
 
 
 def test_random_pose_fk_jacobian_mass_and_gravity_are_true_reflections():

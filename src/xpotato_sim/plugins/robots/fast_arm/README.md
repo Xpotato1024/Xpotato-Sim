@@ -100,9 +100,14 @@ genericなDTO、resolver、providerはruntimeが所有する。
 明示的な運動学診断経路であり、元のjoint limit/DLSを再利用する。動的接触や実機の安全認定ではない。
 [共同実行契約](../../../../../docs/contracts/coordinated-arm-runtime.md) に操作入口、OSC接続と未実装範囲を示す。
 
-## 双腕Viewer資源
+## 同列モデル定義とViewer資源
 
-`adapter/assembly_viewer.py`はcoreの同じassemblyからViewer declaration・MJCF・mesh・home fixtureを生成する。
-`adapter/coordinated.py`の`transport_state`は同じMuJoCo model/dataのprojectionであり、別のsimulationを走らせない。
-専用profileと起動手順は[backend/viewer起動手順](../../../../../docs/operations/backend-viewer-startup.md)を参照する。
-単腕のcatalog identityを変更せず、動的接触・実機出力も有効化しない。
+`fast_arm_core.models`が原型単腕・左単腕・右単腕・双腕の構成を保持し、
+`adapter/models.py`が同じ`RobotModelRegistration`型で既存Robot登録へ載せる。
+`adapter/assembly_viewer.py`はproviderが使用した同じ生成artifactから描画資源を構成し、
+腕数に応じた専用launcherや別の原本XML/STLを必要としない。
+
+肩中心と取付面の方向は[FastArm assembly契約](../../../../../docs/contracts/fast-arm-assembly.md)を正とする。
+従来のsource原点へのRxだけの取付は訂正済み。単腕モデルの対応する肩と双腕内の肩は同一の幾何となる。
+共通の[起動手順](../../../../../docs/operations/backend-viewer-startup.md)からモデルを選択する。
+既存単腕v1のprofile identity・joint規約と実機校正は変更しない。

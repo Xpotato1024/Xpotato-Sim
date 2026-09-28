@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import pytest
 
-import xpotato_sim.runtime.runners.coordinated_websocket_publisher as module
-from xpotato_sim.runtime.composition.coordinated_viewer_profile import (
-    load_coordinated_viewer_profile,
+import xpotato_sim.runtime.runners.model_websocket_publisher as module
+from xpotato_sim.runtime.composition.launch_profile import (
+    load_launch_profile,
 )
-from xpotato_sim.runtime.runners.coordinated_websocket_publisher import (
-    run_coordinated_gamepad_websocket_publisher,
+from xpotato_sim.runtime.runners.model_websocket_publisher import (
+    run_model_websocket_publisher,
 )
 
 
@@ -64,7 +65,7 @@ class FakeServer:
 
 def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypatch):
     profile = replace(
-        load_coordinated_viewer_profile("fast-arm-bimanual-gamepad"),
+        load_launch_profile("fast-arm-bimanual-gamepad"),
         steps=4,
         interval_s=.0001,
         grace_period_s=.0001,
@@ -76,7 +77,7 @@ def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypa
     ]
     monkeypatch.setattr(module, "WebSocketPublisherServer", FakeServer)
     ready = []
-    run_coordinated_gamepad_websocket_publisher(
+    run_model_websocket_publisher(
         profile, clock=lambda: 1.0, on_ready=lambda: ready.append(True)
     )
 
@@ -100,7 +101,7 @@ def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypa
 
 def test_no_gamepad_keeps_home_without_faulting(monkeypatch):
     profile = replace(
-        load_coordinated_viewer_profile("fast-arm-bimanual-gamepad"),
+        load_launch_profile("fast-arm-bimanual-gamepad"),
         steps=2,
         interval_s=.0001,
         grace_period_s=.0001,
@@ -108,9 +109,22 @@ def test_no_gamepad_keeps_home_without_faulting(monkeypatch):
     FakeServer.instances.clear()
     FakeServer.incoming = []
     monkeypatch.setattr(module, "WebSocketPublisherServer", FakeServer)
-    run_coordinated_gamepad_websocket_publisher(profile, clock=lambda: 1.0)
+    run_model_websocket_publisher(profile, clock=lambda: 1.0)
     payloads = [json.loads(value) for value in FakeServer.instances[-1].messages]
     assert len(payloads) == 2
     assert payloads[0]["qpos"] == payloads[1]["qpos"]
     assert payloads[-1]["metadata"]["motion_status"] == "waiting_neutral"
     assert payloads[-1]["metadata"]["motion_rejection_reason"] == "awaiting_gamepad_input"
+
+
+@pytest.mark.parametrize("name,count", [("fast-arm-single-gamepad",4),("fast-arm-left-gamepad",4),("fast-arm-right-gamepad",4),("fast-arm-bimanual-gamepad",8)])
+def test_same_runner_supports_each_registered_model(monkeypatch,name,count):
+    profile=replace(load_launch_profile(name),steps=4,interval_s=.0001,grace_period_s=.0001)
+    FakeServer.instances.clear()
+    FakeServer.incoming=[message((0.,0.,0.,0.),0),message((.55,0.,-.55,0.),1)]
+    monkeypatch.setattr(module,"WebSocketPublisherServer",FakeServer)
+    run_model_websocket_publisher(profile,clock=lambda:1.)
+    payloads=[json.loads(v) for v in FakeServer.instances[-1].messages]
+    assert payloads and all(len(v["qpos"])==count for v in payloads)
+    assert payloads[-1]["qpos"]!=payloads[0]["qpos"]
+    assert payloads[-1]["metadata"]["gamepad_plane_control_v1"]["endpoint_bindings"]==profile.side_to_endpoint

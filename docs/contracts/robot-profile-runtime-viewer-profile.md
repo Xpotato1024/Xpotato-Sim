@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-07-28
+last_verified: 2026-09-28
 canonical_for:
   - Robot Plugin registration and bounded discovery
   - Robot Profile contract and registry
@@ -305,3 +305,18 @@ package / module / class pathまたはdiscovery順を追加しない。
 
 
 実装・cleanup・fixture hashのevidenceは`docs/reports/audits/canonical-content-history-separation-2026-07-16.md`へ保存した。
+
+
+## Robot内の同列モデル選択（#580）
+
+`RobotPluginRegistration.models`はoptionalなtupleで、generic `RobotModelRegistration`を保持する。
+logical Robot identityとモデルidentityを分離し、単腕・双腕を別の登録階層へ置かない。
+既存Robot Catalogだけが`resolve_model(robot, model)`を行い、未知ID/versionを拒否する。
+
+モデル宣言は手先ID、joint順序、configuration digest、固定factoryを持つ。factoryはRobot側に置き、
+runtimeはgeneric `RobotModelInstance(provider, viewer)`を受け取る。生成artifactのdigestとjoint順序・次元が
+providerとViewerで一致しなければ構築を拒否する。profile表示/カタログ列挙ではmodel実行やI/Oを開始しない。
+
+旧RobotBundle単一手先APIを偽の代表手先で双腕へ流用しない。新モデルの名前付き手先経路は共通v2起動設定へ
+明示し、単一手先の旧v1比較・replayは互換境界で維持する。viewer resourceは同じ意味のdeclaration/v1を使うが、
+モデルidentity/contract/digestと4/8関節順序は選択モデルごとに厳密に照合する。
