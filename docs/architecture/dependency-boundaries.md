@@ -417,3 +417,12 @@ Robot coreやconcrete builderをimportしない。旧`coordinated_viewer_profile
 `application.py`はモデル選択時の生成資源を同じworker所有権で配信する。1手先も2手先も同じ経路で、
 Viewerはmodel digest、関節名・順序・次元を検査して受信stateを描画する。
 旧LaunchProfile/v1の単腕keyboard/replay等の実行意味は互換境界として維持し、旧形式を新モデルへ暗黙変更しない。
+
+## 固定物体のgeometry観測（#585）
+
+`runtime/scene/observation.py`はMuJoCo非依存のpure DTO。Taskがこの型を受けることは許可する。
+`runtime/scene/measurement.py`だけがbackend/native contactからそのDTOを生成する。
+`mujoco_backend/contact_geometry.py`はnative point/frame/distanceを読む共通primitiveで、旧R7-H force evidenceと
+新geometry診断から共有する。raw force、Task、Viewerの処理は共有primitiveへ逆流させない。
+Task/Evaluationの境界検査は曖昧な`geom`部分文字列ではなくAST上のnative geom属性/API参照を拒否し、
+geometryというDTO名だけで誤検出しない。Robot固有名のgeneric layer禁止は維持する。

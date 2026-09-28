@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
+from xpotato_sim.runtime.scene.task import GeometryTaskObservation
+from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
+from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
 from collections.abc import Callable, Mapping
 from time import monotonic
 
@@ -92,6 +96,19 @@ async def _run_model_websocket_publisher_async(
         clock=clock,
     )
 
+    task_binding = profile.bind_scene_task()
+    task_state = None if task_binding is None else task_binding.initial_state()
+    task_event = None if task_binding is None else resolve_task_plugin(profile.task_selection).task_event_identity
+    task_view = None
+    scene_binding = None if profile.scene_plan is None else {
+        "schema_version": "scene-contact-binding/v1",
+        "scene_digest": profile.scene_plan.manifest.digest,
+        "model_sha256": bundle.metadata["model_sha256"],
+        "epoch": profile.epoch,
+        "endpoint_ids": list(instance.provider.endpoint_ids),
+        "object_ids": [obj.instance_id for obj in profile.scene_plan.manifest.objects],
+    }
+
     def on_message(message: str) -> None:
         _ingest_message(runtime, message)
 
@@ -122,17 +139,40 @@ async def _run_model_websocket_publisher_async(
                         runtime, bundle.metadata, state=runtime_state,
                         reason=runtime_reason, epoch=profile.epoch, tick=runtime_tick,
                     )
-                    snapshot = runtime.runtime.provider.snapshot()
+                    sample = runtime.runtime.provider.sample(frame_index=frame_index, metadata=metadata)
+                    snapshot, state = sample.robot, sample.state
+                    addresses = sample.robot_qpos_addresses
                     if (snapshot.model_sha256 != bundle.metadata["model_sha256"]
                             or snapshot.joint_names != bundle.declaration.joint_names
-                            or len(snapshot.joint_positions_rad) != bundle.declaration.qpos_dimension):
+                            or len(snapshot.joint_positions_rad) != bundle.declaration.qpos_dimension
+                            or len(addresses) != len(snapshot.joint_positions_rad)
+                            or len(set(addresses)) != len(addresses)
+                            or any(type(i) is not int or i < 0 or i >= len(state.qpos) for i in addresses)):
                         raise ValueError("backend/viewer assembly declaration mismatch")
-                    state = runtime.runtime.provider.transport_state(
-                        frame_index=frame_index, metadata=metadata,
-                    )
-                    if (state.qpos != snapshot.joint_positions_rad
+                    if (tuple(state.qpos[i] for i in addresses) != snapshot.joint_positions_rad
                             or state.time_s != snapshot.simulation_time_s):
                         raise ValueError("backend/viewer snapshot mismatch")
+                    if task_binding is not None:
+                        geometry = sample.geometry
+                        if (geometry is None or geometry.model_sha256 != snapshot.model_sha256
+                                or geometry.simulation_time_s != state.time_s or geometry.frame_index != frame_index):
+                            raise ValueError("scene geometry and applied Robot sample differ")
+                        if task_state.classification is TaskTerminalClassification.RUNNING:
+                            stopped = runtime_reason if runtime_state in {"faulted","stopped"} else None
+                            transition = task_binding.advance(task_state, GeometryTaskObservation(geometry,stopped,budget_exhausted=frame_index+1 == profile.steps))
+                            task_state = transition.state
+                            task_view = dict(transition.evidence.require(task_event).value)
+                            if transition.classification is not TaskTerminalClassification.RUNNING:
+                                runtime.stop()
+                                state = replace(state, metadata={**state.metadata,
+                                    "motion_status": "stopped", "source_active": False,
+                                    "coordinated_runtime_v1": {**state.metadata["coordinated_runtime_v1"],
+                                        "state": "stopped", "reason": task_view["reason"]},
+                                    "motion_rejection_reason": task_view["reason"]})
+                        metadata = {**state.metadata, "scene_contact_geometry_v1":geometry.to_document(),
+                                    "scene_contact_task_v1":{**task_view, "presentation_frame_index":frame_index, "presentation_time_s":state.time_s},
+                                    "scene_contact_binding_v1":scene_binding}
+                        state = replace(state, metadata=metadata)
                     await publisher.publish(state)
                     # fault後も姿勢と理由を表示する。入力復帰による自動再開はしない。
                     if frame_index + 1 < profile.steps:

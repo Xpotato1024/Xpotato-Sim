@@ -136,3 +136,27 @@ cameraを手動回転してもMapping自体は追従させない。設定・符�
 
 配布profileは`fast-arm-single-gamepad`、`fast-arm-left-gamepad`、`fast-arm-right-gamepad`、
 `fast-arm-bimanual-gamepad`。GUI task/spawnとruntime中の切替は別Issueである。
+
+## v3: 名前付きモデルと固定物体診断の合成（#585）
+
+`xpotato-sim-launch-profile/v3`はv2へenvironment/taskを明示追加する。旧v1/v2の設定byte、意味、互換decoderは変更しない。
+EnvironmentとTaskは既存catalogからidentity/versionで解決し、未知・不適合を開始前に拒否する。
+
+```json
+{
+  "environment": {
+    "plugin": {"name": "object_scene_environment", "version": 1},
+    "parameters": {"preset": "two_cubes"},
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "task": {
+    "plugin": {"name": "contact_observation_task", "version": 1},
+    "parameters": {"target_object_ids": ["cube_left", "cube_right"], "duration_s": 60.0}
+  }
+}
+```
+
+sceneはpresetまたは完全な展開済みdocumentを受け、resolved出力へ物体定義・配置・全接触条件とdigestを含める。
+scene/Robotをmodel factoryで一度結合し、旧Task用cube manifestへ変換しない。Task targetはscene object IDの部分集合。
+v3から旧schemaへラベルだけ変える降格は拒否し、scene選択を黙って捨てない。
+具体値契約は[固定物体scene・幾何接触診断](object-scene-contact-diagnostic.md)を正とする。

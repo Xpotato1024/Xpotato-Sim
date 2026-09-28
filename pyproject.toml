@@ -27,6 +27,7 @@ exclude = ["xpotato_sim.plugins.robots.fast_arm.core*"]
 namespaces = false
 
 [tool.setuptools.package-data]
+"xpotato_sim.plugins.environments.object_scene_environment" = ["resources/objects/*.json", "resources/scenes/*.json"]
 "xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping" = [
     "resources/*.json",
 ]

@@ -1,0 +1,30 @@
+{
+  "definition_id": "test_cube_100mm",
+  "version": 1,
+  "geometry": {
+    "type": "box",
+    "half_extents_m": [
+      0.05,
+      0.05,
+      0.05
+    ]
+  },
+  "inertia": {
+    "mode": "uniform_box",
+    "mass_kg": 0.1
+  },
+  "surface": {
+    "sliding_friction": 0.8,
+    "torsional_friction_m": 0.0,
+    "rolling_friction_m": 0.0
+  },
+  "appearance": {
+    "rgba": [
+      0.75,
+      0.25,
+      0.1,
+      0.85
+    ]
+  },
+  "provenance": "simulation diagnostic assumption; not measured material properties"
+}

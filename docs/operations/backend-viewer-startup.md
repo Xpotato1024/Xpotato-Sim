@@ -154,3 +154,33 @@ OSC/serial、複数視点同時UI、GUI task/spawnは追加しない。
 生成resource/model digestを更新する。Web画面だけの再読込みでは既存backendのモデルを作り直さない。
 新しい全4モデルには旧単腕と同じz=0の床をbase sceneから合成する。床は両腕分重複させない。
 取付角の変更でhomeのworld姿勢は変わるが、既存joint homeを写真に合わせて変更していない。
+
+## 固定cubeと手先接触の診断（#585）
+
+```powershell
+uv run xpotato-sim app --profile contact-debug-bimanual --check
+uv run xpotato-sim app --profile contact-debug-bimanual
+```
+
+他のモデルは`contact-debug-single`、`contact-debug-left`、`contact-debug-right`を使用する。
+各profileは対応するcurrent fast-arm profileと同じTPS軸対応・trigger上下操作を使う。
+本体の物体定義は`plugins/environments/object_scene_environment/resources/objects/test_cube_100mm.json`、
+world配置は同packageの`resources/scenes/`。GUIでなくファイルで明示配置を変更し、実行中変更はしない。
+別の配置はprofileのenvironment.parametersへ完全なscene documentを指定できる。presetの実効値は次で確認する。
+
+```powershell
+uv run xpotato-sim profile contact-debug-bimanual
+```
+
+cubeは一辺100 mm、fixed。双腕ではworld (0.36,+/-0.56,0.46) mへ二個置く。世界に固定された治具であり、浮遊する自由物体ではない。
+右panelの「接触診断」で物体ID/pose、対象、同一適用frame、距離/食い込みを確認する。
+透明cyan球が実際の半径10 mm tool collider。点・固定長矢印は診断overlayであり、食い込み中も見えるよう深度遮蔽しない。
+指定したprimitiveのRGBAをnative modelから使い、Robotのmesh配色でcubeの色を上書きしない。
+床等を含む全景が遠い場合はwheelでズームし、操作/XZ/YZ/XYの既存cameraを選ぶ。
+
+観測時間はsimulation timeで60秒。起動の中立待ち中はsimulation timeは進まない。
+成功表示は観測期間の正常終了で、接触や操作性能の成功ではない。切断・入力異常は停止保持し、自動再開しない。
+起動は最大18000表示frameの有限session。観測前にbudgetが尽きればabortedとする。
+Ctrl+Cで終了し、再試行は新しい起動sessionで行う。page reload不要retryは#565に残す。
+
+力は「評価対象外」、fixed cubeは動かず、手先は食い込める。押し返し・非貫通・ばね力・全身衝突・実機安全性の試験ではない。

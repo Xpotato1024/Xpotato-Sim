@@ -157,6 +157,7 @@ declare module "three" {
       headLength?: number,
       headWidth?: number,
     );
+    setDirection(direction: Vector3): void;
   }
 
   export class Object3D {
@@ -165,6 +166,7 @@ declare module "three" {
     children: Object3D[];
     userData: Record<string, unknown>;
     visible: boolean;
+    renderOrder: number;
     matrix: Matrix4;
     matrixAutoUpdate: boolean;
     matrixWorldNeedsUpdate: boolean;

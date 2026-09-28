@@ -63,3 +63,10 @@ runtime package rootは`RuntimeConfig`とRobot catalog resolver 5件だけをlaz
 - [dependency boundary](../../../docs/architecture/dependency-boundaries.md)
 - [plugin system](../plugins/README.md)
 - [unified CLI](../../../docs/operations/unified-cli.md)
+
+
+## `scene/`
+
+固定物体の定義/instance配置、Robot collider binding、Environment composition、geometry-only観測の共通契約。
+単腕/双腕・物体数に依存しない。pure DTOはTaskから利用し、MuJoCo読み取りはmeasurementへ限定する。
+旧contact force/task manifestの代用品ではない。共通起動はLaunchProfile/v3とmodel publisherを使用する。

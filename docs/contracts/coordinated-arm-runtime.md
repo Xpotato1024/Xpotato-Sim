@@ -157,3 +157,11 @@ latest-state配信と既存の絶対deadline pacerを使い、遅い描画consum
 登録モデルはbare armだけでなく、旧単腕と同じbase scene（床・照明・材質）を一度だけ合成する。
 共通factoryで構成し、1腕/2腕どちらも同じsceneをbackend・Viewerへ渡す。保存assembly診断はbareのまま保持する。
 床の復元は接触判定・力学評価の追加ではなく、モデルのscene欠落修正である。
+
+## 固定物体を含むモデルの観測（#585）
+
+登録model factoryはoptionalなtyped scene planを受け、Robot-owned tool colliderとEnvironment-owned物体を合成する。
+common publisherは`ModelStateSample`で同一lockのrobot snapshot・全state・geometryを扱い、名前addressで関節を照合する。
+Task終端後はqpos/simulation timeを凍結し、表示frameだけを進める。terminal eventとpresentation frameを分離する。
+旧のstate.qpos==全Robot qposという仮定はaddress照合に変更するが、fixed物体が自由度を増やさないことは検査する。
+これはkinematic geometry診断であり、dynamic freejoint/servo/反力は#582の後続。詳細は[固定物体scene契約](object-scene-contact-diagnostic.md)。

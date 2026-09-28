@@ -37,6 +37,8 @@ import {
   type ContactTaskInputSource,
   type ContactTaskPresentationV1,
 } from "../contact/contactTaskLog.js";
+import { SceneContactStream, unavailableSceneContact, type SceneContactPresentation } from "../contact/sceneContactPresentation.js";
+import { SceneContactOverlay } from "./sceneContactOverlay.js";
 import type { ViewerRobotProfile } from "../robot-profiles/types.js";
 import {
   loadViewerRobotProfileFromPayload,
@@ -58,7 +60,7 @@ import {
   resolveNamedInitialKeyframe,
   resolveTransportQpos,
 } from "./mujocoQposSync.js";
-import { resolveBodyVisualStyle } from "./visualStyles.js";
+import { resolveBodyVisualStyle, resolveGeomDisplayColor } from "./visualStyles.js";
 import type { BodyVisualStyle } from "./visualStyles.js";
 import {
   applyProductViewerRendererStatePatch,
@@ -195,6 +197,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   const contactOverlay = new Group();
   contactOverlay.name = "read-only contact-task overlay";
   scene.add(contactOverlay);
+  const geometryOverlay = new SceneContactOverlay();
+  const geometryStream = new SceneContactStream();
+  scene.add(geometryOverlay.group);
 
   const renderer = new WebGLRenderer({ canvas: options.canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -258,6 +263,11 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
   const updateRendererStatus = (patch: ProductViewerRendererStatePatch): void => {
     emitState(applyProductViewerRendererStatePatch(state, patch));
+  };
+
+  const setSceneContactPresentation = (value: SceneContactPresentation): void => {
+    geometryOverlay.update(value);
+    updateRendererStatus({sceneContactPresentation: value});
   };
 
   const clearContactOverlay = (): void => {
@@ -372,6 +382,11 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   ): void => {
     const next = applyProductViewerRendererStatePatch(state, patch);
     next.connectionStatus = connectionStatus;
+    if (connectionStatus !== "open" && websocketUrl !== null && next.sceneContactPresentation.status !== "absent") {
+      const value = unavailableSceneContact("接続が有効ではないため接触表示を消去しました");
+      geometryOverlay.update(value);
+      next.sceneContactPresentation = value;
+    }
     emitState(next);
   };
 
@@ -444,16 +459,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       meshName,
       geomName,
     );
-    const materialColor = (() => {
-      if (style !== null) {
-        return style.color;
-      }
-
-      return geom.rgba[3] < 1 ? "#93c5fd" : "#e2e8f0";
-    })();
-
+    const materialColor = resolveGeomDisplayColor(style, Array.from(geom.rgba), geom.type === mujocoApi.mjtGeom.mjGEOM_MESH.value);
     const material = new MeshPhongMaterial({
-      color: new Color(materialColor),
+      color: typeof materialColor === "string" ? new Color(materialColor) : new Color().setRGB(...materialColor),
       transparent: geom.rgba[3] < 1,
       opacity: geom.rgba[3],
       side: DoubleSide,
@@ -562,6 +570,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       activeProfile,
     );
     if (qposResolution.status !== "ready" || qposResolution.qpos === null) {
+      setSceneContactPresentation(unavailableSceneContact("qposとsceneが一致しないため接触表示を消去しました"));
       if (contactPresentation.status !== "stale") {
         setContactTaskPresentation(
           unavailableContactTaskPresentation(
@@ -594,6 +603,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       inputOverlay,
       candidate,
     );
+    setSceneContactPresentation(geometryStream.apply(payload));
   };
 
   const syncToLatestSource = (): void => {
@@ -663,6 +673,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       activeProfile,
     );
     if (qposResolution.status !== "ready" || qposResolution.qpos === null) {
+      setSceneContactPresentation(unavailableSceneContact("qposとsceneが一致しないため接触表示を消去しました"));
       if (payloadContactPresentation.status !== "stale") {
         setContactTaskPresentation(
           unavailableContactTaskPresentation(
@@ -706,6 +717,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       activeProfile,
     );
     if (qposResolution.status !== "ready" || qposResolution.qpos === null) {
+      setSceneContactPresentation(unavailableSceneContact("qposとsceneが一致しないため接触表示を消去しました"));
       if (contactPresentation.status !== "stale") {
         setContactTaskPresentation(
           unavailableContactTaskPresentation(
@@ -737,6 +749,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       payload.endpoint_evaluation ?? null,
       buildProductViewerInputOverlayState(payload),
     );
+    setSceneContactPresentation(geometryStream.apply(payload));
   };
   const startWebSocketClient = (): void => {
     if (websocketUrl === null) {
@@ -1021,6 +1034,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       materialByKey.clear();
       modelMeshNameById.clear();
       clearContactOverlay();
+      geometryOverlay.dispose();
+      scene.remove(geometryOverlay.group);
       scene.remove(contactOverlay);
       floorTexture.dispose();
       floorMaterial.dispose();

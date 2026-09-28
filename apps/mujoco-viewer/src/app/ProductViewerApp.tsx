@@ -1,3 +1,4 @@
+import { SceneContactPanel } from "./SceneContactPanel.js";
 import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
 import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -460,11 +461,12 @@ export function ProductViewerApp() {
             <div className="inspector-row"><span>motion</span><strong>{overlay?.motionStatus ?? "未取得"}</strong></div>
             {overlay?.motionRejectionReason && <p className="inspector-note tone-warning">{overlay.motionRejectionReason}</p>}
           </section>
-          <section className="inspector-section">
+          {state.sceneContactPresentation.status === "absent" ? <section className="inspector-section">
             <div className="inspector-heading"><h2>タスク</h2><span className="section-kicker">CONTACT</span></div>
             <p className="inspector-primary">{state.contactTaskPresentation.taskState?.phase ?? "接触情報なし"}</p>
             {state.contactTaskPresentation.taskState !== null ? <p className="inspector-note">{state.contactTaskPresentation.taskState.classification}</p> : <p className="inspector-note">接触log / payloadの読込みと証拠の詳細は診断にあります。</p>}
-          </section>
+          </section> : null}
+          <SceneContactPanel value={state.sceneContactPresentation} live={connection.tone === "positive"} />
           <div className="inspector-footer">{connection.detail}</div>
         </aside>
       </div>

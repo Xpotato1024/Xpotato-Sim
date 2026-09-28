@@ -1,0 +1,100 @@
+{
+  "schema_version": "xpotato-sim-launch-profile/v3",
+  "name": "contact-debug-right",
+  "workspace": "..",
+  "mode": "simulation",
+  "robot": {
+    "name": "fast_arm",
+    "version": 1
+  },
+  "input": {
+    "plugin": {
+      "name": "viewer",
+      "version": 1
+    },
+    "provider": "gamepad/v1",
+    "preset": null
+  },
+  "mapping": {
+    "plugin": {
+      "name": "viewer_keyboard_gamepad_mapping",
+      "version": 1
+    },
+    "parameters": {
+      "gamepad_trigger_control": {
+        "schema": "gamepad-trigger-control/v1",
+        "output_side": "right",
+        "neutral_threshold": 0.1,
+        "left": {
+          "axes": [
+            1,
+            0
+          ],
+          "signs": [
+            -1,
+            -1
+          ],
+          "trigger_button": 6,
+          "sign_button": 4
+        },
+        "right": {
+          "axes": [
+            3,
+            2
+          ],
+          "signs": [
+            -1,
+            -1
+          ],
+          "trigger_button": 7,
+          "sign_button": 5
+        }
+      }
+    }
+  },
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5174,
+    "websocket_port": 8767,
+    "open_browser": true
+  },
+  "model": {
+    "name": "single_right",
+    "version": 1
+  },
+  "coordination": {
+    "side_to_endpoint": {
+      "right": "right"
+    },
+    "epoch": "contact-debug-right-1",
+    "max_input_age_s": 0.2
+  },
+  "environment": {
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "parameters": {
+      "preset": "cube_right"
+    },
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "task": {
+    "plugin": {
+      "name": "contact_observation_task",
+      "version": 1
+    },
+    "parameters": {
+      "target_object_ids": [
+        "cube_right"
+      ],
+      "duration_s": 60.0
+    }
+  }
+}

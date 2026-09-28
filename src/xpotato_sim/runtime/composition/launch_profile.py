@@ -16,16 +16,21 @@ import re
 
 from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
+from xpotato_sim.plugins.environments.catalog import resolve_environment_plugin
+from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
+from xpotato_sim.runtime.scene.contracts import ModelScenePlan, ObjectSceneProvider
+from xpotato_sim.runtime.scene.task import GeometryTaskContext
 from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1, ENDPOINT_POSE_V1, QPOS_FEASIBILITY_V1, RESET_INITIAL_STATE_V1,
 )
 from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
-from xpotato_sim.runtime.experiment.composition import resolve_command_execution
+from xpotato_sim.runtime.experiment.composition import resolve_command_execution, freeze_parameter_value
 from xpotato_sim.runtime.experiment.contracts import PluginSelection, VersionedIdentity
 from xpotato_sim.runtime.experiment.input_source import InputSourceMode
 
 LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v1"
 MODEL_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v2"
+SCENE_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v3"
 LEGACY_LAUNCH_PROFILE_SCHEMA = "selfrionette-launch-profile/v1"
 MAX_PROFILE_BYTES = 262144
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -133,6 +138,9 @@ class LaunchProfile:
     effective_parameters_json: str
     model: PluginSelection | None = None
     coordination_json: str = "{}"
+    scene_plan: ModelScenePlan | None = None
+    task_selection: PluginSelection | None = None
+    task_parameters_json: str = "{}"
 
     @property
     def side_to_endpoint(self) -> dict[str, str]:
@@ -152,7 +160,14 @@ class LaunchProfile:
         return ROBOT_CATALOG.resolve_model(self.robot, self.model)
 
     def build_model(self):
-        return self.model_registration().build()
+        return self.model_registration().build(self.scene_plan)
+
+    def bind_scene_task(self):
+        """同じselectionをreadinessと実行時にbindし、具体Task名でdispatchしない。"""
+        if self.scene_plan is None or self.task_selection is None:
+            return None
+        context=GeometryTaskContext(self.scene_plan.manifest,self.model_registration().endpoint_ids,self.epoch)
+        return resolve_task_plugin(self.task_selection).bind_context(context,freeze_parameter_value("task",json.loads(self.task_parameters_json)))
 
     @property
     def mapping_parameters(self) -> dict:
@@ -175,6 +190,8 @@ class LaunchProfile:
                 "simulation_duration_s": self.steps * self.dt_s,
                 "scheduled_duration_s": self.steps * self.interval_s,
                 "physical_output": "disabled",
+                **({} if self.scene_plan is None else {"scene":self.scene_plan.manifest.to_document(),
+                    "scene_digest":self.scene_plan.manifest.digest,"collision_profile":self.scene_plan.collision_profile}),
                 **({} if self.model is None else {
                     "model": {"name": self.model.plugin_id, "version": self.model.contract_version},
                     "model_configuration": json.loads(self.model_registration().configuration_json),
@@ -196,9 +213,11 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if type(raw) is not dict:
         raise ValueError("profile must be a JSON object")
     schema = raw.get("schema_version")
-    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA):
+    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA):
         raise ValueError("unsupported launch profile schema_version")
-    model_fields = {"model", "coordination"} if schema == MODEL_LAUNCH_PROFILE_SCHEMA else set()
+    model_fields = {"model", "coordination"} if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA) else set()
+    if schema == SCENE_LAUNCH_PROFILE_SCHEMA:
+        model_fields |= {"environment","task"}
     raw = _object(raw, {"schema_version", "name", "workspace", "mode", "robot", "input", "mapping", "execution", "web"} | model_fields, "profile")
     name = _string(raw["name"], "name")
     if not _NAME.fullmatch(name):
@@ -250,7 +269,7 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         raise ValueError("resolved input/mapping identity differs from profile")
     model_selection = None
     coordination = {}
-    if schema == MODEL_LAUNCH_PROFILE_SCHEMA:
+    if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA):
         model_selection = _selection(raw["model"], "model")
         model = ROBOT_CATALOG.resolve_model(robot, model_selection)
         if mode != "simulation" or provider != "gamepad/v1":
@@ -280,10 +299,24 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         if command.binding.requires_motion_generator:
             bundle.provider(ENDPOINT_COMMAND_V1)
         route = command.route.identity
-    return LaunchProfile(source_path, workspace, name, mode, robot, source_selection, mapping_selection,
+    scene_plan, task_selection, task_parameters = None, None, {}
+    if schema == SCENE_LAUNCH_PROFILE_SCHEMA:
+        env = _object(raw["environment"], {"plugin","parameters","robot_collision_profile"}, "environment")
+        env_plugin = resolve_environment_plugin(_selection(env["plugin"],"environment.plugin"))
+        scene_provider = env_plugin.scene_provider
+        if not isinstance(scene_provider,ObjectSceneProvider):
+            raise ValueError("Environment does not support explicit object scenes")
+        manifest = scene_provider.resolve_parameters(env["parameters"])
+        scene_plan = ModelScenePlan(manifest,scene_provider,_string(env["robot_collision_profile"],"collision profile"))
+        task = _object(raw["task"], {"plugin","parameters"}, "task")
+        task_selection = _selection(task["plugin"],"task.plugin")
+        task_parameters = task["parameters"]
+    result = LaunchProfile(source_path, workspace, name, mode, robot, source_selection, mapping_selection,
         _json(mapping["parameters"]), route, provider, preset, steps, dt, interval, grace,
         host, web_port, backend_port, web["open_browser"], canonical, _json(_projection(selected.control_mapping_parameters)),
-        model_selection, _json(coordination))
+        model_selection, _json(coordination), scene_plan, task_selection, _json(task_parameters))
+    result.bind_scene_task()
+    return result
 
 
 def load_launch_profile(selector: str | Path) -> LaunchProfile:
