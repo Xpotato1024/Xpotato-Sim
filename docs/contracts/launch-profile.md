@@ -96,8 +96,9 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 
 ## 左右独立の1スティックXYZ操作
 
-新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
-[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と現行FastArm Gamepad profileはstick XY + analog trigger Zを使用する。
+設定・符号ラッチ・表示は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
+旧XY/XZ切替は[Gamepad平面操作契約](gamepad-plane-control.md)の互換経路として維持する。
 
 ## 同列モデル選択を持つv2（#574 / #580）
 

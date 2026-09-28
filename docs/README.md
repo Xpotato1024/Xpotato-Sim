@@ -22,7 +22,8 @@ completion audit、implementation report、inventory、handoff、historical reco
 |---|---|---|
 | Xpotato-Simへの名称移行 | `docs/operations/xpotato-sim-migration.md` | package・CLI・旧profile互換性と履歴の保持 |
 | 複数手先の共同実行・出力監督 | `docs/contracts/coordinated-arm-runtime.md` | 同一snapshot、一括反映、全側prepare、fault latchと停止確認の境界 |
-| Gamepad片側XYZ / 左右独立mode | `docs/contracts/gamepad-plane-control.md` | XY/XZ、中立復帰、session、単腕での左右検証 |
+| Gamepad XYZ / analog trigger Z | `docs/contracts/gamepad-trigger-control.md` | stick XY、LT/RT Z量、LB/RB符号、左右同時入力 |
+| Gamepad XY/XZ平面切替（互換） | `docs/contracts/gamepad-plane-control.md` | 旧profile・fixture用のplane mode互換契約 |
 | FastArm片腕/双腕assemblyと出力対応 | `docs/contracts/fast-arm-assembly.md` | core鏡映生成、joint address、左右OSC target、全体完了境界 |
 | 開発方針 | `docs/architecture/development-policy.md` | 現在のtaskに適用するlayer責務と責務driftの防止 |
 | 研究実行優先順位 / 実機contact roadmap | `docs/architecture/research-execution-roadmap.md` | simulation主経路と実機オプション、左右共通の完了条件 |

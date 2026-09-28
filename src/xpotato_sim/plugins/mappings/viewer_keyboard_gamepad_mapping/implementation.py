@@ -14,6 +14,7 @@ from xpotato_sim.plugins.mappings._continuous_endpoint_velocity import (
 )
 from .gamepad_axes import GamepadAxisMap, coerce_gamepad_axis_map, apply_gamepad_axis_map
 from .gamepad_planes import PlaneControlConfig, PlaneControlSession, SIDES, coerce_plane_control
+from .gamepad_triggers import TriggerControlConfig, TriggerControlSession, coerce_trigger_control
 
 from xpotato_sim.plugins.mappings._command_routes import (
     local_endpoint_velocity_command_route,
@@ -169,13 +170,22 @@ class ViewerControlMappingParameters:
     gamepad_max_delta_m: float = _DEFAULT_GAMEPAD_MAX_DELTA_M
     gamepad_axis_map: GamepadAxisMap | None = None
     gamepad_plane_control: PlaneControlConfig | None = None
+    gamepad_trigger_control: TriggerControlConfig | None = None
 
     def __post_init__(self) -> None:
+        controls = int(self.gamepad_plane_control is not None) + int(self.gamepad_trigger_control is not None)
+        if controls > 1:
+            raise ValueError("plane and trigger control are mutually exclusive")
         if self.gamepad_plane_control is not None:
             if not isinstance(self.gamepad_plane_control, PlaneControlConfig):
                 raise TypeError("gamepad_plane_control must be validated")
             if self.gamepad_axis_map is not None:
                 raise ValueError("static axis map and plane control are mutually exclusive")
+        if self.gamepad_trigger_control is not None:
+            if not isinstance(self.gamepad_trigger_control, TriggerControlConfig):
+                raise TypeError("gamepad_trigger_control must be validated")
+            if self.gamepad_axis_map is not None:
+                raise ValueError("static axis map and trigger control are mutually exclusive")
         if self.gamepad_axis_map is not None and not isinstance(self.gamepad_axis_map, GamepadAxisMap):
             raise TypeError("gamepad_axis_map must be a validated GamepadAxisMap")
         if not isinstance(self.keyboard_config, KeyboardInputConfig):
@@ -200,6 +210,7 @@ def build_viewer_control_mapping_parameters(
         "gamepad_max_delta_m",
         "gamepad_axis_map",
         "gamepad_plane_control",
+        "gamepad_trigger_control",
     }
     unknown = tuple(sorted(set(values) - allowed))
     if unknown:
@@ -244,6 +255,7 @@ def build_viewer_control_mapping_parameters(
         gamepad_max_delta_m=float(values.get("gamepad_max_delta_m", _DEFAULT_GAMEPAD_MAX_DELTA_M)),
         gamepad_axis_map=(coerce_gamepad_axis_map(values["gamepad_axis_map"]) if "gamepad_axis_map" in values else None),
         gamepad_plane_control=(coerce_plane_control(values["gamepad_plane_control"]) if "gamepad_plane_control" in values else None),
+        gamepad_trigger_control=(coerce_trigger_control(values["gamepad_trigger_control"]) if "gamepad_trigger_control" in values else None),
     )
 
 
@@ -274,6 +286,8 @@ def normalize_viewer_control_mapping_parameters(
         })
     if normalized.gamepad_plane_control is not None:
         result["gamepad_plane_control"] = normalized.gamepad_plane_control.to_mapping()
+    if normalized.gamepad_trigger_control is not None:
+        result["gamepad_trigger_control"] = normalized.gamepad_trigger_control.to_mapping()
     return MappingProxyType(result)
 
 
@@ -282,7 +296,9 @@ class ViewerKeyboardGamepadMappingStrategy:
 
     def __init__(self, *, session: bool = False) -> None:
         self._plane_session = PlaneControlSession() if session else None
+        self._trigger_session = TriggerControlSession() if session else None
         self._latest_plane_presentation: dict[str, object] | None = None
+        self._latest_trigger_presentation: dict[str, object] | None = None
 
     @property
     def latest_plane_presentation(self) -> dict[str, object] | None:
@@ -290,11 +306,20 @@ class ViewerKeyboardGamepadMappingStrategy:
             return None
         return json.loads(json.dumps(self._latest_plane_presentation, allow_nan=False))
 
+    @property
+    def latest_trigger_presentation(self) -> dict[str, object] | None:
+        if self._latest_trigger_presentation is None:
+            return None
+        return json.loads(json.dumps(self._latest_trigger_presentation, allow_nan=False))
+
     def map_input(self, input_intent: object, parameters: Mapping[str, object]) -> InputIntent:
         if not isinstance(input_intent, RawInputFrame):
             raise TypeError("viewer mapping accepts a canonical RawInputFrame sample")
         mapping_parameters = build_viewer_control_mapping_parameters(parameters)
         sample_payload = input_intent.metadata.get("viewer_input_sample")
+        if mapping_parameters.gamepad_trigger_control is not None:
+            sample = _coerce_frame_sample(input_intent) if isinstance(sample_payload, Mapping) else None
+            return self._map_triggers(input_intent, sample, mapping_parameters)
         if mapping_parameters.gamepad_plane_control is not None:
             sample = _coerce_frame_sample(input_intent) if isinstance(sample_payload, Mapping) else None
             return self._map_planes(input_intent, sample, mapping_parameters)
@@ -312,6 +337,7 @@ class ViewerKeyboardGamepadMappingStrategy:
             )
             metadata = dict(input_intent.metadata)
             metadata.pop("gamepad_plane_control_v1", None)
+            metadata.pop("gamepad_trigger_control_v1", None)
             metadata.update(intent.to_metadata())
             metadata.update(
                 {
@@ -394,6 +420,7 @@ class ViewerKeyboardGamepadMappingStrategy:
 
         metadata = dict(input_intent.metadata)
         metadata.pop("gamepad_plane_control_v1", None)
+        metadata.pop("gamepad_trigger_control_v1", None)
         metadata.update(intent.to_metadata())
         metadata.update(
             {
@@ -424,10 +451,95 @@ class ViewerKeyboardGamepadMappingStrategy:
         )
 
 
+    def _build_trigger_intents(
+        self,
+        frame: RawInputFrame,
+        sample: ViewerCanonicalInputSample | None,
+        parameters: ViewerControlMappingParameters,
+    ):
+        """単一手先と共同実行が共有するstick XY + trigger Z計算。"""
+        if self._trigger_session is None:
+            raise ValueError("trigger control requires a runtime mapping session")
+        config = parameters.gamepad_trigger_control
+        assert config is not None
+        if sample is not None and sample.source_kind != "gamepad":
+            self._trigger_session.reset()
+            raise ValueError("trigger control accepts only gamepad samples")
+        control_frame = "world" if sample is None else sample.requested_control_frame
+        if control_frame not in {"world", "tool"}:
+            self._trigger_session.reset()
+            raise ValueError("trigger control requires an explicit world/tool frame")
+        raw = () if sample is None or sample.gamepad is None or sample.gamepad.raw_axes is None else sample.gamepad.raw_axes
+        projected = tuple(_normalize_gamepad_axis_for_legacy_frontend(v) for v in raw)
+        outputs, triggers, reason = self._trigger_session.update(
+            sample,
+            config,
+            projected,
+            settings_key=(
+                parameters.gamepad_speed_m_s,
+                parameters.gamepad_deadzone,
+                parameters.gamepad_max_delta_m,
+                control_frame,
+            ),
+        )
+        intents = {
+            side: build_continuous_endpoint_velocity_intent(
+                outputs[side],
+                source_kind="viewer_gamepad",
+                source_timestamp_s=frame.timestamp_s,
+                speed_m_s=parameters.gamepad_speed_m_s,
+                deadzone=parameters.gamepad_deadzone,
+                max_delta_m=parameters.gamepad_max_delta_m,
+                control_frame=control_frame,
+                source_active=bool(sample is not None and sample.source_active),
+                stale_reason=frame.metadata.get("stale_reason") if sample is None else sample.stale_reason,
+                source_diagnostics={"raw_axes": tuple(raw), "input_side": side, "trigger_value": triggers[side]},
+            )
+            for side in SIDES
+        }
+        return intents, triggers, reason, control_frame, raw
+
+    def _map_triggers(
+        self,
+        frame: RawInputFrame,
+        sample: ViewerCanonicalInputSample | None,
+        parameters: ViewerControlMappingParameters,
+    ) -> InputIntent:
+        self._latest_plane_presentation = None
+        self._latest_trigger_presentation = None
+        intents, triggers, reason, control_frame, _ = self._build_trigger_intents(frame, sample, parameters)
+        config = parameters.gamepad_trigger_control
+        assert config is not None and self._trigger_session is not None
+        intent = intents[config.output_side]
+        presentation = self._trigger_session.presentation(
+            config,
+            {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
+            triggers,
+            reason,
+        )
+        self._latest_trigger_presentation = presentation
+        metadata = dict(frame.metadata)
+        metadata.pop("gamepad_plane_control_v1", None)
+        metadata.update(intent.to_metadata())
+        metadata.update({
+            "endpoint_velocity_m_s": intent.local_endpoint_velocity_m_s,
+            "resolved_world_endpoint_velocity_m_s": intent.local_endpoint_velocity_m_s if control_frame == "world" else None,
+            "endpoint_velocity_frame": "mujoco_world",
+            "viewer_source_kind": "gamepad",
+            "sequence": None if sample is None else sample.sequence,
+            "gamepad_trigger_control_v1": presentation,
+        })
+        return InputIntent(
+            source="viewer",
+            timestamp_s=frame.timestamp_s,
+            values=intent.axis_values,
+            buttons=() if sample is None or sample.gamepad is None else tuple(b.pressed for b in sample.gamepad.buttons),
+            metadata=metadata,
+        )
+
     def _build_plane_intents(self, frame: RawInputFrame, sample: ViewerCanonicalInputSample | None,
                             parameters: ViewerControlMappingParameters):
         """単一手先と共同実行が共有する唯一の平面・ゲイン計算。"""
-        # catalogの共有strategyで状態を作らず、runtime sessionを必須にする。
         if self._plane_session is None:
             raise ValueError("plane control requires a runtime mapping session")
         config = parameters.gamepad_plane_control
@@ -458,6 +570,7 @@ class ViewerKeyboardGamepadMappingStrategy:
 
     def _map_planes(self, frame: RawInputFrame, sample: ViewerCanonicalInputSample | None,
                     parameters: ViewerControlMappingParameters) -> InputIntent:
+        self._latest_trigger_presentation = None
         self._latest_plane_presentation = None
         intents, reason, control_frame, _ = self._build_plane_intents(frame, sample, parameters)
         config = parameters.gamepad_plane_control
@@ -470,6 +583,7 @@ class ViewerKeyboardGamepadMappingStrategy:
         )
         self._latest_plane_presentation = presentation
         metadata = dict(frame.metadata)
+        metadata.pop("gamepad_trigger_control_v1", None)
         metadata.update(intent.to_metadata())
         metadata.update({
             "endpoint_velocity_m_s": intent.local_endpoint_velocity_m_s,
@@ -482,20 +596,36 @@ class ViewerKeyboardGamepadMappingStrategy:
                            buttons=() if sample is None or sample.gamepad is None else tuple(b.pressed for b in sample.gamepad.buttons),
                            metadata=metadata)
 
-
     def reset_coordinated_presentation(
         self, parameters: Mapping[str, object], *, reason: str,
     ) -> None:
-        """未取得・終了時の表示を中立待ちに戻す。観測や運動指令は生成しない。"""
+        """未取得・終了時の表示状態をresetする。観測や運動指令は生成しない。"""
         normalized = build_viewer_control_mapping_parameters(parameters)
-        if self._plane_session is None or normalized.gamepad_plane_control is None:
-            raise ValueError("coordinated presentation requires a plane-control session")
-        self._plane_session.reset()
-        self._latest_plane_presentation = self._plane_session.presentation(
-            normalized.gamepad_plane_control,
-            {side: (0.0, 0.0, 0.0) for side in SIDES},
-            reason, output_scope="coordinated",
-        )
+        self._latest_plane_presentation = None
+        self._latest_trigger_presentation = None
+        if normalized.gamepad_trigger_control is not None:
+            if self._trigger_session is None:
+                raise ValueError("coordinated presentation requires a trigger-control session")
+            self._trigger_session.reset()
+            self._latest_trigger_presentation = self._trigger_session.presentation(
+                normalized.gamepad_trigger_control,
+                {side: (0.0, 0.0, 0.0) for side in SIDES},
+                {side: 0.0 for side in SIDES},
+                reason,
+                output_scope="coordinated",
+            )
+            return
+        if normalized.gamepad_plane_control is not None:
+            if self._plane_session is None:
+                raise ValueError("coordinated presentation requires a plane-control session")
+            self._plane_session.reset()
+            self._latest_plane_presentation = self._plane_session.presentation(
+                normalized.gamepad_plane_control,
+                {side: (0.0, 0.0, 0.0) for side in SIDES},
+                reason, output_scope="coordinated",
+            )
+            return
+        raise ValueError("coordinated presentation requires explicit gamepad control")
 
     def map_coordinated_input(self, frame: RawInputFrame, parameters: Mapping[str, object], *,
                               side_to_endpoint: Mapping[str, str], received_at_s: float) -> CoordinatedInput:
@@ -505,35 +635,73 @@ class ViewerKeyboardGamepadMappingStrategy:
                 or len(set(side_to_endpoint.values())) != len(side_to_endpoint)):
             raise ValueError("explicit distinct side-to-endpoint binding required")
         normalized = build_viewer_control_mapping_parameters(parameters)
-        if normalized.gamepad_plane_control is None:
-            raise ValueError("coordinated input requires explicit gamepad_plane_control")
-        self._latest_plane_presentation = None
         sample = _coerce_frame_sample(frame) if isinstance(frame.metadata.get("viewer_input_sample"), Mapping) else None
-        intents, reason, control_frame, raw = self._build_plane_intents(frame, sample, normalized)
-        assert self._plane_session is not None
-        self._latest_plane_presentation = self._plane_session.presentation(
-            normalized.gamepad_plane_control,
-            {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
-            reason,
-            output_scope="coordinated",
-        )
-        available = reason is None and sample is not None
-        neutral = available and all(abs(raw[i]) <= normalized.gamepad_plane_control.neutral_threshold
-            for side in side_to_endpoint for i in getattr(normalized.gamepad_plane_control, side).axes)
+        self._latest_plane_presentation = None
+        self._latest_trigger_presentation = None
+
+        if normalized.gamepad_trigger_control is not None:
+            intents, triggers, reason, control_frame, raw = self._build_trigger_intents(frame, sample, normalized)
+            assert self._trigger_session is not None
+            self._latest_trigger_presentation = self._trigger_session.presentation(
+                normalized.gamepad_trigger_control,
+                {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
+                triggers,
+                reason,
+                output_scope="coordinated",
+            )
+            available = reason is None and sample is not None
+            threshold = normalized.gamepad_trigger_control.neutral_threshold
+            neutral = available and all(
+                all(abs(raw[i]) <= threshold for i in getattr(normalized.gamepad_trigger_control, side).axes)
+                and triggers[side] <= threshold
+                for side in side_to_endpoint
+            )
+        elif normalized.gamepad_plane_control is not None:
+            intents, reason, control_frame, raw = self._build_plane_intents(frame, sample, normalized)
+            assert self._plane_session is not None
+            self._latest_plane_presentation = self._plane_session.presentation(
+                normalized.gamepad_plane_control,
+                {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
+                reason,
+                output_scope="coordinated",
+            )
+            available = reason is None and sample is not None
+            neutral = available and all(
+                abs(raw[i]) <= normalized.gamepad_plane_control.neutral_threshold
+                for side in side_to_endpoint
+                for i in getattr(normalized.gamepad_plane_control, side).axes
+            )
+        else:
+            raise ValueError("coordinated input requires explicit gamepad control")
+
         provider_epoch = None if sample is None else sample.diagnostics.get("provider_session_id")
         device = None if sample is None or sample.gamepad is None else (sample.gamepad.index, sample.gamepad.id)
-        # 接続系列が同じでも装置報告IDが変わったら共同runtimeの再preflightを必要とする。
         source_epoch = None if provider_epoch is None else sha256(
-            json.dumps((provider_epoch, device), separators=(",", ":")).encode()).hexdigest()
-        payload = {"raw": raw, "buttons": [] if sample is None or sample.gamepad is None else
-                   [(b.pressed, b.value) for b in sample.gamepad.buttons], "frame": control_frame,
-                   "sequence": None if sample is None else sample.sequence,
-                   "timestamp": frame.timestamp_s, "source_epoch": source_epoch}
-        digest = sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
-        return CoordinatedInput(tuple(EndpointVelocity(endpoint, intents[side].local_endpoint_velocity_m_s, control_frame)
-                for side, endpoint in side_to_endpoint.items()), source_epoch,
-                None if sample is None else sample.sequence, frame.timestamp_s, received_at_s,
-                available, bool(neutral), digest)
+            json.dumps((provider_epoch, device), separators=(",", ":")).encode()
+        ).hexdigest()
+        payload = {
+            "raw": raw,
+            "buttons": [] if sample is None or sample.gamepad is None else
+                [(b.pressed, b.value) for b in sample.gamepad.buttons],
+            "frame": control_frame,
+            "sequence": None if sample is None else sample.sequence,
+            "timestamp": frame.timestamp_s,
+            "source_epoch": source_epoch,
+        }
+        digest = sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        ).hexdigest()
+        return CoordinatedInput(
+            tuple(EndpointVelocity(endpoint, intents[side].local_endpoint_velocity_m_s, control_frame)
+                  for side, endpoint in side_to_endpoint.items()),
+            source_epoch,
+            None if sample is None else sample.sequence,
+            frame.timestamp_s,
+            received_at_s,
+            available,
+            bool(neutral),
+            digest,
+        )
 
 
 VIEWER_CONTROL_MAPPING_PLUGIN = ControlMappingPlugin(
@@ -549,6 +717,7 @@ VIEWER_CONTROL_MAPPING_PLUGIN = ControlMappingPlugin(
             ParameterField("gamepad_max_delta_m", float, required=False),
             ParameterField("gamepad_axis_map", object, required=False),
             ParameterField("gamepad_plane_control", object, required=False),
+            ParameterField("gamepad_trigger_control", object, required=False),
         )
     ),
     control_frame=None,

@@ -6,6 +6,7 @@ canonical_for:
   - coordinated arm diagnostic execution and output supervision
 related:
   - docs/contracts/fast-arm-assembly.md
+  - docs/contracts/gamepad-trigger-control.md
   - docs/contracts/gamepad-plane-control.md
   - docs/contracts/physical-output.md
 ---
@@ -29,7 +30,7 @@ source原点へのRxだけという以前の記述は誤りで、joint zeroやwi
 | 所有者 | 責務 |
 |---|---|
 | `schemas/coordinated.py` | 手先ID付き速度、取得情報、名前付き観測の型と入力検証 |
-| Mapping `map_coordinated_input` | 既存平面状態機械・正規化・ゲインを共有し、明示side bindingからtyped要求を返す |
+| Mapping `map_coordinated_input` | 標準trigger controlまたは互換plane controlの正規化・状態を共有し、明示side bindingからtyped要求を返す |
 | Robot `adapter/coordinated.py` | 原本assembly、名前address、既存DLSと限界の適用、全腕候補と一括反映 |
 | `runtime/execution/coordinated.py` | epoch、入力鮮度・系列、中立、実行・停止・fault latchと再開 |
 | `runtime/composition/coordinated_input.py` | 登録providerとSource/Mappingを結ぶ共通実行。腕数による別loopを作らない |
@@ -37,7 +38,7 @@ source原点へのRxだけという以前の記述は誤りで、joint zeroやwi
 | `runtime/output/coordinated.py` | 全側prepare、追加scene veto、逐次dispatch、全体fault、全側停止試行 |
 
 legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左右velocityをcommandへ逆生成しない。
-旧 `map_input` と新しいtyped入口は同じ `_build_plane_intents` を使い、写像を二重実装しない。
+標準trigger controlは単一手先/共同入口で同じ `_build_trigger_intents` を使う。互換plane controlも同様に `_build_plane_intents` を共有し、各写像を二重実装しない。
 `side_to_arm` は明示・copy/freezeし、選択した全armを重複なく覆う。旧 `output_side` はsingle-endpoint用であり、
 共同入口のbindingを上書きしない。既存launch profile/v1・Robot Plugin/v1の意味は維持する。
 このproviderは登録モデルの明示composition用である。#574の共通v2 profileへ接続するが、

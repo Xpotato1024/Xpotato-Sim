@@ -12,6 +12,9 @@ related:
 
 # 1スティックによるXYZ速度操作
 
+> **互換契約:** 現行の標準Gamepad XYZ profileは[Gamepad trigger操作契約](gamepad-trigger-control.md)へ移行した。
+> 本書のXY/XZ平面切替は、既存fixture・過去検証・明示的なlegacy設定の互換経路として維持する。
+
 ## 目的と実装範囲
 
 左右のスティックを独立した操作セットとして扱い、通常XY／同側肩ボタン押下中XZへ切り替える。

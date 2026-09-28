@@ -205,3 +205,7 @@ button[aria-pressed="true"] { background: #e4eee8; color: var(--accent); border-
 .gamepad-plane-row { display: grid; gap: 4px; margin: 9px 0; overflow-wrap: anywhere; }
 .gamepad-plane-row span { font-size: 0.85rem; }
 .gamepad-plane-row small { opacity: 0.75; }
+.gamepad-trigger-status { margin-top: 10px; padding-top: 7px; border-top: 1px solid currentColor; }
+.gamepad-trigger-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 6px 0; overflow-wrap: anywhere; }
+.gamepad-trigger-row span { font-size: 0.82rem; text-align: right; }
+.gamepad-trigger-row small { grid-column: 1 / -1; opacity: 0.72; }

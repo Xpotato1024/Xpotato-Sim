@@ -105,8 +105,9 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 
 ## 左右独立の1スティックXYZ操作
 
-新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
-[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`とFastArmのGamepad profileはstick XY + analog trigger Zを使用する。
+操作と表示は[Gamepad trigger操作契約](../contracts/gamepad-trigger-control.md)を参照する。
+旧XY/XZ切替は[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)の互換経路である。
 
 ## 単腕・双腕のモデル選択（#574 / #580）
 

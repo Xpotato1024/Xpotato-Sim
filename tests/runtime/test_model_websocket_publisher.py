@@ -14,9 +14,13 @@ from xpotato_sim.runtime.runners.model_websocket_publisher import (
 )
 
 
-def message(raw, sequence):
-    buttons = [{"pressed": False, "value": 0.0} for _ in range(6)]
-    zero = not any(abs(value) > .1 for value in raw)
+def message(raw, sequence, *, triggers=(0.0, 0.0), held=()):
+    buttons = [{"pressed": False, "value": 0.0} for _ in range(8)]
+    buttons[6] = {"pressed": triggers[0] > 0.5, "value": triggers[0]}
+    buttons[7] = {"pressed": triggers[1] > 0.5, "value": triggers[1]}
+    for index in held:
+        buttons[index] = {"pressed": True, "value": max(1.0, buttons[index]["value"])}
+    zero = not any(abs(value) > .1 for value in raw) and not any(v > .1 for v in triggers) and not held
     return json.dumps({
         "type": "viewer_control_message",
         "timestamp_s": sequence / 60,
@@ -91,8 +95,8 @@ def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypa
     assert metadata["robot_qpos_dimension"] == 8
     assert len(metadata["robot_joint_names"]) == 8
     assert metadata["physical_output"] == "disabled"
-    assert metadata["gamepad_plane_control_v1"]["output_scope"] == "coordinated"
-    assert metadata["gamepad_plane_control_v1"]["output_side"] is None
+    assert metadata["gamepad_trigger_control_v1"]["output_scope"] == "coordinated"
+    assert metadata["gamepad_trigger_control_v1"]["output_side"] is None
     assert metadata["coordinated_runtime_v1"]["arm_ids"] == ["left", "right"]
     initial, moved = payloads[0]["qpos"], payloads[-1]["qpos"]
     assert any(a != b for a, b in zip(initial[:4], moved[:4]))
@@ -127,4 +131,4 @@ def test_same_runner_supports_each_registered_model(monkeypatch,name,count):
     payloads=[json.loads(v) for v in FakeServer.instances[-1].messages]
     assert payloads and all(len(v["qpos"])==count for v in payloads)
     assert payloads[-1]["qpos"]!=payloads[0]["qpos"]
-    assert payloads[-1]["metadata"]["gamepad_plane_control_v1"]["endpoint_bindings"]==profile.side_to_endpoint
+    assert payloads[-1]["metadata"]["gamepad_trigger_control_v1"]["endpoint_bindings"]==profile.side_to_endpoint

@@ -1,4 +1,5 @@
 import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
+import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
@@ -437,6 +438,7 @@ export function ProductViewerApp() {
             <div className="inspector-heading"><h2>入力</h2><span className="section-kicker">INPUT</span></div>
             <p className="inspector-primary">{overlay?.sourceKind ?? "入力情報なし"}</p>
             <InputInstruments state={state} numbers={numbers} />
+            <GamepadTriggerStatus value={overlay?.gamepadTriggerControl ?? null} live={liveInputEnabled && connection.tone === "positive"} motionStatus={overlay?.motionStatus} />
             <GamepadPlaneStatus value={overlay?.gamepadPlaneControl ?? null} live={liveInputEnabled && connection.tone === "positive"} motionStatus={overlay?.motionStatus} />
             <div className="inspector-row"><span>取得</span><strong>{inputPaused ? "一時停止" : liveInputEnabled ? "有効" : "停止"}</strong></div>
             <div className="inspector-row"><span>backend状態</span><strong>{overlay === null ? "未取得" : overlay.sourceActive ? "入力あり" : "待機 / 保持"}</strong></div>

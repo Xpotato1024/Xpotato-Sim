@@ -391,5 +391,6 @@ representation変換だけを行い、Mapping operational parameterを所有し�
 
 ## 左右独立の1スティックXYZ操作
 
-新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
-[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`のXYZ操作はstick XY + analog trigger Zを使用する。
+取得session、trigger符号、表示は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
+旧XY/XZ切替は[Gamepad平面操作契約](gamepad-plane-control.md)の互換経路として残す。
