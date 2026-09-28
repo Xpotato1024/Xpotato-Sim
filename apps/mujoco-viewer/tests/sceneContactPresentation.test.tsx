@@ -69,6 +69,11 @@ const overlay=new SceneContactOverlay();overlay.update(good);assert.equal(overla
 const first=overlay.group.children[0];for(let i=0;i<100;i++)overlay.update(good);
 assert.equal(overlay.group.children[0],first);assert.equal(overlay.group.children.length,2);
 assert.deepEqual([first.position.x,first.position.y,first.position.z],good.contacts[0].point);
+overlay.group.traverse(item=>{
+  const material=(item as typeof item & {material?: {transparent:boolean;depthTest:boolean;depthWrite:boolean}}).material;
+  if(material){ assert.equal(material.transparent,true);assert.equal(material.depthTest,false);assert.equal(material.depthWrite,false);assert.equal(item.renderOrder,1000); }
+});
+
 overlay.update(unavailableSceneContact("stale"));assert.ok(overlay.group.children.every(o=>!o.visible));
 overlay.update(good);assert.ok(overlay.group.children.every(o=>o.visible));
 overlay.dispose();assert.equal(overlay.group.children.length,0);overlay.dispose();

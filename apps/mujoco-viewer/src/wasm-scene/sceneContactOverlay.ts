@@ -6,9 +6,9 @@ export class SceneContactOverlay {
   readonly group = new Group();
   private geometry = new SphereGeometry(0.004, 10, 8);
   private materials = {
-    near: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0x38bdf8}),
-    touching: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0xfacc15}),
-    penetrating: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0xf97316}),
+    near: new MeshBasicMaterial({transparent:true,depthTest:false,depthWrite:false,color:0x38bdf8}),
+    touching: new MeshBasicMaterial({transparent:true,depthTest:false,depthWrite:false,color:0xfacc15}),
+    penetrating: new MeshBasicMaterial({transparent:true,depthTest:false,depthWrite:false,color:0xf97316}),
   };
   private pool: { marker: Mesh; arrow: ArrowHelper }[] = [];
   private disposed = false;
@@ -24,10 +24,11 @@ export class SceneContactOverlay {
       const marker = new Mesh(this.geometry, this.materials.near);
       const arrow = new ArrowHelper(new Vector3(1,0,0),new Vector3(),0.06,0xfacc15,0.015,0.008);
       // 食い込み中も確認できる診断overlay。形状そのものの透明度や衝突は変更しない。
+      // transparent queueへ置き、透明cubeが後から法線を覆い隠さないようにする。
       for (const object of [marker,arrow]) object.traverse(item => {
         item.renderOrder = 1000;
-        const material = (item as typeof item & {material?: {depthTest:boolean;depthWrite:boolean}}).material;
-        if (material) {material.depthTest=false;material.depthWrite=false;}
+        const material = (item as typeof item & {material?: {depthTest:boolean;depthWrite:boolean;transparent:boolean}}).material;
+        if (material) {material.depthTest=false;material.depthWrite=false;material.transparent=true;}
       });
       this.group.add(marker,arrow);
       this.pool.push({marker,arrow});
