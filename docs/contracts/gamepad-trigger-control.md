@@ -71,6 +71,9 @@ per-side norm clamp、`gamepad_speed_m_s`を適用する。
 
 coordinated runtimeの開始・restartでは、対象sideのstick 2軸とtriggerがneutralである
 fresh sampleを受け取るまで運動を開始しない。bumper単独は速度を生成しないためneutralを妨げない。
+起動直後にBrowserが一時的なconnected=false / stale sampleを送っても、runtimeは
+waiting_neutralのまま保持し、後続のfresh neutralで開始する。running後の入力喪失は
+従来どおり全体faultであり、自動再開しない。
 
 triggerがneutralになった時点でbumper状態をZ符号としてラッチする。
 disconnect、stale、device change、provider session changeではtrigger符号のarmingをresetする。

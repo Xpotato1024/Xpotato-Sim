@@ -106,11 +106,14 @@ class CoordinatedRuntime:
             self._last_now = self._minimum_received_at_s = now
             self.state, self.reason = "waiting_neutral", None
 
-    def _validate_input(self, value: CoordinatedInput, now: float) -> None:
+    def _validate_input_shape(self, value: CoordinatedInput) -> None:
         if type(value) is not CoordinatedInput:
             raise TypeError("typed coordinated input required")
         if {e.endpoint_id for e in value.endpoints} != set(self.provider.endpoint_ids):
             raise ValueError("input must cover every endpoint exactly once")
+
+    def _validate_input(self, value: CoordinatedInput, now: float) -> None:
+        self._validate_input_shape(value)
         if not value.available:
             raise ValueError("input_unavailable")
         if not 0 <= now - value.received_at_s <= self.max_input_age_s:
@@ -141,6 +144,18 @@ class CoordinatedRuntime:
                 if self._last_now is not None and now < self._last_now:
                     raise ValueError("monotonic_clock_regressed")
                 self._last_now = now
+                if self.state == "waiting_neutral":
+                    if value is None:
+                        return CoordinatedStepResult(
+                            self.epoch, self._tick, self.state, "input_unavailable",
+                            before, before, None, None,
+                        )
+                    self._validate_input_shape(value)
+                    if not value.available:
+                        return CoordinatedStepResult(
+                            self.epoch, self._tick, self.state, "input_unavailable",
+                            before, before, None, value,
+                        )
                 if value is None:
                     raise ValueError("input_unavailable")
                 self._validate_input(value, now)

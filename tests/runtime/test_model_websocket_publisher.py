@@ -14,7 +14,7 @@ from xpotato_sim.runtime.runners.model_websocket_publisher import (
 )
 
 
-def message(raw, sequence, *, triggers=(0.0, 0.0), held=()):
+def message(raw, sequence, *, triggers=(0.0, 0.0), held=(), connected=True, stale=False):
     buttons = [{"pressed": False, "value": 0.0} for _ in range(8)]
     buttons[6] = {"pressed": triggers[0] > 0.5, "value": triggers[0]}
     buttons[7] = {"pressed": triggers[1] > 0.5, "value": triggers[1]}
@@ -31,11 +31,11 @@ def message(raw, sequence, *, triggers=(0.0, 0.0), held=()):
         "gamepad": {
             "index": 0,
             "id": "test-pad",
-            "connected": True,
+            "connected": connected,
             "raw_axes": list(raw),
             "axes": list(raw),
             "buttons": buttons,
-            "stale": False,
+            "stale": stale,
             "zero_state": zero,
         },
         "metadata": {"viewer_provider_session_id": "test-stream"},
@@ -119,6 +119,30 @@ def test_no_gamepad_keeps_home_without_faulting(monkeypatch):
     assert payloads[0]["qpos"] == payloads[1]["qpos"]
     assert payloads[-1]["metadata"]["motion_status"] == "waiting_neutral"
     assert payloads[-1]["metadata"]["motion_rejection_reason"] == "awaiting_gamepad_input"
+
+
+def test_initial_disconnected_sample_waits_for_fresh_neutral_without_fault(monkeypatch):
+    profile = replace(
+        load_launch_profile("fast-arm-bimanual-gamepad"),
+        steps=5,
+        interval_s=.0001,
+        grace_period_s=.0001,
+    )
+    FakeServer.instances.clear()
+    FakeServer.incoming = [
+        message((0., 0., 0., 0.), 0, connected=False),
+        message((0., 0., 0., 0.), 1),
+        message((.55, 0., -.55, 0.), 2),
+    ]
+    monkeypatch.setattr(module, "WebSocketPublisherServer", FakeServer)
+    run_model_websocket_publisher(profile, clock=lambda: 1.0)
+    payloads = [json.loads(value) for value in FakeServer.instances[-1].messages]
+    assert payloads
+    waiting = [p for p in payloads if p["metadata"]["motion_status"] == "waiting_neutral"]
+    assert waiting, "initial disconnected sample must remain a recoverable waiting state"
+    assert all(p["metadata"]["motion_status"] != "faulted" for p in payloads[:3])
+    assert any(p["metadata"]["motion_status"] == "running" for p in payloads)
+    assert payloads[-1]["qpos"] != payloads[0]["qpos"]
 
 
 @pytest.mark.parametrize("name,count", [("fast-arm-single-gamepad",4),("fast-arm-left-gamepad",4),("fast-arm-right-gamepad",4),("fast-arm-bimanual-gamepad",8)])

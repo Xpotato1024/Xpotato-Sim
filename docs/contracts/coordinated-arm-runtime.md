@@ -63,9 +63,12 @@ legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左�
 simulation時間を実機要求の鮮度へ流用しない。モデル時刻はsnapshot側に保存する。
 
 起動はwaiting_neutral。新鮮な中立とprovider preflight後にrunningへ進む。
+waiting_neutral中の未取得・disconnect・staleによるavailable=falseは、まだ運動開始していないため
+faultへ昇格させず同状態で待機する。fresh neutralを受け取れば同じsessionでrunningへ進める。
 モード切替中の一側ゼロは通常の操作であり、他側の正常入力を止めない。
-欠落arm、invalid/stale/disconnect、provider変更、逆順、同sequenceの異内容、epoch不一致、
+running後のinvalid/stale/disconnect、欠落arm、provider変更、逆順、同sequenceの異内容、epoch不一致、
 非finite、候補・commit・snapshot失敗は全体faultをlatchする。正常入力復帰だけでは解除しない。
+malformed schemaやmapping例外は起動前でも待機へ読み替えずfail-closedとする。
 
 再開は停止後に新epochを指定し、provider reset/preflight、Source/Mapping再作成、新しいprovider系列と
 新鮮な中立を必要とする。旧epoch・旧系列は拒否し、履歴は128実行までに限定する。
