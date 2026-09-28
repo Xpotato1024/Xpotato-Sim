@@ -1,5 +1,5 @@
 /** 既にMuJoCoが算出したbody位置の範囲から、表示カメラだけを配置する。 */
-export type CameraView = "iso" | "front" | "side" | "top";
+export type CameraView = "operator" | "iso" | "front" | "side" | "top";
 export interface CameraPresentation {
   target: [number, number, number];
   position: [number, number, number];
@@ -22,7 +22,15 @@ export function cameraPresentation(positions: ArrayLike<number>, view: CameraVie
   const span = Math.max(...upper.map((value, axis) => value - lower[axis]));
   // 最小距離と余白は画面framingの値であり、robotの可動域や安全幅ではない。
   const distance = Math.max(0.45, span * 2.4);
-  const direction = { iso: [1, -1, 0.75], front: [0, -1, 0], side: [1, 0, 0], top: [0, 0, 1] }[view];
+  // operatorは胴体+X前方に対して背後(-X)・やや上から見る固定TPS preset。
+  // camera-relative commandにはせず、screen rightがworld -Yになる基準viewだけを提供する。
+  const direction = {
+    operator: [-1, 0, 0.55],
+    iso: [1, -1, 0.75],
+    front: [0, -1, 0],
+    side: [1, 0, 0],
+    top: [0, 0, 1],
+  }[view];
   const length = Math.hypot(...direction);
   return {
     target,

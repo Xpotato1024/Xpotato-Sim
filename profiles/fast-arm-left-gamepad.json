@@ -27,11 +27,11 @@
         "neutral_threshold": 0.1,
         "left": {
           "axes": [
-            0,
-            1
+            1,
+            0
           ],
           "signs": [
-            1,
+            -1,
             -1
           ],
           "trigger_button": 6,
@@ -39,11 +39,11 @@
         },
         "right": {
           "axes": [
-            2,
-            3
+            3,
+            2
           ],
           "signs": [
-            1,
+            -1,
             -1
           ],
           "trigger_button": 7,

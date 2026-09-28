@@ -189,6 +189,10 @@ export function ProductViewerApp() {
   const inputStartup = useMemo(() => readViewerInputStartup(
     typeof window === "undefined" ? "" : window.location.search,
   ), []);
+  const initialCameraView =
+    inputSelection.providerIds.length === 1 && inputSelection.providerIds[0] === "gamepad/v1"
+      ? "operator" as const
+      : "iso" as const;
   const gamepadControlPresentation =
     state.inputOverlay?.gamepadTriggerControl ?? state.inputOverlay?.gamepadPlaneControl ?? null;
   const gamepadNeutralHeartbeat = inputStartup === "scene" || gamepadControlPresentation !== null;
@@ -229,6 +233,7 @@ export function ProductViewerApp() {
           profile: initialProfile,
           expectedProfileId: requestedProfileId,
           websocketUrl: endpointConfig.websocketUrl,
+          initialCameraView,
           onProfileResolved: setProfile,
           onStateChange: presentation.push,
           onError(error) {
@@ -274,7 +279,7 @@ export function ProductViewerApp() {
       }
       renderer?.dispose();
     };
-  }, [endpointConfig.websocketUrl, requestedProfileId]);
+  }, [endpointConfig.websocketUrl, requestedProfileId, initialCameraView]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -418,7 +423,7 @@ export function ProductViewerApp() {
             <span className="section-kicker">SCENE</span>
             <span className="scene-source">{state.sourceLabel}</span>
             <div className="camera-actions" aria-label="カメラ方向">
-              {([['iso', '斜め'], ['front', 'XZ面'], ['side', 'YZ面'], ['top', 'XY面'], ['fit', '全体']] as const).map(([view, label]) => (
+              {([['operator', '操作'], ['iso', '斜め'], ['front', 'XZ面'], ['side', 'YZ面'], ['top', 'XY面'], ['fit', '全体']] as const).map(([view, label]) => (
                 <button key={view} type="button" disabled={state.qposStatus !== "ready"}
                   onClick={() => rendererRef.current?.setCameraView(view)}>{label}</button>
               ))}

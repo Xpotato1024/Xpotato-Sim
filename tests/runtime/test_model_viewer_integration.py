@@ -58,7 +58,9 @@ def test_live_websocket_both_sticks_trigger_z_and_fault_latch():
                 assert moved["metadata"]["coordinated_runtime_v1"]["tick"] > 0
                 await ws.send(_sample((.55,0.,0.,0.), 2, (5,)))
                 signed = await _until(ws, lambda p: p["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["z_sign"] == -1)
-                assert signed["metadata"]["gamepad_trigger_control_v1"]["sides"]["left"]["velocity_m_s"][0] > 0
+                left_velocity = signed["metadata"]["gamepad_trigger_control_v1"]["sides"]["left"]["velocity_m_s"]
+                assert left_velocity[0] == pytest.approx(0.0)
+                assert left_velocity[1] < 0  # standard stick-right -> body/world -Y
                 await ws.send(_sample((.55,0.,0.,0.), 3, triggers=(0., .55)))
                 vertical = await _until(ws, lambda p: p["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["velocity_m_s"][2] < 0)
                 assert vertical["metadata"]["gamepad_trigger_control_v1"]["sides"]["right"]["trigger_value"] == pytest.approx(.55)

@@ -38,14 +38,14 @@ triggerを押し込んだ最中のbumper操作で速度を瞬時反転させな�
     "output_side": "left",
     "neutral_threshold": 0.1,
     "left": {
-      "axes": [0, 1],
-      "signs": [1, -1],
+      "axes": [1, 0],
+      "signs": [-1, -1],
       "trigger_button": 6,
       "sign_button": 4
     },
     "right": {
-      "axes": [2, 3],
-      "signs": [1, -1],
+      "axes": [3, 2],
+      "signs": [-1, -1],
       "trigger_button": 7,
       "sign_button": 5
     }
@@ -58,6 +58,25 @@ named-endpoint v2実行では`coordination.side_to_endpoint`が適用先を所�
 左右stickの4軸、2 trigger、2 sign buttonは重複させない。
 
 `gamepad_trigger_control`、`gamepad_plane_control`、`gamepad_axis_map`は同時指定しない。
+
+## FastArm operator / TPS frame
+
+現行FastArm Gamepad profileは、胴体座標の`+X=前方`、`+Y=左`、`+Z=上`を固定operator frameとして使う。
+standard Gamepadのstickは次のようにworld速度へ写す。
+
+| 操作 | world方向 |
+|---|---|
+| stick 上 | `+X`（前進） |
+| stick 下 | `-X`（後退） |
+| stick 左 | `+Y`（左） |
+| stick 右 | `-Y`（右） |
+| LT / RT | `|Z|` |
+| LB / RB | `Z`符号 |
+
+これはcamera-relative controlではない。ViewerのGamepad sessionは初期cameraを`operator` presetにし、
+ロボット背後の`-X`側・やや上方から`+X`前方を見る。そこでscreen rightはworld `-Y`となるため、
+stickの左右と画面上の左右が一致する。ユーザーがOrbitControlsでcameraを回してもMappingは変更しない。
+rendererのcamera状態をcommand semanticsのsource of truthにしない。
 
 ## 入力値とneutral
 

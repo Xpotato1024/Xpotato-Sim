@@ -97,7 +97,10 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 ## 左右独立の1スティックXYZ操作
 
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と現行FastArm Gamepad profileはstick XY + analog trigger Zを使用する。
-設定・符号ラッチ・表示は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
+FastArmの胴体`+X=前、+Y=左、+Z=上`へ固定したoperator/TPS mappingを採用し、
+stick上=`+X`、右=`-Y`とする。Gamepad viewerは同じ基準に合わせた背後`-X`側の`operator` camera presetで起動する。
+cameraを手動回転してもMapping自体は追従させない。設定・符号ラッチ・表示の詳細は
+[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
 旧XY/XZ切替は[Gamepad平面操作契約](gamepad-plane-control.md)の互換経路として維持する。
 
 ## 同列モデル選択を持つv2（#574 / #580）
@@ -123,7 +126,7 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 
 `coordination.side_to_endpoint`は入力側とモデルの手先IDの明示対応であり、選択した全手先を重複なく覆う。
 単腕も1要素の対応として同じ制御loopを通る。バインドしないスティックは表示上も入力診断と区別する。
-現行v2実行はsimulation・gamepad/v1・名前付き手先のplane Mappingを要求する。他の組合せは代用せず拒否する。
+現行v2実行はsimulation・gamepad/v1・名前付き手先を扱える明示Gamepad control Mappingを要求する。他の組合せは代用せず拒否する。
 
 モデル構築は登録factoryを通し、同じ生成modelからproviderとViewer resourceを作り、artifact digest、関節順、
 次元を照合する。v2の入力開始は腕数に関係なくscene準備後で、physical outputはdisabledのまま。

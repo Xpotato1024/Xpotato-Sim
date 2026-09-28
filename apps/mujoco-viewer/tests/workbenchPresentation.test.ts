@@ -29,6 +29,20 @@ const original = [...positions];
 const iso = cameraPresentation(positions, "iso");
 assert.ok(iso);
 assert.deepEqual(iso.target, [0.3, 0, 0.6]);
+const operator = cameraPresentation(positions, "operator");
+assert.ok(operator);
+assert.ok(operator.position[0] < operator.target[0], "operator camera must stay behind body +X forward");
+assert.equal(operator.position[1], operator.target[1]);
+assert.ok(operator.position[2] > operator.target[2], "operator camera should be slightly above the robot");
+assert.deepEqual(operator.up, [0, 0, 1]);
+const forward = operator.target.map((value, axis) => value - operator.position[axis]);
+const screenRight = [
+  forward[1] * operator.up[2] - forward[2] * operator.up[1],
+  forward[2] * operator.up[0] - forward[0] * operator.up[2],
+  forward[0] * operator.up[1] - forward[1] * operator.up[0],
+];
+assert.ok(Math.abs(screenRight[0]) < 1e-12 && screenRight[1] < 0 && Math.abs(screenRight[2]) < 1e-12,
+  "operator screen-right must align with body/world -Y");
 assert.deepEqual(cameraPresentation(positions, "top")?.up, [0, 1, 0]);
 assert.deepEqual(positions, original);
 assert.equal(cameraPresentation([0, 0, 0], "iso"), null);
