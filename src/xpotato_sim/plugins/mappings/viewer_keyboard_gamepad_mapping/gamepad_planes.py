@@ -181,10 +181,19 @@ class PlaneControlSession:
             self.reset()
             raise
 
-    def presentation(self, config: PlaneControlConfig, velocities: Mapping[str, Sequence[float]],
-                     reason: str | None) -> dict[str, object]:
-        return {"schema": SCHEMA, "output_side": config.output_side,
-                "output_scope": "single_endpoint", "reason": reason,
+    def presentation(
+        self,
+        config: PlaneControlConfig,
+        velocities: Mapping[str, Sequence[float]],
+        reason: str | None,
+        *,
+        output_scope: str = "single_endpoint",
+    ) -> dict[str, object]:
+        if output_scope not in {"single_endpoint", "coordinated"}:
+            raise ValueError("unsupported plane-control output scope")
+        return {"schema": SCHEMA,
+                "output_side": config.output_side if output_scope == "single_endpoint" else None,
+                "output_scope": output_scope, "reason": reason,
                 "sides": {side: {
                     "plane": self.states[side].plane,
                     "requested_plane": self.states[side].requested_plane,

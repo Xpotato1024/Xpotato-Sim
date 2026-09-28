@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-09-21
+last_verified: 2026-09-28
 canonical_for:
   - backend / viewer startup guide
   - browser WebSocket connection guide
@@ -107,3 +107,47 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 
 新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
 [Gamepad平面操作契約](../contracts/gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+
+## 単腕・双腕のモデル選択（#574 / #580）
+
+```powershell
+uv run xpotato-sim app --profile fast-arm-single-gamepad
+uv run xpotato-sim app --profile fast-arm-left-gamepad
+uv run xpotato-sim app --profile fast-arm-right-gamepad
+uv run xpotato-sim app --profile fast-arm-bimanual-gamepad
+```
+
+用途に応じて一つを選ぶ。原型単腕・左単腕・右単腕・双腕を同じLaunchProfile/v2で選択し、
+同じprovider構築・WebSocket loop・描画経路へ渡す。`profile`で解決結果とモデルconfiguration digestを
+表示できる。位置・角度はprofileへ複写せずRobot側のモデル定義に保持する。
+
+左/右は胴体座標の+Y/-Yであり、画面や操作者から見た左右とは別である。
+各profileの`coordination.side_to_endpoint`がスティックから手先への対応を明示し、表示にも適用先IDを出す。
+左単腕を右stickに割り当てることもモデルを変更せず明示設定できる。未使用stickは診断のみ。
+同側肩button 4/5でXYからXZへ切り替え、中立確認まで対象側だけ速度ゼロとする。
+実Gamepadのbutton/axis配置がstandard想定と一致するかは別途確認する。
+
+既定portは5174/8767、18000 stepの有限実行。`--check`、`--startup-check`、`--no-browser`、port overrideは共通。
+単腕・双腕どちらも生成モデルは`inputStartup=scene`で描画準備後に入力を開始し、中立heartbeatを有効にする。
+旧v1の単腕keyboard/replay等は既存の開始順序・設定digestを維持する。
+
+左・右肩の取付姿勢と回転中心は[FastArm assembly契約](../contracts/fast-arm-assembly.md)を参照する。
+肩中心は(0,+/-0.145,0.7) m。間隔0.290 mはCAD画像の穴間寸法を縮尺として推定した暫定値で、高さ0.7 mは合成値のままである。98 mmを肩間隔へ直用せず、plate/shoulder基準点の違いを補正した。実機寸法の確定値ではない。従来のsource原点へのRx(+/-30度)だけの取付は誤りである。
+
+初回は新鮮な中立を待つ。stale・切断・不正入力・model/joint不整合では選択モデル全体のfaultを保持し、
+残りの有限session中は固定姿勢と理由を表示する。正常入力復帰だけで再開しない。
+再試行はCtrl+Cで終了し、新しいsessionで起動する。停止表示は実機非常停止ではない。
+
+本経路は運動学診断で、接触・servo・ばね力評価は別である。physical outputはdisabled。
+OSC/serial、複数視点同時UI、GUI task/spawnは追加しない。
+
+
+カメラの固定方向は全モデル共通に`XZ面`・`YZ面`・`XY面`と表示する。モデルごとに曖昧な「正面」を
+自動推測しない。今回の胴体座標では`YZ面`が胴体正面に対応する。表示labelだけの明確化で、物理座標や
+入力方向をcameraに追従させる補正は行わない。
+
+
+肩取付は取付板の上端が内側・下端が外側になる向きへ訂正した。モデル更新後はsessionを終了して再起動し、
+生成resource/model digestを更新する。Web画面だけの再読込みでは既存backendのモデルを作り直さない。
+新しい全4モデルには旧単腕と同じz=0の床をbase sceneから合成する。床は両腕分重複させない。
+取付角の変更でhomeのworld姿勢は変わるが、既存joint homeを写真に合わせて変更していない。

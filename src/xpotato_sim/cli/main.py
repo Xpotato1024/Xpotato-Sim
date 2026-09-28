@@ -144,14 +144,26 @@ def _resolve_runtime_capabilities(robot_id: str) -> None:
 
 def _run(args: argparse.Namespace) -> int:
     if args.command == "profile":
-        from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, load_launch_profile
-        value = list_launch_profiles() if args.selector is None else load_launch_profile(args.selector).to_dict()
+        from xpotato_sim.runtime.runners.application import (
+            list_application_profiles,
+            load_application_profile,
+        )
+        value = (
+            list_application_profiles()
+            if args.selector is None
+            else load_application_profile(args.selector).to_dict()
+        )
         print(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
         return 0
     if args.command == "app":
-        from xpotato_sim.runtime.composition.launch_profile import load_launch_profile, override_launch_profile
-        from xpotato_sim.runtime.runners.application import application_url, preflight_application, run_application
-        profile = override_launch_profile(load_launch_profile(args.profile), web_port=args.web_port,
+        from xpotato_sim.runtime.runners.application import (
+            application_url,
+            load_application_profile,
+            override_application_profile,
+            preflight_application,
+            run_application,
+        )
+        profile = override_application_profile(load_application_profile(args.profile), web_port=args.web_port,
             backend_port=args.backend_port, open_browser=False if args.no_browser else None)
         preflight_application(profile)
         if args.check:

@@ -355,3 +355,31 @@ describe("mujoco qpos sync", () => {
     assert.match(jointMismatch.errorMessage ?? "", /joint name\/order mismatch/);
   });
 });
+
+
+describe("双腕8関節のViewer互換性", () => {
+  const profile = { ...FAST_ARM_VIEWER_PROFILE, profileId: "fast_arm_bimanual",
+    modelContractVersion: "fast_arm-assembly-mujoco-model/v1", qposDimension: 8,
+    jointNames: ["left", "right"].flatMap(side => FAST_ARM_VIEWER_PROFILE.jointNames.map(n => `${side}__${n}`)),
+  };
+  const payload = { version: 0 as const, frame_index: 1, time_s: .1,
+    qpos: [0,.1,.2,.3,.4,.5,.6,.7], qvel: [], bodies: [], sites: [], target_position_m: null,
+    metadata: { robot_profile_id: profile.profileId, model_contract_version: profile.modelContractVersion,
+      robot_joint_names: [...profile.jointNames], robot_qpos_dimension: 8 },
+  };
+  it("同じ8関節順序だけを受理し左右を独自に並べ替えない", () => {
+    const valid = resolveTransportQpos(payload, 8, profile);
+    assert.equal(valid.status, "ready");
+    assert.deepEqual(valid.qpos, payload.qpos);
+    const reordered = resolveTransportQpos({ ...payload, metadata: { ...payload.metadata,
+      robot_joint_names: [...profile.jointNames].reverse() } }, 8, profile);
+    assert.equal(reordered.status, "invalid");
+    assert.equal(reordered.qpos, null);
+  });
+  it("4関節モデルや短いpayloadを双腕表示へ混入しない", () => {
+    assert.equal(resolveTransportQpos(payload, 4, profile).status, "invalid");
+    assert.equal(resolveTransportQpos({ ...payload, qpos: [0,0,0,0] }, 8, profile).status, "invalid");
+    assert.equal(resolveTransportQpos({ ...payload, metadata: { ...payload.metadata,
+      robot_qpos_dimension: 4 } }, 8, profile).status, "invalid");
+  });
+});

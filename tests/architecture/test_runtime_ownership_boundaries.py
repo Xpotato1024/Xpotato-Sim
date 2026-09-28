@@ -12,6 +12,8 @@ RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
     "composition": {
         "fast_arm_coordinated",
+        "robot_model",
+        "coordinated_input",
         "launch_profile",
         "config",
         "concrete_mujoco_pipeline",
@@ -76,6 +78,7 @@ EXPECTED_MODULES = {
     },
     "runners": {
         "coordinated_gamepad",
+        "model_websocket_publisher",
         "application",
         "application_process",
         "fast_arm_input_runtime",

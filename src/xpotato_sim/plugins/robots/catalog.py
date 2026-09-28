@@ -58,6 +58,14 @@ class RobotCatalog:
             robot_logical_version=selection.contract_version,
         )
 
+    def resolve_model(self, robot: PluginSelection, model: PluginSelection):
+        """単腕・双腕を区別せず、Robot登録内の同じモデル型から解決する。"""
+        registration = self.resolve_registration(robot)
+        for candidate in registration.models:
+            if candidate.identity.name == model.plugin_id and candidate.identity.version == model.contract_version:
+                return candidate
+        raise ValueError(f"unknown registered robot model: {robot.plugin_id}/{model.plugin_id}/v{model.contract_version}")
+
     def resolve_bundle(self, selection: PluginSelection) -> RobotBundle:
         registration = self.resolve_registration(selection)
         bundle = self.bundles.resolve(selection)

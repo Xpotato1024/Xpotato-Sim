@@ -15,9 +15,9 @@ related:
 ## 対象と実行意味
 
 左右のGamepad入力を名前付き手先速度へ写し、FastArm assemblyの全腕を一つのpre-step snapshotから計算する。
-単腕original、単腕mirrored、双腕を同じproviderで扱う。双腕diagnosticでは利用者が提示した取付板の
-30 degree開きを左`+30 degree` / 右`-30 degree`のX軸mount rotationとして明示する。
-`position_m=(0, +/-0.4, 0)`は引き続き合成配置であり、実機mount位置・高さ、motor sign、encoder zero等は推測しない。
+原型・左単腕・右単腕・双腕を同じproviderとモデル登録型で扱う。
+取付面の正しい基準姿勢・回転中心は[FastArm assembly契約](fast-arm-assembly.md)を正本とする。
+source原点へのRxだけという以前の記述は誤りで、joint zeroやwire offsetで補正してはならない。
 
 この入口は `coordinated_joint_position_kinematic/v1` の**運動学診断**である。
 従来viewerのdirect-qpos意味を明示して共同更新へ拡張し、全腕の位置をまとめて反映して `mj_forward` を行う。
@@ -32,14 +32,16 @@ related:
 | Mapping `map_coordinated_input` | 既存平面状態機械・正規化・ゲインを共有し、明示side bindingからtyped要求を返す |
 | Robot `adapter/coordinated.py` | 原本assembly、名前address、既存DLSと限界の適用、全腕候補と一括反映 |
 | `runtime/execution/coordinated.py` | epoch、入力鮮度・系列、中立、実行・停止・fault latchと再開 |
-| `runtime/composition/fast_arm_coordinated.py` | Source、Mapping、Robot provider、共同runtimeを接続する唯一の具体owner |
+| `runtime/composition/coordinated_input.py` | 登録providerとSource/Mappingを結ぶ共通実行。腕数による別loopを作らない |
+| `runtime/composition/fast_arm_coordinated.py` | 既存保存assembly診断のthin入口。共通実行へ委譲 |
 | `runtime/output/coordinated.py` | 全側prepare、追加scene veto、逐次dispatch、全体fault、全側停止試行 |
 
 legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左右velocityをcommandへ逆生成しない。
 旧 `map_input` と新しいtyped入口は同じ `_build_plane_intents` を使い、写像を二重実装しない。
 `side_to_arm` は明示・copy/freezeし、選択した全armを重複なく覆う。旧 `output_side` はsingle-endpoint用であり、
 共同入口のbindingを上書きしない。既存launch profile/v1・Robot Plugin/v1の意味は維持する。
-このproviderは明示composition/診断CLI用であり、既存GUI/汎用catalogへ双腕profileを登録したものではない。
+このproviderは登録モデルの明示composition用である。#574の共通v2 profileへ接続するが、
+単腕Robot Catalogのidentityや既存launch profile/v1を双腕へ読み替えない。
 
 ## 同一状態からの候補とcommit
 
@@ -105,7 +107,11 @@ target mismatch、`stale`、`watchdog_tripped`、`awaiting_state`、`unmonitored
 この監督は明示opt-inで、router側R4 contractが利用可能なphysical compositionで有効化する。
 無効時の既存software-only経路を互換維持することは、実機運用でhealth supervisionを省略してよいという意味ではない。
 
-`poll()` はcallerの周期schedulerで実行する。Python process停止・通信断・OS停止に備えるPi/drive側watchdog、
+受信不正時はarming前でも当該health記録を失効させ、直前のhealthyを使い回さない。
+`state_age_s`はrouter内で測った経過時間であり、絶対時刻ではない。Pi側の判定閾値を上位で複製せず、受信後の経過時間は上位側で別に監視する。
+このv1 wireには送信系列・起動epoch・認証がなく、再送や偽装の識別、故障箇所の一意な特定は保証しない。実接続では受信endpointの制限が別途必要である。
+
+`poll()` はcallerの周期schedulerで実行する。Python process停止・通信断・OS停止に備えるreceiver watchdog、
 独立非常停止、停止指令の機種別実装・検証は別の必須条件であり、このクラスやUDP二送信では実現しない。
 この変更には実機へ接続するlauncherや停止OSC commandの捏造を含めない。
 
@@ -124,10 +130,26 @@ uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/
 
 ## 残る接続
 
-ブラウザの双腕scene declaration/同時操作、汎用catalog/GUI、二台Selfrionette取得、衝突geometry、
+汎用catalog/GUI切替、二台Selfrionette取得、衝突geometry、
 servo/contact経路、ばね/搬送taskは後続。OSCの具体receiver停止・全体scene評価と実機検証は未実施。
 本経路の成功をそれらの完了や高トルク機体の安全認定へ読み替えない。
 
-受信不正時はarming前でも当該health記録を失効させ、直前のhealthyを使い回さない。
-`state_age_s`はrouter内で測った経過時間であり、絶対時刻ではない。Pi側の判定閾値を上位で複製せず、受信後の経過時間は上位側で別に監視する。
-このv1 wireには送信系列・起動epoch・認証がなく、再送や偽装の識別、故障箇所の一意な特定は保証しない。実接続では受信endpointの制限が別途必要である。
+## 単腕・双腕共通のViewer接続（#574）
+
+v2の`model`を明示すると、Robot-ownedなassembly builderから選択モデルのViewer declaration、
+MJCF、mesh、home fixtureを生成する。model digest別の一時URLへ置き、backend snapshotのmodel digest、
+joint names、qpos順序・次元が宣言と一致した場合だけ配信する。原本XML/STLは複製管理しない。
+
+同一Gamepad sampleを既存の共同runtimeで評価し、同じMuJoCo model/dataから既存payload-v0へ投影する。
+表示frame_indexとsimulation tickを区別する。待機・fault中はframeが進んでもqpos/timeは進めない。
+latest-state配信と既存の絶対deadline pacerを使い、遅い描画consumerへの送信待ちを制御計算に持ち込まない。
+
+初回sample未取得は中立測定で補わず待機する。初回payloadにはMappingが決めた中立待ち表示を含め、
+ブラウザが既存の中立heartbeatを開始できるようにする。不正入力やstaleは全体faultへ移り、
+正常入力が戻っても両腕を再開しない。表示とWeb接続は有限session終了まで保持する。
+操作手順は[backend/viewer起動手順](../operations/backend-viewer-startup.md)を参照する。
+
+
+登録モデルはbare armだけでなく、旧単腕と同じbase scene（床・照明・材質）を一度だけ合成する。
+共通factoryで構成し、1腕/2腕どちらも同じsceneをbackend・Viewerへ渡す。保存assembly診断はbareのまま保持する。
+床の復元は接触判定・力学評価の追加ではなく、モデルのscene欠落修正である。

@@ -123,9 +123,11 @@ export function applyProductViewerRendererStatePatch(
 }
 
 export function isProductViewerLiveInputEnabled(
-  state: Pick<ProductViewerState, "connectionStatus" | "status">,
+  state: Pick<ProductViewerState, "connectionStatus" | "status"> & Partial<Pick<ProductViewerState, "qposStatus">>,
+  startup: "connection" | "scene" | "invalid" = "connection",
 ): boolean {
-  return state.connectionStatus === "open" && state.status !== "error";
+  return startup !== "invalid" && state.connectionStatus === "open" && state.status !== "error"
+    && (startup !== "scene" || state.qposStatus === "ready");
 }
 
 /** profile declarationから未接続のprojection stateを作り、physical stateは生成しない。 */

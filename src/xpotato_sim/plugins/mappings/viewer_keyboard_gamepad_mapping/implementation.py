@@ -282,6 +282,13 @@ class ViewerKeyboardGamepadMappingStrategy:
 
     def __init__(self, *, session: bool = False) -> None:
         self._plane_session = PlaneControlSession() if session else None
+        self._latest_plane_presentation: dict[str, object] | None = None
+
+    @property
+    def latest_plane_presentation(self) -> dict[str, object] | None:
+        if self._latest_plane_presentation is None:
+            return None
+        return json.loads(json.dumps(self._latest_plane_presentation, allow_nan=False))
 
     def map_input(self, input_intent: object, parameters: Mapping[str, object]) -> InputIntent:
         if not isinstance(input_intent, RawInputFrame):
@@ -451,10 +458,17 @@ class ViewerKeyboardGamepadMappingStrategy:
 
     def _map_planes(self, frame: RawInputFrame, sample: ViewerCanonicalInputSample | None,
                     parameters: ViewerControlMappingParameters) -> InputIntent:
+        self._latest_plane_presentation = None
         intents, reason, control_frame, _ = self._build_plane_intents(frame, sample, parameters)
         config = parameters.gamepad_plane_control
         assert config is not None and self._plane_session is not None
         intent = intents[config.output_side]
+        presentation = self._plane_session.presentation(
+            config,
+            {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
+            reason,
+        )
+        self._latest_plane_presentation = presentation
         metadata = dict(frame.metadata)
         metadata.update(intent.to_metadata())
         metadata.update({
@@ -462,13 +476,26 @@ class ViewerKeyboardGamepadMappingStrategy:
             "resolved_world_endpoint_velocity_m_s": intent.local_endpoint_velocity_m_s if control_frame == "world" else None,
             "endpoint_velocity_frame": "mujoco_world",
             "viewer_source_kind": "gamepad", "sequence": None if sample is None else sample.sequence,
-            "gamepad_plane_control_v1": self._plane_session.presentation(
-                config, {side: intents[side].local_endpoint_velocity_m_s for side in SIDES}, reason),
+            "gamepad_plane_control_v1": presentation,
         })
         return InputIntent(source="viewer", timestamp_s=frame.timestamp_s, values=intent.axis_values,
                            buttons=() if sample is None or sample.gamepad is None else tuple(b.pressed for b in sample.gamepad.buttons),
                            metadata=metadata)
 
+
+    def reset_coordinated_presentation(
+        self, parameters: Mapping[str, object], *, reason: str,
+    ) -> None:
+        """未取得・終了時の表示を中立待ちに戻す。観測や運動指令は生成しない。"""
+        normalized = build_viewer_control_mapping_parameters(parameters)
+        if self._plane_session is None or normalized.gamepad_plane_control is None:
+            raise ValueError("coordinated presentation requires a plane-control session")
+        self._plane_session.reset()
+        self._latest_plane_presentation = self._plane_session.presentation(
+            normalized.gamepad_plane_control,
+            {side: (0.0, 0.0, 0.0) for side in SIDES},
+            reason, output_scope="coordinated",
+        )
 
     def map_coordinated_input(self, frame: RawInputFrame, parameters: Mapping[str, object], *,
                               side_to_endpoint: Mapping[str, str], received_at_s: float) -> CoordinatedInput:
@@ -480,8 +507,16 @@ class ViewerKeyboardGamepadMappingStrategy:
         normalized = build_viewer_control_mapping_parameters(parameters)
         if normalized.gamepad_plane_control is None:
             raise ValueError("coordinated input requires explicit gamepad_plane_control")
+        self._latest_plane_presentation = None
         sample = _coerce_frame_sample(frame) if isinstance(frame.metadata.get("viewer_input_sample"), Mapping) else None
         intents, reason, control_frame, raw = self._build_plane_intents(frame, sample, normalized)
+        assert self._plane_session is not None
+        self._latest_plane_presentation = self._plane_session.presentation(
+            normalized.gamepad_plane_control,
+            {side: intents[side].local_endpoint_velocity_m_s for side in SIDES},
+            reason,
+            output_scope="coordinated",
+        )
         available = reason is None and sample is not None
         neutral = available and all(abs(raw[i]) <= normalized.gamepad_plane_control.neutral_threshold
             for side in side_to_endpoint for i in getattr(normalized.gamepad_plane_control, side).axes)

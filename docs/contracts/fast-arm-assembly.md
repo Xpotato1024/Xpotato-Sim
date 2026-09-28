@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: robot
-last_verified: 2026-09-26
+last_verified: 2026-09-28
 canonical_for:
   - fast_arm mirrored assembly and named output binding
 related:
@@ -17,7 +17,7 @@ related:
 
 既存のFastArm core modelを一つの正本として、明示した1個または2個のarm instanceを生成する。
 同じinstanceの関節名対応を、MuJoCo状態参照と既存のOSC出力要求への投影に使う。
-これはモデル組立・名前対応・要求変換のAPIであり、双腕をGUIから操作できる完成品ではない。
+同列モデル選択による単腕・双腕Viewer操作へ接続する。接触・実機検証の完成を意味しない。
 既存 `fast_arm/v1`、4関節のRobotProfile、単一手先routeを暗黙に8関節へ変更しない。
 
 ## 所有者と構成
@@ -26,6 +26,7 @@ related:
 |---|---|---|
 | 元のXML・STL・関節規約 | `fast_arm_core` の既存resources/definition | 原本を維持し、左専用のコピーを作らない |
 | 配置・instance名・関節address | `fast_arm_core.assembly` | 片腕/双腕を同じ型で宣言し、名前で状態参照 |
+| 同列モデル定義 | `fast_arm_core.models` | 原型・左単腕・右単腕・双腕と肩中心基準の取付姿勢 |
 | 原型/鏡映型の生成 | `fast_arm_core.assembly_model` | package-owned XML/STLから決定的なモデルbytesを生成 |
 | instance→物理targetの対応 | FastArm adapterの `assembly_output.py` | 全腕の設定を検証し、既存typed requestへ投影 |
 | 実行・送信・応答・全体停止 | 既存runtime各ownerと後続の連成経路 | coreやviewerに移さない。実機permissionを維持 |
@@ -36,21 +37,42 @@ IDがleftだから鏡映する、接続順で右を決める、mount幅を実機
 `FastArmAssembly`は重複のない1〜2個を宣言順に保持する。生成名は `arm_id__local_name`。
 操作者の左右、機体arm_id、OSC target、画面左右は別のidentityである。
 
-## 肩mountの30 degree開き
+## 肩取付面と胴体基準姿勢（2026-09-28訂正）
 
-利用者から提示された双腕の取付構造は、正面視で`<arm>━/  \━<arm>`となり、
-左右の取付板が鉛直からそれぞれ30 degree傾く。これは関節のzero offsetではなく、
-arm全体より上流の固定base geometryとして扱う。
+胴体座標は+X前方、+Y左、+Z上とする。source `arm.xml`はbase内にRz(90 degree)を持ち、
+取付面の外向き法線はsource +X、肩中心は(0,0,0.7) mにある。このsource全体へRx(+/-30 degree)だけを
+掛けても法線は+Xのままであり、胴体左右の肩にはならない。また原点まわりの回転は肩の高さ0.7 mを
+横方向変位へ混入させる。以前のテストは左右対称性だけを示し、実機の取付幾何の妥当性を示していなかった。
 
-assembly座標では正面をYZ平面とし、既存の左右鏡映後にX軸まわりのmount rotationを適用する。
-左armは`+30 degree`、右armは`-30 degree`とし、`quaternion_wxyz`はそれぞれ
-`(cos(15 degree), +sin(15 degree), 0, 0)`、`(cos(15 degree), -sin(15 degree), 0, 0)`である。
-これにより同じlocal joint configurationでもworld上のtip pose、Jacobian、workspaceはmount姿勢を含んで変化する。
+`fast_arm_core.models.torso_shoulder_instance`が、取付先肩中心cを固定し、原型の基準方向を左右へ
+向けるRz(+/-90 degree)と、取付板の上端を胴体側へ30 degree傾ける胴体Xまわりの回転を合成する。
+板の上端が内側・下端が外側、すなわち外側ほど下がる向きである。外向き法線のZ成分は正となる。
+以前の「法線を下向き」という定義は板自体を外上がりにしていたため、利用者の再指摘を受けて訂正した。
+左は原型、右はsource XZ面鏡映を使用し、同じ負のelbow角が両側で胴体前方へ曲がるように置く。
+原型モデル単体には解剖学的な左右ラベルを付けない。
 
-この30 degreeはjoint q、MuJoCo joint `ref`、wire angle offset、motor zeroへ加算しない。
-current `fast-arm-router`は差動肩関節のjoint-to-motor変換を持つが、3Dのmount frameを所有しない。
-一方、現行diagnosticの`position_m=(0, +/-0.4, 0)`は合成fixtureであり、実機のmount間隔・高さを
-測定済み寸法として扱わない。角度の反映から位置寸法や実機校正を推論しない。
+```text
+left:  R = Rx(+30 degree) Rz(+90 degree), mirror_y = false
+right: R = Rx(-30 degree) Rz(-90 degree), mirror_y = true
+p_world = R (p_source - (0,0,0.7)) + c
+```
+
+実装quaternionの文字列一致ではなく、コンパイル済みmodelの取付板法線が
+左(0,+sqrt(3)/2,+1/2)、右(0,-sqrt(3)/2,+1/2)となること、肩中心がcに留まることを検査する。
+さらに取付板上端が下端より内側であることを直接検査する。joint homeは変更せず、写真の上腕姿勢へ
+一致させる目的のzero補正はしない。これは写真とユーザー指定の30 degreeから構成した
+simulation幾何であり、写真の射影から全寸法・joint zero・可動域を測定したという意味ではない。
+
+肩中心間隔は画像に基づく暫定値`SHOULDER_CENTER_SPACING_M=0.290 m`とし、
+`c=(0,+/-0.145,0.7) m`へ短縮した。画像の98 mmは別部品の取付穴間距離であり、肩間隔として直用しない。
+穴間約491 pxを縮尺とし、取付板中心間約800 px（約160 mm）と、原本の板中央面から肩関節基準までの
+片側72 mmのoffsetを30 degree取付で合成すると、肩中心間隔は約284 mmとなる。設計値は290 mmを仮採用した。
+画像の視点・板の対応点・93 mm併記の意味が未確定のため、270〜310 mmを感度確認用の幅とする。
+これは統計的な信頼区間・部品公差・実機測定値ではない。高さ0.7 mは未実測の合成値を維持する。
+`single_left`、`single_right`、`bimanual`はこの共通定義を使い、`single_original`は不変。
+読取点と計算は[モデル訂正note](../experiment-notes/2026-09-28-fast-arm-mount-model-correction.md)に記録する。
+原本XML/STL、joint ref/home、motor sign、wire offset、routerの差動変換は変更しない。
+取付姿勢はcoreの幾何だけで適用し、Viewer、入力写像、OSC側で重ねて補正しない。
 
 ## 鏡映の規約
 
@@ -75,11 +97,15 @@ configuration_sha256は配置宣言、source_sha256は元XML/STL、model_sha256�
 qpos、dof、actuator、siteのindexを混同しない。対象物にfreejointがある場合、位置7成分と速度6成分になるため、
 単純な先頭4個/次4個という切出しは使わない。
 全armsは同じmodel/dataに置く。追加物体や支持面の構成はEnvironmentの責務であり、このcore assemblyは床を生成しない。
+登録モデルの共通factoryは`adapter/assembly_scene.py`で旧単腕と同じbase `scene.xml`を一度だけ合成する。
+include先の`arm.xml`だけを生成assemblyへ結び、床・照明・材質の定義を再実装しない。
+free-space Environmentの「Robot-owned base sceneを使う」既存契約に従う。低位のbare assembly診断とは区別する。
+最終sceneと全include/mesh bytesをmodel digestへ含め、backendとViewerは同じartifactを使う。
 
 元XMLのrobot meshはcontype/conaffinityとも0である。この設定は左右へそのまま継承する。
 モデルの描画・FK・actuatorの時間発展が成功しても、腕間衝突、自己干渉、物体接触が検証済みとはしない。
 接触用形状・pair分類・全sceneのfeasibilityを整備するまで、接触研究や実機許可の根拠に使わない。
-±0.4 m等のテスト配置は合成fixtureであり、実機mount値・共通作業域・実験配置の採択ではない。
+画像推定の肩間隔および診断用の合成fixtureは、実機mount値・共通作業域・実験配置の採択ではない。旧±0.4 mの結果と同一条件として混在させない。
 
 ## 左右のOSC要求への共通投影
 
@@ -114,7 +140,7 @@ UDP二送信の同時到達・原子的送信・実機同時停止も保証し�
 
 | 経路 | 今回の到達点 | 完成までの残存事項 |
 |---|---|---|
-| 片腕/双腕生成 | 原型・鏡映・同一world、名前対応API、双腕diagnosticの左右30 degree mount姿勢 | 起動profile/GUIからの選択、実機mount位置・高さ、初期姿勢の実測確定 |
+| 片腕/双腕生成 | 原型・鏡映・同一world、名前対応API、双腕diagnosticの左右30 degree mount姿勢 | GUIでの実行中モデル切替、実機mount位置・高さ、初期姿勢の実測確定 |
 | 入力→両手先 | 入力側は別PR #568、今回とは独立 | multi-endpoint provider/typed route、単一snapshotの両側候補と共同更新 |
 | Selfrionette二台 | 従来の単台経路を維持 | 個体binding・別校正・skew/切断・同側例外なしの取得経路 |
 | scene/接触 | 状態addressはfreejoint追加へ対応 | 接触用geometry、腕間/自己/対象の区別、全体feasibility |
@@ -140,5 +166,5 @@ actuator時間発展、freejointを前置したaddress、明示校正を使う�
 
 [共同実行契約](coordinated-arm-runtime.md) に、左右Gamepadから同一snapshotの全腕候補・一括反映、
 名前付き関節指令から既存OSC要求/permission/codecを経る接続を定義する。
-運動学診断と全側出力監督のsoftware経路を追加した。GUI同時操作、contact/全体collision、
+運動学診断・同列モデルViewer・全側出力監督のsoftware経路を追加した。contact/全体collision、
 実機receiver停止とwatchdogが完成したことを意味しない。上記の全体完了条件は維持する。

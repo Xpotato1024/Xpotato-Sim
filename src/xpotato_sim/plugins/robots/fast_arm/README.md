@@ -99,3 +99,24 @@ genericなDTO、resolver、providerはruntimeが所有する。
 `adapter/coordinated.py` は同じassemblyの名前付き全腕を一つのsnapshotから解き、一括反映する。
 明示的な運動学診断経路であり、元のjoint limit/DLSを再利用する。動的接触や実機の安全認定ではない。
 [共同実行契約](../../../../../docs/contracts/coordinated-arm-runtime.md) に操作入口、OSC接続と未実装範囲を示す。
+
+## 同列モデル定義とViewer資源
+
+`fast_arm_core.models`が原型単腕・左単腕・右単腕・双腕の構成を保持し、
+`adapter/models.py`が同じ`RobotModelRegistration`型で既存Robot登録へ載せる。
+`adapter/assembly_viewer.py`はproviderが使用した同じ生成artifactから描画資源を構成し、
+腕数に応じた専用launcherや別の原本XML/STLを必要としない。
+
+肩中心と取付面の方向は[FastArm assembly契約](../../../../../docs/contracts/fast-arm-assembly.md)を正とする。
+従来のsource原点へのRxだけの取付は訂正済み。単腕モデルの対応する肩と双腕内の肩は同一の幾何となる。
+共通の[起動手順](../../../../../docs/operations/backend-viewer-startup.md)からモデルを選択する。
+既存単腕v1のprofile identity・joint規約と実機校正は変更しない。
+
+
+## 共通base sceneと床（#580再訂正）
+
+4種の登録モデルは`adapter/assembly_scene.py`から旧単腕の`resources/mujoco/scene.xml`を再利用する。
+そのinclude先だけを生成assemblyへ結び、床z=0・照明・材質を単腕/双腕で一度ずつ共有する。
+coreのarm.xmlには床を埋め込まず、Viewerだけの見せかけの床も作らない。
+providerとViewerには同じcomposed artifactを渡し、digestはsceneと全依存を覆う。
+床があっても原本meshのcollision無効と運動学更新の意味は変わらず、接触力評価が完成したとは扱わない。

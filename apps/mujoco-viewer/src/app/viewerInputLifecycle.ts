@@ -38,6 +38,13 @@ export function readViewerInputSelection(search: string): {
   return { providerIds: [], error: "入力providerの指定が不正です。取得を開始しません。" };
 }
 
+/** 起動直後の入力開始条件。Robot名から制御方式を推測しない。 */
+export function readViewerInputStartup(search: string): "connection" | "scene" | "invalid" {
+  const values = new URLSearchParams(search).getAll("inputStartup");
+  if (values.length === 0) return "connection";
+  return values.length === 1 && values[0] === "scene" ? "scene" : "invalid";
+}
+
 export function createViewerInputLifecycle(options: ViewerInputLifecycleOptions): ViewerInputLifecycle {
   const registry = options.providerRegistry ?? createDefaultViewerInputProviderRegistry();
   const providerIds = options.providerIds ?? DEFAULT_PROVIDER_IDS;

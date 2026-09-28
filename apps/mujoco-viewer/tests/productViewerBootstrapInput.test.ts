@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createViewerInputLifecycle, type ViewerInputLifecycleDocumentLike, type ViewerInputLifecycleWindowLike, type ViewerKeyboardEventLike } from "../src/app/viewerInputLifecycle.js";
+import { readViewerInputStartup, createViewerInputLifecycle, type ViewerInputLifecycleDocumentLike, type ViewerInputLifecycleWindowLike, type ViewerKeyboardEventLike } from "../src/app/viewerInputLifecycle.js";
 import {
   createViewerKeyboardCapture,
   DEFAULT_VIEWER_KEYBOARD_CAPTURE_KEYS,
@@ -427,3 +427,15 @@ testKeyboardReactivationStartsWithFreshZeroState();
 testBootstrapFailureVariantsShareRendererErrorFailSafe();
 
 console.log("product viewer payload-first and renderer-error input lifecycle tests passed");
+
+// 双腕は明示したscene準備待ち。既存の接続直後入力は変更しない。
+assert.equal(readViewerInputStartup(""), "connection");
+assert.equal(readViewerInputStartup("?inputStartup=scene"), "scene");
+assert.equal(readViewerInputStartup("?inputStartup=other"), "invalid");
+assert.equal(readViewerInputStartup("?inputStartup=scene&inputStartup=scene"), "invalid");
+const startupState = { ...createInitialProductViewerState(), connectionStatus: "open" as const };
+assert.equal(isProductViewerLiveInputEnabled(startupState), true);
+assert.equal(isProductViewerLiveInputEnabled(startupState, "scene"), false);
+assert.equal(isProductViewerLiveInputEnabled({ ...startupState, qposStatus: "ready" }, "scene"), true);
+assert.equal(isProductViewerLiveInputEnabled({ ...startupState, qposStatus: "ready" }, "invalid"), false);
+assert.equal(isProductViewerLiveInputEnabled({ ...startupState, status: "error", qposStatus: "ready" }, "scene"), false);

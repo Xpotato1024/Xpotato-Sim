@@ -21,8 +21,12 @@ from xpotato_sim.plugins.robots.fast_arm.adapter.resources import (
 from xpotato_sim.plugins.robots.fast_arm.adapter.viewer import FAST_ARM_VIEWER_DECLARATION
 
 
+from xpotato_sim.plugins.robots.fast_arm.adapter.models import FAST_ARM_MODELS
+
+
 ROBOT_PLUGIN = RobotPluginRegistration(
     identity=FAST_ARM_ROBOT_BUNDLE.identity,
+    models=FAST_ARM_MODELS,
     onboarding_contract_version=ROBOT_ONBOARDING_CONTRACT_VERSION,
     bundle=FAST_ARM_ROBOT_BUNDLE,
     viewer=FAST_ARM_VIEWER_DECLARATION,

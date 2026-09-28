@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-28
 canonical_for:
   - import boundaries
 related:
@@ -401,3 +401,19 @@ CLIやPowerShellはこのownerへ委譲し、別control loop、physics、hardwar
 この限定依存はarchitecture testでfile/symbolを固定し、他のconcrete Robot importへ一般化しない。
 `runtime/execution/coordinated.py` はtyped providerとschemasだけを使い、Robot IK・geometry・送信を所有しない。
 `runtime/output/coordinated.py` は既存physical sessionを監督し、codecやevidence判定を複製しない。
+
+## 同列モデル選択と共通描画資源（#574 / #580）
+
+`RobotPluginRegistration.models`がRobot所有のモデル集合を宣言する。`RobotCatalog.resolve_model`は
+既存Robot選択からそのモデルを解決し、concrete Robot名や腕数でdispatchしない。
+`runtime/composition/robot_model.py`は型と整合検査を持ち、Robot側factoryが同じ生成artifactから
+providerとViewer resourceを構築する。原型・左単腕・右単腕・双腕は同じ登録型を使う。
+
+共通`LaunchProfile/v2`はモデルidentityと入力bindingだけを持ち、配置quaternionやXMLを複製しない。
+`model_websocket_publisher.py`と`coordinated_input.py`は登録済みprovider・Mappingを結び、
+Robot coreやconcrete builderをimportしない。旧`coordinated_viewer_profile.py`への具体import例外と
+双腕専用publisherは退役する。保存assembly診断の`fast_arm_coordinated.py`は共通入力runtimeへのthin入口に限定する。
+
+`application.py`はモデル選択時の生成資源を同じworker所有権で配信する。1手先も2手先も同じ経路で、
+Viewerはmodel digest、関節名・順序・次元を検査して受信stateを描画する。
+旧LaunchProfile/v1の単腕keyboard/replay等の実行意味は互換境界として維持し、旧形式を新モデルへ暗黙変更しない。
