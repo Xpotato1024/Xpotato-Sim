@@ -33,6 +33,9 @@ class FastArmCoordinatedGamepadRuntime:
         self.mapping = ViewerKeyboardGamepadMappingStrategy(session=True)
         self.runtime = CoordinatedRuntime(FastArmAssemblyMotionProvider(assembly), epoch=epoch,
                                           dt_s=dt_s, max_input_age_s=max_input_age_s)
+        self.last_frame = None
+        self.mapping.reset_coordinated_presentation(
+            self.parameters, reason="awaiting_gamepad_input")
 
     def ingest(self, message: ViewerControlMessage) -> None:
         try:
@@ -43,22 +46,38 @@ class FastArmCoordinatedGamepadRuntime:
 
     def tick(self, *, epoch: str) -> CoordinatedStepResult:
         if self.runtime.state in ("stopped", "faulted"):
+            self.mapping.reset_coordinated_presentation(
+                self.parameters, reason=self.runtime.reason or self.runtime.state)
             return self.runtime.tick(None, epoch=epoch, now_s=0.)
         try:
             now = number(self.clock(), "host clock")
             frame = self.source.read_frame()
+            self.last_frame = frame
             received = self.source.last_received_at_s
             value = None if received is None else self.mapping.map_coordinated_input(
                 frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
         except Exception as exc:
             self.runtime.fail(f"input_mapping_failed:{type(exc).__name__}:{exc}")
+            self.mapping.reset_coordinated_presentation(
+                self.parameters, reason=self.runtime.reason or "input_mapping_failed")
             return self.runtime.tick(None, epoch=epoch, now_s=0.)
-        return self.runtime.tick(value, epoch=epoch, now_s=now)
+        result = self.runtime.tick(value, epoch=epoch, now_s=now)
+        if result.state in ("stopped", "faulted"):
+            self.mapping.reset_coordinated_presentation(
+                self.parameters, reason=result.reason or result.state)
+        return result
+
+    @property
+    def latest_plane_presentation(self) -> dict[str, object] | None:
+        return self.mapping.latest_plane_presentation
 
     def restart(self, *, epoch: str) -> None:
         self.runtime.restart(epoch=epoch, now_s=self.clock())
         self.source = ViewerInputSource(clock=self.clock)
         self.mapping = ViewerKeyboardGamepadMappingStrategy(session=True)
+        self.last_frame = None
+        self.mapping.reset_coordinated_presentation(
+            self.parameters, reason="awaiting_gamepad_input")
 
     def stop(self) -> None:
         self.runtime.stop()

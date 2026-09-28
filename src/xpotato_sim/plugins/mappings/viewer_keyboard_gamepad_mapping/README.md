@@ -76,3 +76,9 @@ activeなsampleで明示選択した軸が欠落すればrejectする。inactive
 `map_coordinated_input` は明示side-to-endpoint bindingに従って左右の速度を型付き要求へ返す。
 旧single-endpoint入口と平面状態機械・正規化・ゲインを共有し、表示用metadataをcommandへ逆変換しない。
 [共同実行契約](../../../../../docs/contracts/coordinated-arm-runtime.md) を参照する。
+
+## 双腕Viewer表示
+
+`latest_plane_presentation`はMapping sessionが計算した表示情報のcopyを返す。
+`reset_coordinated_presentation`は未取得・fault時に中立待ち／速度ゼロの表示へ戻すだけで、
+新たな入力観測や運動指令を生成しない。共同入口のscopeは`coordinated`、single-endpoint入口は従来どおり。

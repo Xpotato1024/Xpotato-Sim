@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-28
 canonical_for:
   - import boundaries
 related:
@@ -401,3 +401,15 @@ CLIやPowerShellはこのownerへ委譲し、別control loop、physics、hardwar
 この限定依存はarchitecture testでfile/symbolを固定し、他のconcrete Robot importへ一般化しない。
 `runtime/execution/coordinated.py` はtyped providerとschemasだけを使い、Robot IK・geometry・送信を所有しない。
 `runtime/output/coordinated.py` は既存physical sessionを監督し、codecやevidence判定を複製しない。
+
+## 双腕Viewerの描画資源接続（#574）
+
+`runtime/composition/coordinated_viewer_profile.py`だけが、Robot所有の
+`adapter.assembly_viewer`のbundle型とbuilderを直接参照する。runtime runnerとCLIはこのprofileを
+介し、concrete Robot importの許可を一般化しない。file/symbol単位の限定例外をarchitecture testで固定する。
+`application.py`は同じworker所有権を使い、双腕時だけ生成資源の一時rootをViteへ渡す。
+`coordinated_websocket_publisher.py`は既存coordinated runtimeとlatest-state配信・pacerを接続し、
+IKや別の状態機械を持たない。Robot providerの同じMuJoCo model/dataからtransport stateを取得する。
+
+Viewer側は宣言された8関節のname/order/dimensionとdigestを検査して受信qposを描画するだけである。
+生成XML/STLはsession内の一時資源であり、別の原本や永続の左腕modelを新設しない。

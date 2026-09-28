@@ -11,7 +11,7 @@ import {
   DEFAULT_VIEWER_KEYBOARD_CAPTURE_KEYS,
 } from "../input/keyboardInput.js";
 import type { ViewerGamepadLike } from "../input/gamepadInput.js";
-import { createViewerInputLifecycle, readViewerInputSelection } from "./viewerInputLifecycle.js";
+import { createViewerInputLifecycle, readViewerInputSelection, readViewerInputStartup } from "./viewerInputLifecycle.js";
 import {
   formatEndpointEvaluationAngles,
   formatEndpointEvaluationScalar,
@@ -185,8 +185,14 @@ export function ProductViewerApp() {
   const inputSelection = useMemo(() => readViewerInputSelection(
     typeof window === "undefined" ? "" : window.location.search,
   ), []);
-  const gamepadNeutralHeartbeat = state.inputOverlay?.gamepadPlaneControl != null;
-  const liveInputEnabled = !inputPaused && inputSelection.error === null && isProductViewerLiveInputEnabled(state);
+  const inputStartup = useMemo(() => readViewerInputStartup(
+    typeof window === "undefined" ? "" : window.location.search,
+  ), []);
+  const gamepadNeutralHeartbeat = inputStartup === "scene" || state.inputOverlay?.gamepadPlaneControl != null;
+  const coordinatedStopped = state.inputOverlay?.gamepadPlaneControl?.outputScope === "coordinated"
+    && (state.inputOverlay.motionStatus === "faulted" || state.inputOverlay.motionStatus === "stopped");
+  const liveInputEnabled = !inputPaused && !coordinatedStopped && inputSelection.error === null
+    && isProductViewerLiveInputEnabled(state, inputStartup);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -431,7 +437,7 @@ export function ProductViewerApp() {
             <div className="inspector-heading"><h2>入力</h2><span className="section-kicker">INPUT</span></div>
             <p className="inspector-primary">{overlay?.sourceKind ?? "入力情報なし"}</p>
             <InputInstruments state={state} numbers={numbers} />
-            <GamepadPlaneStatus value={overlay?.gamepadPlaneControl ?? null} live={liveInputEnabled && connection.tone === "positive"} />
+            <GamepadPlaneStatus value={overlay?.gamepadPlaneControl ?? null} live={liveInputEnabled && connection.tone === "positive"} motionStatus={overlay?.motionStatus} />
             <div className="inspector-row"><span>取得</span><strong>{inputPaused ? "一時停止" : liveInputEnabled ? "有効" : "停止"}</strong></div>
             <div className="inspector-row"><span>backend状態</span><strong>{overlay === null ? "未取得" : overlay.sourceActive ? "入力あり" : "待機 / 保持"}</strong></div>
             <div className="inspector-row"><span>入力age</span><strong>{overlay?.commandAgeMs === null || overlay?.commandAgeMs === undefined ? "—" : overlay.commandAgeMs + " ms"}</strong></div>

@@ -36,3 +36,29 @@ assert.ok(overlay?.gamepadPlaneControl);
 assert.equal(overlay.gamepadPlaneControl.sides.right.velocity[2], .09);
 assert.equal(buildProductViewerInputOverlayState({source_kind:"viewer_gamepad"})?.gamepadPlaneControl, undefined);
 console.log("gamepad plane presentation and markup tests passed");
+
+const coordinated = parseGamepadPlanePresentation({
+  ...value,
+  output_scope: "coordinated",
+  output_side: null,
+});
+assert.ok(coordinated);
+assert.equal(coordinated.outputScope, "coordinated");
+assert.equal(coordinated.outputSide, null);
+const coordinatedHtml = renderToStaticMarkup(<GamepadPlaneStatus value={coordinated} live={true} />);
+assert.match(coordinatedHtml, /双腕へ適用/);
+assert.match(coordinatedHtml, /対応する腕へ適用/);
+assert.equal(
+  parseGamepadPlanePresentation({...value, output_scope: "coordinated", output_side: "left"}),
+  null,
+);
+assert.equal(
+  parseGamepadPlanePresentation({...value, output_scope: "single_endpoint", output_side: null}),
+  null,
+);
+
+const stoppedHtml = renderToStaticMarkup(<GamepadPlaneStatus value={coordinated} live={false} motionStatus="faulted" />);
+assert.match(stoppedHtml, /双腕全体停止/);
+assert.match(stoppedHtml, /停止中/);
+assert.doesNotMatch(stoppedHtml, /操作可能/);
+assert.doesNotMatch(stoppedHtml, /前回値/);

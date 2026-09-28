@@ -360,6 +360,59 @@ export function loadViewerPackageResources(repoRoot: string): {
   return Object.freeze({ manifests: Object.freeze(manifests), resources: Object.freeze(resources) });
 }
 
+export function loadDynamicViewerResourcesFromEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): ReadonlyMap<string, string> {
+  const configured = environment.XPOTATO_SIM_DYNAMIC_VIEWER_RESOURCE_ROOT;
+  if (configured === undefined) {
+    return new Map();
+  }
+  if (!isAbsolute(configured)) {
+    throw new Error("dynamic viewer resource root must be absolute");
+  }
+  const root = realpathSync(configured);
+  if (!statSync(root).isDirectory()) {
+    throw new Error("dynamic viewer resource root must be a directory");
+  }
+  const resources = new Map<string, string>();
+  const visit = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) {
+        throw new Error("dynamic viewer resources must not contain symlinks");
+      }
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(path);
+        continue;
+      }
+      if (!entry.isFile()) {
+        throw new Error("dynamic viewer resource root contains an unsupported entry");
+      }
+      const sourcePath = realpathSync(path);
+      if (!isWithin(root, sourcePath)) {
+        throw new Error("dynamic viewer resource escapes its root");
+      }
+      const relativePath = relative(root, sourcePath).split(sep);
+      if (
+        relativePath.length === 0 ||
+        relativePath.some((part) => !/^[A-Za-z0-9._~-]+$/.test(part))
+      ) {
+        throw new Error("dynamic viewer resource path contains an unsafe segment");
+      }
+      const url = `/${relativePath.map(encodeURIComponent).join("/")}`;
+      if (resources.has(url)) {
+        throw new Error(`duplicate dynamic viewer resource URL: ${url}`);
+      }
+      resources.set(url, sourcePath);
+    }
+  };
+  visit(root);
+  if (resources.size === 0) {
+    throw new Error("dynamic viewer resource root must not be empty");
+  }
+  return resources;
+}
+
 export function createViewerPackageResourcePlugin(repoRoot: string): Plugin {
   const decoded = loadViewerPackageResources(repoRoot);
   const publicResources = new Map(
@@ -367,6 +420,12 @@ export function createViewerPackageResourcePlugin(repoRoot: string): Plugin {
       resource.url === null ? [] : [[resource.url, resource.sourcePath] as const],
     ),
   );
+  for (const [url, sourcePath] of loadDynamicViewerResourcesFromEnvironment()) {
+    if (publicResources.has(url)) {
+      throw new Error(`dynamic viewer resource collides with package resource: ${url}`);
+    }
+    publicResources.set(url, sourcePath);
+  }
   return {
     name: "viewer-package-resources",
     configureServer(server) {

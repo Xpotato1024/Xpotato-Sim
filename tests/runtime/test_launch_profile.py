@@ -141,7 +141,8 @@ def test_parameter_changes_reach_the_existing_mapping_normalizer():
 def test_profile_cli_and_errors(capsys):
     cli = importlib.import_module("xpotato_sim.cli.main")
     assert cli.main(["profile"]) == 0
-    assert json.loads(capsys.readouterr().out) == list(list_launch_profiles())
+    listed = json.loads(capsys.readouterr().out)
+    assert listed == sorted([*list_launch_profiles(), "fast-arm-bimanual-gamepad"])
     assert cli.main(["profile", "sim-keyboard"]) == 0
     assert json.loads(capsys.readouterr().out)["configuration"]["input"]["provider"] == "keyboard/v1"
     assert cli.main(["profile", "missing-profile"]) == 1

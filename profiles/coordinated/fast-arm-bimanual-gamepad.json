@@ -1,0 +1,43 @@
+{
+  "schema_version": "fast-arm-coordinated-viewer-profile/v1",
+  "name": "fast-arm-bimanual-gamepad",
+  "workspace": "../..",
+  "assembly": [
+    {
+      "arm_id": "left",
+      "mirror_y": true,
+      "position_m": [0, 0.4, 0],
+      "quaternion_wxyz": [0.9659258262890683, 0.25881904510252074, 0, 0]
+    },
+    {
+      "arm_id": "right",
+      "mirror_y": false,
+      "position_m": [0, -0.4, 0],
+      "quaternion_wxyz": [0.9659258262890683, -0.25881904510252074, 0, 0]
+    }
+  ],
+  "side_to_arm": {"left": "left", "right": "right"},
+  "mapping_parameters": {
+    "gamepad_plane_control": {
+      "schema": "gamepad-plane-control/v1",
+      "output_side": "left",
+      "neutral_threshold": 0.1,
+      "left": {"axes": [0, 1], "signs": [1, -1], "mode_button": 4},
+      "right": {"axes": [2, 3], "signs": [1, -1], "mode_button": 5}
+    }
+  },
+  "epoch": "bimanual-viewer-1",
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60,
+    "max_input_age_s": 0.2
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5174,
+    "websocket_port": 8767,
+    "open_browser": true
+  }
+}

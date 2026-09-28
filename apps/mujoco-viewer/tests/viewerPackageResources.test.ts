@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, it } from "node:test";
 
 import {
   createViewerPackageResourcePlugin,
   decodeViewerPackageResourceManifest,
+  loadDynamicViewerResourcesFromEnvironment,
   loadViewerPackageResources,
   validateViewerProfileResourceBindings,
   type ViewerPackageResourceBinding,
@@ -137,6 +139,29 @@ describe("viewer package resources", () => {
       assert.equal(source.includes(forbidden), false, forbidden);
     }
     assert.match(source, /createViewerPackageResourcePlugin\(repoRoot\)/);
+  });
+
+  it("loads bounded dynamic application resources only from an explicit absolute root", () => {
+    assert.deepEqual([...loadDynamicViewerResourcesFromEnvironment({})], []);
+    const root = mkdtempSync(join(tmpdir(), "xpotato-viewer-resources-"));
+    try {
+      mkdirSync(join(root, "mujoco", "assembly"), { recursive: true });
+      const model = join(root, "mujoco", "assembly", "model.xml");
+      writeFileSync(model, "<mujoco/>", "utf8");
+      const loaded = loadDynamicViewerResourcesFromEnvironment({
+        XPOTATO_SIM_DYNAMIC_VIEWER_RESOURCE_ROOT: root,
+      });
+      assert.equal(loaded.get("/mujoco/assembly/model.xml"), model);
+      assert.equal(loaded.size, 1);
+      assert.throws(
+        () => loadDynamicViewerResourcesFromEnvironment({
+          XPOTATO_SIM_DYNAMIC_VIEWER_RESOURCE_ROOT: "relative/path",
+        }),
+        /must be absolute/,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("does not expose URLs absent from decoded manifests", () => {

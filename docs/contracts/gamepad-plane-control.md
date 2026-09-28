@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: mapping
-last_verified: 2026-09-25
+last_verified: 2026-09-28
 canonical_for:
   - independent gamepad stick plane control
 related:
@@ -17,7 +17,8 @@ related:
 左右のスティックを独立した操作セットとして扱い、通常XY／同側肩ボタン押下中XZへ切り替える。
 これは2連続軸を切り替えて3方向へアクセスする方式であり、1腕XYZの同時独立入力ではない。
 Issue #567は双腕モデルより先に入力経路を成立させる変更。現行片腕モデルに選択した片側だけを
-適用し、両側の要求速度・modeを診断へ残す。双腕モデルの同時駆動・二台Selfrionetteは未実装。
+適用し、両側の要求速度・modeを診断へ残す。双腕同時操作は末尾の#574専用profileで選択する。
+二台Selfrionetteは別の未実装範囲である。
 
 ## 起動と操作
 
@@ -118,3 +119,11 @@ GUIは入力欄に左右の適用平面と中立待ち、新modeで単腕へ適�
 GUI decoder・React markup、neutral heartbeatと復帰をsoftware testで検証する。
 通常の回帰testは参加者実験ではない。実Gamepadを人が操作した受入と、任意cameraでの方向感は別途確認する。
 実機、serial/OSC、双腕モデル、タスクGUI、物体spawn、ばねの力学はこの変更では実装しない。
+
+## 双腕Viewerでの適用（#574）
+
+`fast-arm-bimanual-gamepad`では`map_coordinated_input`のtyped要求を両armへ同じtickで渡す。
+表示metadataの`output_scope`は`coordinated`、`output_side`はnullとし、既存のsingle_endpoint形式と区別する。
+左右のmode・中立待ちはMappingが所有し、UIは結果の表示だけを行う。初回未取得・fault時の表示resetは
+運動指令や新鮮な観測を生成しない。全体faultでは両腕停止を表示し、操作可能と表示し続けない。
+二台Selfrionetteの取得や実Gamepad機種ごとの操作受入は含まない。

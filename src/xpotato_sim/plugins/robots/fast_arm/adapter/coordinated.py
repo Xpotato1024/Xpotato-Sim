@@ -1,12 +1,14 @@
 """名前付きassemblyの共同位置更新。接触力学・実機安全性ではない運動学診断経路。"""
 from __future__ import annotations
+from collections.abc import Mapping
 from threading import RLock
 import mujoco
 import numpy as np
 from fast_arm_core.assembly import FastArmAssembly, resolve_assembly_addresses
 from fast_arm_core.assembly_model import build_fast_arm_assembly_model
 from xpotato_sim.motion import LocalEndpointMotionGenerator
-from xpotato_sim.schemas import InputIntent
+from xpotato_sim.mujoco_backend import snapshot_mujoco_state
+from xpotato_sim.schemas import InputIntent, MuJoCoState
 from xpotato_sim.schemas.command import JointPositionCommand
 from xpotato_sim.schemas.coordinated import CoordinatedSnapshot, EndpointObservation, EndpointVelocity, number
 from xpotato_sim.runtime.execution.coordinated import PreparedCoordinatedStep
@@ -61,6 +63,22 @@ class FastArmAssemblyMotionProvider:
     def snapshot(self) -> CoordinatedSnapshot:
         with self._lock:
             return self._snapshot(self._data, self._generation)
+
+    def transport_state(
+        self, *, frame_index: int, metadata: Mapping[str, object]
+    ) -> MuJoCoState:
+        """同じMuJoCo dataを既存transport/viewer stateへ投影する。"""
+        if type(frame_index) is not int or frame_index < 0:
+            raise ValueError("frame_index must be a non-negative integer")
+        if not isinstance(metadata, Mapping):
+            raise TypeError("transport metadata must be a mapping")
+        with self._lock:
+            return snapshot_mujoco_state(
+                self.model,
+                self._data,
+                frame_index=frame_index,
+                metadata=metadata,
+            )
 
     def _check_data(self, data) -> None:
         if not all(np.all(np.isfinite(a)) for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):

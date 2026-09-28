@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-21
+last_verified: 2026-09-28
 canonical_for:
   - launch profile configuration
 related:
@@ -98,3 +98,20 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 
 新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
 [Gamepad平面操作契約](gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+
+## 双腕Viewerの明示profile（#574）
+
+`profiles/coordinated/fast-arm-bimanual-gamepad.json`は別schemaの
+`fast-arm-coordinated-viewer-profile/v1`である。単腕の`LaunchProfile/v1`やRobot Catalogへ
+8関節を混ぜず、`app`／`profile`だけがschemaを見て明示的に振り分ける。
+
+必須fieldは`schema_version`、`name`、`workspace`、2件の`assembly`、`side_to_arm`、
+`mapping_parameters`、`epoch`、`execution`、`web`。各assembly要素は`arm_id`、`mirror_y`、
+`position_m`、`quaternion_wxyz`を持ち、left/rightのside bindingは両armを重複なく覆う。
+`execution`は単腕と同じ有限実行値に`max_input_age_s`を加える。Mappingは既存の
+`gamepad_plane_control`を必須とし、未知field・重複key・非finite値・非loopbackを拒否する。
+
+`runtime/composition/coordinated_viewer_profile.py`が設定とRobot描画資源の接続を所有する。
+decode／profile表示ではmodel実行・process・networkを開始しない。資源生成は明示した
+`build_viewer_bundle()`からのみ行い、資源はlauncher所有の一時directoryへ置く。
+既存単腕profileの設定・digest・操作意味は変えない。GUIでのprofile切替やTask/spawnは別Issue。

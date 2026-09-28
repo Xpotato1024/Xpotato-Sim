@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-26
+last_verified: 2026-09-28
 canonical_for:
   - coordinated arm diagnostic execution and output supervision
 related:
@@ -39,7 +39,8 @@ legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左�
 旧 `map_input` と新しいtyped入口は同じ `_build_plane_intents` を使い、写像を二重実装しない。
 `side_to_arm` は明示・copy/freezeし、選択した全armを重複なく覆う。旧 `output_side` はsingle-endpoint用であり、
 共同入口のbindingを上書きしない。既存launch profile/v1・Robot Plugin/v1の意味は維持する。
-このproviderは明示composition/診断CLI用であり、既存GUI/汎用catalogへ双腕profileを登録したものではない。
+このproviderは明示composition用である。#574の専用Viewer profileへ接続するが、
+単腕Robot Catalogのidentityや既存launch profile/v1を双腕へ読み替えない。
 
 ## 同一状態からの候補とcommit
 
@@ -108,6 +109,21 @@ uv run python -m xpotato_sim.runtime.runners.coordinated_gamepad tests/fixtures/
 
 ## 残る接続
 
-ブラウザの双腕scene declaration/同時操作、汎用catalog/GUI、二台Selfrionette取得、衝突geometry、
+汎用catalog/GUI切替、二台Selfrionette取得、衝突geometry、
 servo/contact経路、ばね/搬送taskは後続。OSCの具体receiver停止・全体scene評価と実機検証は未実施。
 本経路の成功をそれらの完了や高トルク機体の安全認定へ読み替えない。
+
+## 双腕Viewer接続（#574）
+
+`fast-arm-bimanual-gamepad`を明示すると、Robot-ownedなassembly builderから8関節のViewer declaration、
+MJCF、mesh、home fixtureを生成する。model digest別の一時URLへ置き、backend snapshotのmodel digest、
+joint names、qpos順序・次元が宣言と一致した場合だけ配信する。原本XML/STLは複製管理しない。
+
+同一Gamepad sampleを既存の共同runtimeで評価し、同じMuJoCo model/dataから既存payload-v0へ投影する。
+表示frame_indexとsimulation tickを区別する。待機・fault中はframeが進んでもqpos/timeは進めない。
+latest-state配信と既存の絶対deadline pacerを使い、遅い描画consumerへの送信待ちを制御計算に持ち込まない。
+
+初回sample未取得は中立測定で補わず待機する。初回payloadにはMappingが決めた中立待ち表示を含め、
+ブラウザが既存の中立heartbeatを開始できるようにする。不正入力やstaleは全体faultへ移り、
+正常入力が戻っても両腕を再開しない。表示とWeb接続は有限session終了まで保持する。
+操作手順は[backend/viewer起動手順](../operations/backend-viewer-startup.md)を参照する。

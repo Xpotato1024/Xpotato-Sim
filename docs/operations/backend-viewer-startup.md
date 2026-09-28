@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-09-21
+last_verified: 2026-09-28
 canonical_for:
   - backend / viewer startup guide
   - browser WebSocket connection guide
@@ -107,3 +107,31 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 
 新しい`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と、XY/XZ切替・中立復帰・取得session・表示の規約は
 [Gamepad平面操作契約](../contracts/gamepad-plane-control.md)を参照する。現行の片腕へ選択した片側を適用する段階であり、双腕モデル完成ではない。
+
+## 双腕Gamepad Viewer（#574）
+
+```powershell
+uv run xpotato-sim profile fast-arm-bimanual-gamepad
+uv run xpotato-sim app --profile fast-arm-bimanual-gamepad --check
+uv run xpotato-sim app --profile fast-arm-bimanual-gamepad
+```
+
+配布profileは原型とY鏡映の2腕・8関節を同じsceneへ表示する。左stickは左arm、右stickは右armに
+対応し、同側肩button 4/5でXYからXZへ切り替える。切替後はそのstickを中立に戻すまで速度ゼロ。
+反対側は継続操作できる。実Gamepadのbutton/axis配置がstandard想定と一致するかは別途確認する。
+
+既定Web/WS portは5174/8767。約5分相当の18000 tickで終了し、Ctrl+Cでも両workerと一時資源を閉じる。
+単腕と同じ`--no-browser`、`--web-port`、`--backend-port`、`--startup-check`を使える。
+取付のX軸±30度、左右位置±0.4 mは既存の合成診断配置で、実機校正値ではない。
+
+初回は新鮮な中立を待つ。stale・切断・不正入力・model/joint不整合で全体faultを保持する。
+fault後は両腕の姿勢を止め、残りの有限session中に理由を表示する。入力復帰だけでは再開しない。
+設定を確認し、Ctrl+Cで終了して新しいsessionを起動する。入力欄の停止表示は実機非常停止ではない。
+
+これは`coordinated_joint_position_kinematic/v1`の運動学診断であり、接触・servo・ばね力評価ではない。
+`physical_output`は常にdisabled。OSC/serialは開かず、複数視点UI・GUI task/spawnも追加しない。
+
+双腕launcherはURLへ`inputStartup=scene`を付け、8関節の描画準備ができてから入力取得を開始する。
+モデル読込み中に最初の中立入力だけが先行して監視期限切れになることを避けるためである。
+中立heartbeatも開始時から有効にし、準備後に取得sessionを作り直さない。
+単腕の既存URLは接続成立から入力を開始する従来動作を維持する。

@@ -99,3 +99,10 @@ genericなDTO、resolver、providerはruntimeが所有する。
 `adapter/coordinated.py` は同じassemblyの名前付き全腕を一つのsnapshotから解き、一括反映する。
 明示的な運動学診断経路であり、元のjoint limit/DLSを再利用する。動的接触や実機の安全認定ではない。
 [共同実行契約](../../../../../docs/contracts/coordinated-arm-runtime.md) に操作入口、OSC接続と未実装範囲を示す。
+
+## 双腕Viewer資源
+
+`adapter/assembly_viewer.py`はcoreの同じassemblyからViewer declaration・MJCF・mesh・home fixtureを生成する。
+`adapter/coordinated.py`の`transport_state`は同じMuJoCo model/dataのprojectionであり、別のsimulationを走らせない。
+専用profileと起動手順は[backend/viewer起動手順](../../../../../docs/operations/backend-viewer-startup.md)を参照する。
+単腕のcatalog identityを変更せず、動的接触・実機出力も有効化しない。
