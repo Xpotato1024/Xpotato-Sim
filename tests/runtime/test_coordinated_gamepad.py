@@ -75,10 +75,10 @@ def test_mode_switch_stops_only_switching_side_without_reinterpreting_tilt():
 def test_one_failed_candidate_never_publishes_other_arm(monkeypatch):
     a,c=app();step(a,c,message(sequence=0));p=a.runtime.provider;before=p.snapshot()
     original=p._arm_candidate; seen=[]
-    def fail(base,arm,command,dt):
+    def fail(base,arm,command,dt,*,observed=None):
         seen.append(tuple(base.qpos))
         if arm.arm_id=="right":raise ValueError("right candidate failed")
-        return original(base,arm,command,dt)
+        return original(base,arm,command,dt,observed=observed)
     monkeypatch.setattr(p,"_arm_candidate",fail)
     row=step(a,c,message((.55,0.,.55,0.),sequence=1))
     assert row.state=="faulted" and "right candidate failed" in row.reason

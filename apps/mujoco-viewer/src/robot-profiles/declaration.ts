@@ -1,3 +1,4 @@
+import { decodeSceneStateLayout } from "./sceneStateLayout.js";
 import type {
   ViewerAxisVisualStyle,
   ViewerBodyVisualStyle,
@@ -121,9 +122,9 @@ const ROOT_KEYS = [
 
 export function decodeViewerRobotDeclaration(value: unknown): ViewerRobotProfile {
   const root = requireRecord(value, "viewer robot declaration");
-  requireExactKeys(root, ROOT_KEYS, "viewer robot declaration");
+  requireExactKeys(root, root.schemaVersion==="viewer-robot-declaration/v2" ? [...ROOT_KEYS,"sceneStateLayout"] : ROOT_KEYS, "viewer robot declaration");
   const schemaVersion = requireString(root.schemaVersion, "schemaVersion");
-  if (schemaVersion !== VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION) {
+  if (schemaVersion !== VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION && schemaVersion!=="viewer-robot-declaration/v2") {
     throw new Error(`unsupported viewer robot declaration schema version: ${schemaVersion}`);
   }
 
@@ -207,7 +208,8 @@ export function decodeViewerRobotDeclaration(value: unknown): ViewerRobotProfile
   );
 
   return Object.freeze({
-    schemaVersion: VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION,
+    schemaVersion,
+    ...(schemaVersion==="viewer-robot-declaration/v2" ? {sceneStateLayout:decodeSceneStateLayout(root.sceneStateLayout,jointNames)} : {}),
     profileId: requireString(root.profileId, "profileId"),
     profileContractVersion: requirePositiveInteger(root.profileContractVersion, "profileContractVersion"),
     modelContractVersion: requireString(root.modelContractVersion, "modelContractVersion"),
@@ -278,6 +280,9 @@ export function validateViewerRobotProfileCompatibility(
   if (metadata.model_contract_version !== profile.modelContractVersion) {
     throw new Error("backend/viewer declaration model contract mismatch");
   }
+  if (profile.sceneStateLayout && canonicalJson(metadata.scene_state_layout_v1)!==canonicalJson(profile.sceneStateLayout)) {
+    throw new Error("backend/viewer scene layout mismatch");
+  }
   if (metadata.robot_qpos_dimension !== profile.qposDimension) {
     throw new Error("backend/viewer declaration qpos dimension mismatch");
   }
@@ -293,6 +298,7 @@ export function validateViewerRobotProfileCompatibility(
 function viewerRobotProfileDocument(profile: ViewerRobotProfile): JsonRecord {
   return {
     schemaVersion: profile.schemaVersion,
+    ...(profile.sceneStateLayout ? {sceneStateLayout:profile.sceneStateLayout} : {}),
     profileId: profile.profileId,
     profileContractVersion: profile.profileContractVersion,
     modelContractVersion: profile.modelContractVersion,

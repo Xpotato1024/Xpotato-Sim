@@ -1,4 +1,5 @@
 import { SceneContactPanel } from "./SceneContactPanel.js";
+import { DynamicsPanel } from "./DynamicsPanel.js";
 import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
 import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -467,6 +468,7 @@ export function ProductViewerApp() {
             {state.contactTaskPresentation.taskState !== null ? <p className="inspector-note">{state.contactTaskPresentation.taskState.classification}</p> : <p className="inspector-note">接触log / payloadの読込みと証拠の詳細は診断にあります。</p>}
           </section> : null}
           <SceneContactPanel value={state.sceneContactPresentation} live={connection.tone === "positive"} />
+          <DynamicsPanel value={state.dynamicsPresentation} />
           <div className="inspector-footer">{connection.detail}</div>
         </aside>
       </div>

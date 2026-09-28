@@ -39,6 +39,7 @@ import {
 } from "../contact/contactTaskLog.js";
 import { SceneContactStream, unavailableSceneContact, type SceneContactPresentation } from "../contact/sceneContactPresentation.js";
 import { SceneContactOverlay } from "./sceneContactOverlay.js";
+import { DynamicsStream } from "./dynamicsPresentation.js";
 import type { ViewerRobotProfile } from "../robot-profiles/types.js";
 import {
   loadViewerRobotProfileFromPayload,
@@ -76,6 +77,7 @@ import {
   type ViewerPayloadCandidate,
 } from "./viewerFrameTiming.js";
 
+import { validateCompiledSceneLayout } from "../robot-profiles/sceneStateLayout.js";
 import { decodeJointDisplayLayout } from "./jointPresentation.js";
 import { cameraPresentation, type CameraView } from "./cameraPresentation.js";
 
@@ -199,6 +201,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   scene.add(contactOverlay);
   const geometryOverlay = new SceneContactOverlay();
   const geometryStream = new SceneContactStream();
+  const dynamicsStream = new DynamicsStream();
   scene.add(geometryOverlay.group);
 
   const renderer = new WebGLRenderer({ canvas: options.canvas, antialias: true });
@@ -267,7 +270,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
   const setSceneContactPresentation = (value: SceneContactPresentation): void => {
     geometryOverlay.update(value);
-    updateRendererStatus({sceneContactPresentation: value});
+    updateRendererStatus({sceneContactPresentation: value,
+      ...(value.status==="unavailable" ? {dynamicsPresentation:{status:"unavailable" as const,reason:value.reason}} : {})});
   };
 
   const clearContactOverlay = (): void => {
@@ -386,6 +390,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       const value = unavailableSceneContact("接続が有効ではないため接触表示を消去しました");
       geometryOverlay.update(value);
       next.sceneContactPresentation = value;
+      next.dynamicsPresentation = {status:"unavailable",reason:value.reason ?? "接続無効"};
     }
     emitState(next);
   };
@@ -603,7 +608,10 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       inputOverlay,
       candidate,
     );
-    setSceneContactPresentation(geometryStream.apply(payload));
+    const sceneContact = geometryStream.apply(payload);
+    setSceneContactPresentation(sceneContact);
+    updateRendererStatus({dynamicsPresentation:sceneContact.status==="unavailable"
+      ? {status:"unavailable",reason:sceneContact.reason} : dynamicsStream.apply(payload)});
   };
 
   const syncToLatestSource = (): void => {
@@ -749,7 +757,10 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       payload.endpoint_evaluation ?? null,
       buildProductViewerInputOverlayState(payload),
     );
-    setSceneContactPresentation(geometryStream.apply(payload));
+    const sceneContact = geometryStream.apply(payload);
+    setSceneContactPresentation(sceneContact);
+    updateRendererStatus({dynamicsPresentation:sceneContact.status==="unavailable"
+      ? {status:"unavailable",reason:sceneContact.reason} : dynamicsStream.apply(payload)});
   };
   const startWebSocketClient = (): void => {
     if (websocketUrl === null) {
@@ -898,7 +909,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
       model = mujocoApi.MjModel.from_xml_string(xml, vfs);
       data = new mujocoApi.MjData(model);
-      if (model.nq !== activeProfile.qposDimension) {
+      if (model.nq !== (activeProfile.sceneStateLayout?.qpos_dimension ?? activeProfile.qposDimension)) {
         throw new Error(
           `viewer model/profile qpos dimension mismatch: expected ${activeProfile.qposDimension}, got ${model.nq}`,
         );
@@ -913,14 +924,16 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
           ) ?? "",
       );
       if (
-        modelJointNames.length !== activeProfile.jointNames.length ||
-        modelJointNames.some((name, index) => name !== activeProfile.jointNames[index])
+        !activeProfile.sceneStateLayout && (modelJointNames.length !== activeProfile.jointNames.length ||
+        modelJointNames.some((name, index) => name !== activeProfile.jointNames[index]))
       ) {
         throw new Error(
           `viewer model/profile joint name/order mismatch: expected ${activeProfile.jointNames.join(",")}, got ${modelJointNames.join(",")}`,
         );
       }
-      const jointLayout = decodeJointDisplayLayout(modelJointNames, model.jnt_type, model.jnt_qposadr, model.nq);
+      if(activeProfile.sceneStateLayout)validateCompiledSceneLayout(activeProfile.sceneStateLayout,model.nq,model.nv,modelJointNames,model.jnt_type,model.jnt_qposadr,model.jnt_dofadr);
+      const fullJointLayout = decodeJointDisplayLayout(modelJointNames, model.jnt_type, model.jnt_qposadr, model.nq);
+      const jointLayout = activeProfile.sceneStateLayout ? {...fullJointLayout,joints:fullJointLayout.joints.filter(j=>activeProfile.jointNames.includes(j.name))} : fullJointLayout;
       const initialKeyframe = resolveNamedInitialKeyframe(model, activeProfile);
       startupQpos = Array.from(initialKeyframe.qpos);
       startupPoseSourceLabel = initialKeyframe.sourceLabel;

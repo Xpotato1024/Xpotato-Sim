@@ -320,3 +320,19 @@ providerとViewerで一致しなければ構築を拒否する。profile表示/�
 旧RobotBundle単一手先APIを偽の代表手先で双腕へ流用しない。新モデルの名前付き手先経路は共通v2起動設定へ
 明示し、単一手先の旧v1比較・replayは互換境界で維持する。viewer resourceは同じ意味のdeclaration/v1を使うが、
 モデルidentity/contract/digestと4/8関節順序は選択モデルごとに厳密に照合する。
+
+## scene全体とRobot部分状態の分離（#582）
+
+新しい`viewer-robot-declaration/v2`は`sceneStateLayout`を必須にする。RobotのjointNames/qposDimensionはRobot subsetを表し、
+scene-state-layout/v1が全nq/nvとjoint名/種類/role/それぞれのaddressを宣言する。
+freejointはqpos7・qvel6、ballは4/3、hinge/slideは1/1であり、全座標を一度ずつ覆うことを検査する。
+既存declaration/v1のbyte/digestと旧Robot-only投影は互換境界として維持し、全scene用v2へ旧subset投影を混ぜない。
+
+backendは同じnative sampleの全qpos/qvelを配信する。Viewerは宣言digest、compiled name/type/address/nq/nv、
+frameの宣言参照・layout・finite値・freejoint quaternionを照合し、full qposを並べ替えず描画する。
+関節角メーターはRobot roleのscalar jointだけを対象とし、物体quaternionを追加関節角として表示しない。
+物体は同じMJCFに含まれ、metadataのobject poseで別のmeshを動かす第二経路は作らない。
+WASMの`mj_forward`は描画用のpose投影に限り、制御・接触力はPython/nativeの値を表示する。
+
+geometryとdynamic evidenceは同一のscene/model/epoch/frame/timeだけを表示する。異なる数値設定digest、
+欠落したdynamic evidence、不正なqpos/layout、切断では前回forceを有効な観測として残さない。

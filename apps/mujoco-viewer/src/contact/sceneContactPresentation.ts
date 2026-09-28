@@ -12,7 +12,7 @@ export type SceneContactPresentation =
   | { status: "absent" | "unavailable"; reason: string }
   | { status: "available"; reason: null; modelSha256: string; sceneDigest: string; epoch: string;
       frameIndex: number; timeS: number; objects: SceneContactObject[]; contacts: SceneContactPoint[];
-      targets: string[]; phase: "observing" | "completed" | "aborted" | "invalid"; taskReason: string | null };
+      dynamic?: boolean; targets: string[]; phase: "observing" | "completed" | "aborted" | "invalid"; taskReason: string | null };
 
 export function unavailableSceneContact(reason: string): SceneContactPresentation {
   return { status: "unavailable", reason };
@@ -46,10 +46,10 @@ export function parseSceneContactPayload(payload: TransportPayloadV0): SceneCont
   const runtime = m.coordinated_runtime_v1;
   if (!record(runtime) || runtime.epoch !== b.epoch || !ids(runtime.arm_ids) || !same(runtime.arm_ids,b.endpoint_ids)) return bad("runtime/scene binding不一致");
   if (!exact(g,["schema_version","scene_digest","model_sha256","frame_index","simulation_time_s","status","scope","force_status","force_n","objects","contacts"]) ||
-      g.schema_version !== "scene-contact-geometry/v1" || g.model_sha256 !== b.model_sha256 || g.scene_digest !== b.scene_digest ||
+      !["scene-contact-geometry/v1","scene-contact-geometry/v2"].includes(String(g.schema_version)) || g.model_sha256 !== b.model_sha256 || g.scene_digest !== b.scene_digest ||
       !index(g.frame_index) || g.frame_index !== payload.frame_index || !finite(g.simulation_time_s) || g.simulation_time_s < 0 ||
       g.simulation_time_s !== payload.time_s || g.status !== "observed" || g.scope !== "tool_object_geometry" ||
-      g.force_status !== "not_evaluated_kinematic" || g.force_n !== null ||
+      g.force_status !== (g.schema_version==="scene-contact-geometry/v2" ? "separate_dynamics_evidence" : "not_evaluated_kinematic") || g.force_n !== null ||
       !Array.isArray(g.objects) || g.objects.length > 32 || !Array.isArray(g.contacts) || g.contacts.length > 256) return bad("幾何観測のschema/model/frame不一致");
   const objects: SceneContactObject[] = [];
   for (const o of g.objects) {
@@ -84,7 +84,7 @@ export function parseSceneContactPayload(payload: TransportPayloadV0): SceneCont
     if (!Array.isArray(p) || p.length !== 2 || !b.endpoint_ids.includes(p[0]) || !t.target_object_ids.includes(p[1])) return bad("Task pair不一致");
   }
   return {status:"available",reason:null,modelSha256:b.model_sha256,sceneDigest:b.scene_digest,epoch:b.epoch,
-    frameIndex:g.frame_index,timeS:g.simulation_time_s,objects,contacts,targets:t.target_object_ids,
+    frameIndex:g.frame_index,timeS:g.simulation_time_s,objects,contacts,dynamic:g.schema_version==="scene-contact-geometry/v2",targets:t.target_object_ids,
     phase:t.phase as "observing" | "completed" | "aborted" | "invalid",taskReason:t.reason as string | null};
 }
 

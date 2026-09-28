@@ -141,6 +141,8 @@ async def _run_model_websocket_publisher_async(
                     )
                     sample = runtime.runtime.provider.sample(frame_index=frame_index, metadata=metadata)
                     snapshot, state = sample.robot, sample.state
+                    if sample.dynamics is not None:
+                        state=replace(state,metadata={**state.metadata,"scene_dynamics_v1":sample.dynamics})
                     addresses = sample.robot_qpos_addresses
                     if (snapshot.model_sha256 != bundle.metadata["model_sha256"]
                             or snapshot.joint_names != bundle.declaration.joint_names
@@ -165,9 +167,9 @@ async def _run_model_websocket_publisher_async(
                             if transition.classification is not TaskTerminalClassification.RUNNING:
                                 runtime.stop()
                                 state = replace(state, metadata={**state.metadata,
-                                    "motion_status": "stopped", "source_active": False,
+                                    "motion_status": runtime.runtime.state, "source_active": False,
                                     "coordinated_runtime_v1": {**state.metadata["coordinated_runtime_v1"],
-                                        "state": "stopped", "reason": task_view["reason"]},
+                                        "state": runtime.runtime.state, "reason": task_view["reason"]},
                                     "motion_rejection_reason": task_view["reason"]})
                         metadata = {**state.metadata, "scene_contact_geometry_v1":geometry.to_document(),
                                     "scene_contact_task_v1":{**task_view, "presentation_frame_index":frame_index, "presentation_time_s":state.time_s},

@@ -1,4 +1,4 @@
-"""固定物体sceneのpackage-owned資源と既存Environment entry。"""
+"""world/物体sceneのpackage-owned資源と既存Environment entry。"""
 from importlib.resources import files
 from xpotato_sim.runtime.scene.objects import decode_object_scene, strict_json, canonical, fields, identifier, ObjectDefinition
 from xpotato_sim.runtime.scene.contracts import ObjectSceneBuildRequest, ObjectSceneProvider, SceneResetTarget
@@ -6,7 +6,7 @@ from xpotato_sim.runtime.scene.composition import compose_object_scene
 from xpotato_sim.runtime.experiment.contracts import EnvironmentPlugin, EnvironmentRole, SemanticRole, ParameterContract, ParameterField, VersionedIdentity
 
 
-class FixedObjectSceneProvider:
+class ConfiguredObjectSceneProvider:
     """選択はpureなJSON展開、構築はtyped requestで別操作とする。"""
     def resolve_parameters(self, parameters):
         if type(parameters) is not dict:
@@ -20,8 +20,9 @@ class FixedObjectSceneProvider:
         if not path.is_file():
             raise ValueError("unknown object scene preset")
         doc=strict_json(path.read_bytes())
-        fields(doc,{"schema_version","scene_id","definition_resources","objects","contact"},"scene preset")
-        if doc.pop("schema_version")!="object-scene-preset/v1":
+        version=doc.get("schema_version")
+        fields(doc,{"schema_version","scene_id","definition_resources","objects","contact"} | ({"world"} if version=="object-scene-preset/v2" else set()),"scene preset")
+        if doc.pop("schema_version") not in ("object-scene-preset/v1","object-scene-preset/v2"):
             raise ValueError("unsupported scene preset")
         refs=doc.pop("definition_resources")
         if type(refs) is not list or len(refs)>32:
@@ -33,7 +34,7 @@ class FixedObjectSceneProvider:
             if not asset.is_file():
                 raise ValueError("unknown object resource")
             definitions.append(ObjectDefinition.from_document(strict_json(asset.read_bytes())).to_document())
-        doc.update(schema_version="object-scene/v1",definitions=definitions)
+        doc.update(schema_version="object-scene/v2" if version.endswith("/v2") else "object-scene/v1",definitions=definitions)
         return decode_object_scene(canonical(doc))
 
     def compose_scene(self, parameters):
@@ -49,7 +50,7 @@ class FixedObjectSceneProvider:
 
 
 ENVIRONMENT_PLUGIN=EnvironmentPlugin(
-    identity=VersionedIdentity("object_scene_environment",1),scene_provider=FixedObjectSceneProvider(),
+    identity=VersionedIdentity("object_scene_environment",1),scene_provider=ConfiguredObjectSceneProvider(),
     roles=(EnvironmentRole(SemanticRole("environment.objects"),"scene_objects","mujoco_world","meter"),),
     parameter_contract=ParameterContract((ParameterField("request",ObjectSceneBuildRequest,condition_specific=True),)),
     produced_evidence=frozenset(),compatible_backend_kinds=frozenset({"mujoco"}),

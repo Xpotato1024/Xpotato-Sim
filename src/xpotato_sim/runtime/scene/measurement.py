@@ -82,4 +82,4 @@ class SceneGeometryObserver:
                                         g.distance_m,g.penetration_m,relation))
         records.sort(key=lambda r:(r.endpoint_id,r.object_id,r.point_world_m,r.normal_world,r.distance_m))
         return SceneGeometryObservation(self.scene.manifest.digest,self.model_sha256,frame_index,time,
-            tuple(sorted(poses,key=lambda p:p.instance_id)),tuple(records))
+            tuple(sorted(poses,key=lambda p:p.instance_id)),tuple(records),self.scene.dynamic_execution)

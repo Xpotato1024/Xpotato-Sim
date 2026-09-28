@@ -120,3 +120,7 @@ genericなDTO、resolver、providerはruntimeが所有する。
 coreのarm.xmlには床を埋め込まず、Viewerだけの見せかけの床も作らない。
 providerとViewerには同じcomposed artifactを渡し、digestはsceneと全依存を覆う。
 床があっても原本meshのcollision無効と運動学更新の意味は変わらず、接触力評価が完成したとは扱わない。
+
+## 動力学の共通モデル
+
+明示worldはcore由来bare assemblyへEnvironmentを構成する。dynamic providerは元のservo/gain/force rangeを検査し、全腕targetの準備とnative mj_step・一括commitを分離する。原型/左右単腕/双腕のモデル登録を分岐させない。旧kinematic診断とsource assetは維持する。

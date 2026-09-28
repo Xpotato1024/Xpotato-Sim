@@ -399,3 +399,14 @@ Robotは診断colliderの名前と形状を所有し、Environmentはworldに置
 Taskはpure DTOを入力とし、MuJoCoやbackend measurementをimportしない。
 旧R7-H force/contact manifestは互換維持し、共通geometry抽出だけをbackend primitiveへ移す。
 詳細は[固定物体scene契約](../contracts/object-scene-contact-diagnostic.md)。
+
+## world条件とdynamic execution（#582）
+
+Environment-owned world/v2はbare Robotと支持面・物体を構成し、Execution-owned DynamicsSettingsを一回だけ合成する。
+旧Robot-owned base sceneは旧versionのrecord互換のための経路であり、新worldはそこから床やgravityを継承しない。
+Robot dynamic providerは既存共同prepare/commitへ実行hookで接続し、単腕/双腕と物体数でbranchしない。
+`runtime/scene/world.py`は世界条件、`execution/physics.py`は数値条件、`scene/world_composition.py`はnative MJCF投影、
+`schemas/scene_state.py`はpure coordinate layout、`mujoco_backend/state_layout.py`はnative address解決を所有する。
+`scene/dynamics_observation.py`は同じlocked dataからRobot指令/実状態・物体状態・native接触力を取得する。
+同一frameのGUIは既存publisher/rendererを使い、別のphysics service・device取得・hardware出力を増やさない。
+設計比較と停止意味は[設計記録](../design/adr/2026-09-28-scene-dynamics-ownership.md)を参照する。

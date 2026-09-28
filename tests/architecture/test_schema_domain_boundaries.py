@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = ROOT / "src" / "xpotato_sim" / "schemas"
 DOMAIN_MODULES = {
     "coordinated": set(),
+    "scene_state": set(),
     "command": {"types"},
     "endpoint": {"types"},
     "experiment_log": {"endpoint"},

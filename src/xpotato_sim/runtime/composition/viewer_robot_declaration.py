@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from xpotato_sim.schemas.scene_state import SceneStateLayout
 from pathlib import PurePosixPath
 from urllib.parse import quote
 
@@ -178,13 +179,22 @@ class ViewerRobotDeclaration:
     axis_visual_styles: tuple[ViewerAxisVisualStyle, ...]
     joint_names: tuple[str, ...]
     qpos_dimension: int
+    scene_state_layout: SceneStateLayout | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION:
+        if self.schema_version not in (VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION,"viewer-robot-declaration/v2"):
             raise ValueError(
                 "unsupported viewer robot declaration schema version: "
                 f"{self.schema_version!r}"
             )
+        if (self.schema_version.endswith("/v2")) != (self.scene_state_layout is not None):
+            raise ValueError("viewer v2 requires explicit scene layout")
+        if self.scene_state_layout is not None:
+            if type(self.scene_state_layout) is not SceneStateLayout:
+                raise TypeError("typed scene layout required")
+            robot = tuple(j.name for j in self.scene_state_layout.joints if j.role=="robot")
+            if set(robot)!=set(self.joint_names) or self.qpos_dimension!=len(self.joint_names):
+                raise ValueError("Robot subset differs from scene layout")
         for name, value in (
             ("viewer profile ID", self.profile_id),
             ("viewer model contract version", self.model_contract_version),
@@ -247,6 +257,7 @@ class ViewerRobotDeclaration:
     def to_document(self) -> dict[str, object]:
         return {
             "schemaVersion": self.schema_version,
+            **({} if self.scene_state_layout is None else {"sceneStateLayout":self.scene_state_layout.to_document()}),
             "profileId": self.profile_id,
             "profileContractVersion": self.profile_contract_version,
             "modelContractVersion": self.model_contract_version,
@@ -291,7 +302,7 @@ _ROOT_KEYS = frozenset(
 
 def decode_viewer_robot_declaration(value: object) -> ViewerRobotDeclaration:
     root = _require_mapping(value, "viewer robot declaration")
-    _require_exact_keys(root, _ROOT_KEYS, "viewer robot declaration")
+    _require_exact_keys(root, _ROOT_KEYS | ({"sceneStateLayout"} if root.get("schemaVersion")=="viewer-robot-declaration/v2" else set()), "viewer robot declaration")
 
     def records(name: str, expected: frozenset[str]) -> tuple[Mapping[str, object], ...]:
         result: list[Mapping[str, object]] = []
@@ -374,6 +385,7 @@ def decode_viewer_robot_declaration(value: object) -> ViewerRobotDeclaration:
         ),
         joint_names=joint_names,
         qpos_dimension=_require_positive_int(root["qposDimension"], "qposDimension"),
+        scene_state_layout=SceneStateLayout.from_document(root["sceneStateLayout"]) if "sceneStateLayout" in root else None,
     )
 
 

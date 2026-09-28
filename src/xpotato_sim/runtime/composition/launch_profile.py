@@ -20,6 +20,7 @@ from xpotato_sim.plugins.environments.catalog import resolve_environment_plugin
 from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
 from xpotato_sim.runtime.scene.contracts import ModelScenePlan, ObjectSceneProvider
 from xpotato_sim.runtime.scene.task import GeometryTaskContext
+from xpotato_sim.runtime.execution.physics import DynamicsSettings
 from xpotato_sim.runtime.composition.robot_bundle import (
     ENDPOINT_COMMAND_V1, ENDPOINT_POSE_V1, QPOS_FEASIBILITY_V1, RESET_INITIAL_STATE_V1,
 )
@@ -31,6 +32,7 @@ from xpotato_sim.runtime.experiment.input_source import InputSourceMode
 LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v1"
 MODEL_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v2"
 SCENE_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v3"
+DYNAMIC_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v4"
 LEGACY_LAUNCH_PROFILE_SCHEMA = "selfrionette-launch-profile/v1"
 MAX_PROFILE_BYTES = 262144
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -191,7 +193,8 @@ class LaunchProfile:
                 "scheduled_duration_s": self.steps * self.interval_s,
                 "physical_output": "disabled",
                 **({} if self.scene_plan is None else {"scene":self.scene_plan.manifest.to_document(),
-                    "scene_digest":self.scene_plan.manifest.digest,"collision_profile":self.scene_plan.collision_profile}),
+                    "scene_digest":self.scene_plan.manifest.digest,"collision_profile":self.scene_plan.collision_profile,
+                    **({} if self.scene_plan.dynamics is None else {"dynamics":self.scene_plan.dynamics.to_document(),"dynamics_digest":self.scene_plan.dynamics.digest})}),
                 **({} if self.model is None else {
                     "model": {"name": self.model.plugin_id, "version": self.model.contract_version},
                     "model_configuration": json.loads(self.model_registration().configuration_json),
@@ -213,10 +216,10 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if type(raw) is not dict:
         raise ValueError("profile must be a JSON object")
     schema = raw.get("schema_version")
-    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA):
+    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         raise ValueError("unsupported launch profile schema_version")
-    model_fields = {"model", "coordination"} if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA) else set()
-    if schema == SCENE_LAUNCH_PROFILE_SCHEMA:
+    model_fields = {"model", "coordination"} if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA) else set()
+    if schema in (SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         model_fields |= {"environment","task"}
     raw = _object(raw, {"schema_version", "name", "workspace", "mode", "robot", "input", "mapping", "execution", "web"} | model_fields, "profile")
     name = _string(raw["name"], "name")
@@ -239,9 +242,12 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     mapping_selection = _selection(mapping["plugin"], "mapping.plugin")
     if type(mapping["parameters"]) is not dict:
         raise ValueError("mapping.parameters must be a JSON object")
-    execution = _object(raw["execution"], {"steps", "dt_s", "interval_s", "grace_period_s"}, "execution")
+    execution = _object(raw["execution"], {"steps", "dt_s", "interval_s", "grace_period_s"} | ({"dynamics"} if schema==DYNAMIC_LAUNCH_PROFILE_SCHEMA else set()), "execution")
     steps = _integer(execution["steps"], "execution.steps")
     dt, interval, grace = (_seconds(execution[key], f"execution.{key}") for key in ("dt_s", "interval_s", "grace_period_s"))
+    dynamics = DynamicsSettings.from_document(execution["dynamics"]) if schema==DYNAMIC_LAUNCH_PROFILE_SCHEMA else None
+    if dynamics is not None:
+        dynamics.substeps(dt)
     if not isfinite(steps * dt) or not isfinite(steps * interval):
         raise ValueError("execution duration must be finite")
     web = _object(raw["web"], {"host", "port", "websocket_port", "open_browser"}, "web")
@@ -269,7 +275,7 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         raise ValueError("resolved input/mapping identity differs from profile")
     model_selection = None
     coordination = {}
-    if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA):
+    if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         model_selection = _selection(raw["model"], "model")
         model = ROBOT_CATALOG.resolve_model(robot, model_selection)
         if mode != "simulation" or provider != "gamepad/v1":
@@ -300,14 +306,14 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
             bundle.provider(ENDPOINT_COMMAND_V1)
         route = command.route.identity
     scene_plan, task_selection, task_parameters = None, None, {}
-    if schema == SCENE_LAUNCH_PROFILE_SCHEMA:
+    if schema in (SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         env = _object(raw["environment"], {"plugin","parameters","robot_collision_profile"}, "environment")
         env_plugin = resolve_environment_plugin(_selection(env["plugin"],"environment.plugin"))
         scene_provider = env_plugin.scene_provider
         if not isinstance(scene_provider,ObjectSceneProvider):
             raise ValueError("Environment does not support explicit object scenes")
         manifest = scene_provider.resolve_parameters(env["parameters"])
-        scene_plan = ModelScenePlan(manifest,scene_provider,_string(env["robot_collision_profile"],"collision profile"))
+        scene_plan = ModelScenePlan(manifest,scene_provider,_string(env["robot_collision_profile"],"collision profile"),dynamics)
         task = _object(raw["task"], {"plugin","parameters"}, "task")
         task_selection = _selection(task["plugin"],"task.plugin")
         task_parameters = task["parameters"]

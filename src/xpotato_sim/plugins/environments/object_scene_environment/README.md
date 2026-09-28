@@ -1,6 +1,6 @@
 # Object Scene Environment
 
-`object_scene_environment/v1`は、固定box群をRobotが供給するbase sceneへ合成するEnvironment Plugin。
+`object_scene_environment/v1`は、固定/可動box群とworldを構成するEnvironment Plugin。旧fixed/v1は従来のbase sceneと互換維持する。
 固定discoveryは`plugin.py::ENVIRONMENT_PLUGIN`。importやpreset列挙ではmodel構築・I/Oを開始しない。
 
 ## 設定と責務
@@ -13,13 +13,16 @@ instance ID・定義参照・world poseを置く。presetはpackage-local名で�
 scene compositionは`runtime/scene/composition.py`へ委譲する。Robotが供給した名前付きcolliderに対し
 物体×手先のcontact pairを明示する。Robotのsite/joint名を推測せず、Taskの対象選択は所有しない。
 旧`contact_cube_environment/v1`のmanifest・freejoint・force条件は変更しない。
-共通のnative geometry読取りだけを旧contact evidenceと共有し、多物体を偽の旧manifestへ変換しない。
+共通のnative geometry/wrench読取りを旧contact evidenceと共有し、多物体を偽の旧manifestへ変換しない。
 
 ## 現在の制限
 
-box、均質質量、fixed、mujoco_world frameだけを実装する。dynamic、他frame、未知field、重複ID、
-未知definition/versionは拒否する。床やRobotを複製しない。固定box同士は正の隙間を要求し、native distance
+box、均質質量、mujoco_world frameだけを実装する。v1はfixed、v2はfixed/dynamicを扱う。可動物体にkinematic実行を指定する組合せ、他frame、未知field、重複ID、未知definition/versionは拒否する。床やRobotを複製しない。固定box同士は正の隙間を要求し、native distance
 の0を非貫通の証明にしない。床への支持接触とtoolの初期touchは食い込み許容値内なら許容する。
 
 詳細契約は`docs/contracts/object-scene-contact-diagnostic.md`、起動は`docs/operations/backend-viewer-startup.md`。
-診断数値は実物の材料特性・ばね定数・実機安全根拠ではない。力学反応は#582へ分離する。
+診断数値は実物の材料特性・ばね定数・実機安全根拠ではない。力学反応は#582の明示dynamic実行設定でのみ有効となる。
+
+## 明示world/v2
+
+world gravity・支持面・固定/可動boxを同じscene集合で構成する。可動初期速度はworldで宣言し、native freejoint速度へ一度変換する。数値積分設定はEnvironmentの物理値ではなくExecutionからtyped requestで受け取る。旧fixed/v1 presetは維持する。

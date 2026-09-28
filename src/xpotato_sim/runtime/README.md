@@ -70,3 +70,7 @@ runtime package rootは`RuntimeConfig`とRobot catalog resolver 5件だけをlaz
 固定物体の定義/instance配置、Robot collider binding、Environment composition、geometry-only観測の共通契約。
 単腕/双腕・物体数に依存しない。pure DTOはTaskから利用し、MuJoCo読み取りはmeasurementへ限定する。
 旧contact force/task manifestの代用品ではない。共通起動はLaunchProfile/v3とmodel publisherを使用する。
+
+## #582 world/dynamics
+
+scene/worldが重力・支持面、execution/physicsが数値条件、Robot providerがactuator投影、schemas/scene_stateが全scene座標配置を所有する。dynamic観測はnativeの同一stateを読み、別worldや別制御loopを作らない。

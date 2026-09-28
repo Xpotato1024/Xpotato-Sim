@@ -94,7 +94,12 @@ class FastArmAssemblyMotionProvider:
             geometry = None if self._scene_observer is None else self._scene_observer.observe(self._data,frame_index=frame_index)
             state = snapshot_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
             return ModelStateSample(self._snapshot(self._data,self._generation),state,
-                tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry)
+                tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry,
+                self._dynamics_observation(frame_index))
+
+    def _dynamics_observation(self, frame_index):
+        """kinematic経路はforceを作らない。"""
+        return None
 
     def _check_data(self, data) -> None:
         if not all(np.all(np.isfinite(a)) for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
@@ -120,6 +125,7 @@ class FastArmAssemblyMotionProvider:
             if key < 0:
                 raise ValueError("assembly home keyframe is unavailable")
             mujoco.mj_resetDataKeyframe(self.model, data, key)
+            self._initialize_data(data)
             mujoco.mj_forward(self.model, data)
             self._check_data(data)
             if self._scene_observer is not None:
@@ -131,12 +137,30 @@ class FastArmAssemblyMotionProvider:
         with self._lock:
             self._pending = None
 
-    def _arm_candidate(self, base, arm, command, dt_s):
+    def _initialize_data(self, data):
+        """旧kinematicのhome/controlは変更しない。実行方式固有の初期化hook。"""
+
+    def _planning_state(self, base):
+        """全armに同じ計画snapshotを渡す。"""
+        return base
+
+    def _integrate_candidate(self, base, candidates, dt_s):
+        """kinematic診断のqpos反映。dynamic積分とのdispatchは構築時だけ。"""
+        candidate_data=mujoco.MjData(self.model)
+        mujoco.mj_copyData(candidate_data,self.model,base)
+        for arm in self.addresses:
+            candidate_data.qpos[list(arm.qpos_addresses)]=candidates[arm.arm_id]
+        candidate_data.time=float(base.time)+dt_s
+        mujoco.mj_forward(self.model,candidate_data)
+        return candidate_data
+
+    def _arm_candidate(self, base, arm, command, dt_s, *, observed=None):
         velocity = np.asarray(command.velocity_m_s)
         if not np.isfinite(np.linalg.norm(velocity)):
             raise ValueError("velocity magnitude overflow")
         if command.control_frame == "tool":
-            velocity = np.asarray(base.site_xmat[arm.tip_site_id]).reshape(3, 3) @ velocity
+            reference = base if observed is None else observed
+            velocity = np.asarray(reference.site_xmat[arm.tip_site_id]).reshape(3, 3) @ velocity
         q = tuple(float(base.qpos[i]) for i in arm.qpos_addresses)
         solver = LocalEndpointMotionGenerator(
             endpoint_kinematics=_SnapshotKinematics(self.model, base, arm),
@@ -171,20 +195,16 @@ class FastArmAssemblyMotionProvider:
             base = mujoco.MjData(self.model)
             mujoco.mj_copyData(base, self.model, self._data)
             by_id = {c.endpoint_id: c for c in commands}
-            candidates = {arm.arm_id: self._arm_candidate(base, arm, by_id[arm.arm_id], dt_s)
+            planning = self._planning_state(base)
+            candidates = {arm.arm_id: self._arm_candidate(planning, arm, by_id[arm.arm_id], dt_s, observed=base)
                           for arm in self.addresses}
-            candidate_data = mujoco.MjData(self.model)
-            mujoco.mj_copyData(candidate_data, self.model, base)
-            for arm in self.addresses:
-                candidate_data.qpos[list(arm.qpos_addresses)] = candidates[arm.arm_id]
-            candidate_data.time = float(base.time) + dt_s
+            candidate_data = self._integrate_candidate(base, candidates, dt_s)
             if not np.isfinite(candidate_data.time) or candidate_data.time <= base.time:
                 raise ValueError("invalid simulation time advance")
-            mujoco.mj_forward(self.model, candidate_data)
             self._check_data(candidate_data)
             predicted = self._snapshot(candidate_data, self._generation + 1)
             joint = JointPositionCommand(timestamp_s=predicted.simulation_time_s,
-                                         joint_angles_rad=predicted.joint_positions_rad)
+                                         joint_angles_rad=tuple(v for arm in self.addresses for v in candidates[arm.arm_id]))
             prepared = PreparedCoordinatedStep(before, joint, predicted, object())
             self._pending = (prepared, candidate_data)
             return prepared

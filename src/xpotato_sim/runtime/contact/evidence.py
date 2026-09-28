@@ -9,6 +9,7 @@ and task outcome logic are intentionally outside this module.
 from __future__ import annotations
 
 from xpotato_sim.mujoco_backend.contact_geometry import read_contact_geometry
+from xpotato_sim.mujoco_backend.contact_wrench import read_contact_wrench
 
 import json
 import math
@@ -1344,20 +1345,11 @@ class ContactEvidenceExtractor:
             try:
                 import numpy as np
 
-                raw_force = np.zeros(6, dtype=np.float64)
-                result = mujoco.mj_contactForce(
-                    self.model,
-                    self.data,
-                    contact_index,
-                    raw_force,
-                )
-                if result is not None:
-                    raw_force = result
-                raw = _vector6("mj_contactForce result", raw_force)
-                force_local = raw[:3]
-                torque_local = raw[3:]
-                force_world = _contact_frame_to_world(frame, force_local)
-                torque_world = _contact_frame_to_world(frame, torque_local)
+                wrench = read_contact_wrench(self.model,self.data,contact_index,frame)
+                force_local = wrench.local[:3]
+                torque_local = wrench.local[3:]
+                force_world = wrench.force_on_geom2_world_n
+                torque_world = wrench.torque_on_geom2_world_nm
                 if not all(
                     math.isfinite(value)
                     for value in (*force_world, *torque_world)

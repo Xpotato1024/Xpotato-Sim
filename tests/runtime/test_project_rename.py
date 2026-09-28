@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import xpotato_sim
 from xpotato_sim.runtime.composition.launch_profile import (
-    LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
+    LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
 )
 from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 
@@ -27,16 +27,20 @@ def test_distribution_and_console_scripts_use_new_namespace():
 @pytest.mark.parametrize("path", sorted((ROOT / "profiles").glob("*.json")), ids=lambda p: p.stem)
 def test_shipped_profile_schema_and_legacy_configuration_digest(path):
     raw = json.loads(path.read_text(encoding="utf-8"))
-    assert raw["schema_version"] in (LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA)
+    assert raw["schema_version"] in (LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA)
     current = decode_launch_profile(json.dumps(raw).encode(), source_path=path)
     canonical = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     assert current.document_json == canonical
     assert current.configuration_sha256 == sha256(canonical.encode()).hexdigest()
     assert current.to_dict()["resolved"]["physical_output"] == "disabled"
-    if raw["schema_version"] in (MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA):
+    if raw["schema_version"] in (MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         # v2/v3を旧schemaへ単純置換し、モデル/scene選択を黙って落とす移行は拒否する。
         assert current.model is not None
-        old_schemas = (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA) + ((MODEL_LAUNCH_PROFILE_SCHEMA,) if raw["schema_version"] == SCENE_LAUNCH_PROFILE_SCHEMA else ())
+        old_schemas = (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA)
+        if raw["schema_version"] in (SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
+            old_schemas += (MODEL_LAUNCH_PROFILE_SCHEMA,)
+        if raw["schema_version"] == DYNAMIC_LAUNCH_PROFILE_SCHEMA:
+            old_schemas += (SCENE_LAUNCH_PROFILE_SCHEMA,)
         for old_schema in old_schemas:
             old = {**raw, "schema_version": old_schema}
             with pytest.raises(ValueError, match="unknown fields"):

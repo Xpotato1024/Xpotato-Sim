@@ -14,9 +14,8 @@ def add_tool_colliders(built: FastArmAssemblyModel, profile: str):
     if profile != TOOL_COLLISION_PROFILE:
         raise ValueError("unsupported FastArm collision profile")
     # 共通base sceneはarm.xmlをincludeする。資源の参照関係を維持し、Robot資源だけを更新する。
-    if "arm.xml" not in built.assets:
-        raise ValueError("registered FastArm scene requires arm.xml include")
-    tree=ET.fromstring(built.assets["arm.xml"])
+    included = "arm.xml" in built.assets
+    tree=ET.fromstring(built.assets["arm.xml"] if included else built.xml)
     bindings=[]
     for arm in built.assembly.instances:
         matches=[(body,site) for body in tree.iter("body") for site in body.findall("site") if site.get("name")==arm.name("tip")]
@@ -31,5 +30,6 @@ def add_tool_colliders(built: FastArmAssemblyModel, profile: str):
             "rgba":"0.05 0.75 0.85 0.5","friction":"0.8 0 0"})
         bindings.append(ToolColliderBinding(arm.arm_id,name,(.8,0.,0.)))
     xml=ET.tostring(tree,encoding="utf-8")
-    assets=MappingProxyType({**built.assets,"arm.xml":xml})
-    return replace(built,assets=assets,model_sha256=fast_arm_model_digest(built.xml,assets)),tuple(bindings)
+    assets=MappingProxyType({**built.assets,"arm.xml":xml}) if included else built.assets
+    root_xml=built.xml if included else xml
+    return replace(built,xml=root_xml,assets=assets,model_sha256=fast_arm_model_digest(root_xml,assets)),tuple(bindings)

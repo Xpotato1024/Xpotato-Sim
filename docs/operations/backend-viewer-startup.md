@@ -184,3 +184,25 @@ cubeは一辺100 mm、fixed。双腕ではworld (0.36,+/-0.56,0.46) mへ二個�
 Ctrl+Cで終了し、再試行は新しい起動sessionで行う。page reload不要retryは#565に残す。
 
 力は「評価対象外」、fixed cubeは動かず、手先は食い込める。押し返し・非貫通・ばね力・全身衝突・実機安全性の試験ではない。
+
+## 落下・固定接触・押し動かしの診断（#582）
+
+```powershell
+uv run xpotato-sim app --profile dynamic-cube-drop --check
+uv run xpotato-sim app --profile dynamic-cube-drop
+uv run xpotato-sim app --profile dynamic-fixed-contact
+uv run xpotato-sim app --profile dynamic-cube-push
+```
+
+同時起動せず、一つを選ぶ。中立Gamepadを取得してrunningに入るまで、simulation全体は初期状態で待機する。
+落下profileでは中心高さ0.50 mの100 mm/0.1 kg cubeが重力で落ち、z=0の床に接触する。
+固定接触はworld固定cube（0.36,0.56,0.46 m）を左手先で押す。押し動かしは同じ高さの可動cubeとz=0.41 mの支持面を使う。
+支持面は無限planeであり、有限テーブルの端・転落を実装した条件ではない。各操作は既存trigger上下/TPS設定を使う。
+
+右の動力学欄にobject位置/速度、接触ごとのworld force、指令targetと実関節角・actuator torqueを表示する。
+床に四点で支持されたcubeでは、各接触力と合計力を区別する。幾何法線の矢印長は力の大きさではない。
+接触の有限食い込み、gravityによるservo追従誤差を隠さない。forceはnative数値解であり実機計測値ではない。
+
+切断・不正入力・Task終了時は全worldの最終stateを凍結する。再開には新session/epochと中立を必要とし、
+既定60 sは観測窓終了であって搬送や力目標の成功判定ではない。物体は実機安全gateやhardware出力へ接続しない。
+設定確認は`uv run xpotato-sim profile dynamic-cube-drop`。geometry-only操作は従来contact-debug-*を使う。
