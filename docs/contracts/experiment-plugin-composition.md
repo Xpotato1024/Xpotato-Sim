@@ -139,8 +139,8 @@ unknown logical identityとしてfailする。
 | generic contract | `bounded_discovery.py`、axis discovery、`input_sources/registration.py`、`runtime/experiment/`、schemas |
 | concrete Input Source owner | `analog_fixture/`、`noop/`、`programmed_target/`、`replay/`、`selfrionette/`、`viewer/` |
 | concrete Mapping owner | `analog_fixture_mapping/`、`loadcell_endpoint_mapping/`、`replay_mapping/`、`viewer_keyboard_gamepad_mapping/` |
-| concrete Environment owner | `free_space_environment/` |
-| concrete Task owner | `endpoint_reach_task/` |
+| concrete Environment owner | `free_space_environment/`、`contact_cube_environment/`、`object_scene_environment/` |
+| concrete Task owner | `endpoint_reach_task/`、`contact_press_hold_task/`、`contact_observation_task/` |
 | concrete Evaluation owner | `success_within_timeout/`、`off_axis_drift/`、`completion_time/`、`final_endpoint_error/` |
 | axis-local shared implementation | Mappingのalgorithm primitive `_continuous_endpoint_velocity.py`とdeclaration / route factory `_command_routes.py`。Input Sourceはshared owner不要 |
 | canonical public surface | concrete packageの`__all__`、catalog resolver、fixed `plugin.py` export |
@@ -625,3 +625,12 @@ legacy replay/absolute-targetは従来の明示builder契約を維持する。
 optionalな`ControlMappingPlugin.session_strategy_factory`はruntime pipelineごとのstrategyを生成する。
 省略した既存Mappingはstatelessな共有strategyを維持する。実行中の可変modeをcatalogや固定parameterへ保存しない。
 利用例とresetの責任は[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。
+
+
+## 物体群の接触診断Plugin（#585）
+
+Environmentの`object_scene_environment/v1`とTaskの`contact_observation_task/v1`をfixed discoveryへ追加する。
+新しいplugin軸や外部registryは作らない。Environmentはobject定義/配置とnative scene composition、Taskは対象IDと
+有限観測期間を所有する。generic runtimeへconcrete IDやimport fallbackを追加せず、typed Provider/Task contextを照合する。
+sceneとmodel artifactは一体、観測はMuJoCo、Viewerは同一適用frameのread-only表示。
+旧cube force/press-hold plugin群は別contractのまま維持する。

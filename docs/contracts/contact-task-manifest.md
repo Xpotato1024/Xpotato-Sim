@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-08-28
+last_verified: 2026-09-28
 canonical_for:
   - R7-H contact task / object manifest
   - contact scene contract
@@ -171,3 +171,10 @@ measurement、task outcome、experiment evidence、hardware safetyを意味し�
 Task ownerが正規化した二vectorのdotは、浮動小数点丸めで1を数ulp超える場合がある。
 producerは[-1,1]から8 ulp以内の端点誤差だけをclampする。8 ulpを超える値は拒否し、
 outcome decoderの[-1,1] validationは緩めない。raw contact force/normalの内容は変更しない。
+
+## 幾何のみの複数物体診断との境界
+
+#585の[固定物体scene診断](object-scene-contact-diagnostic.md)は別schemaで、sceneの物体定義・配置を分離する。
+本v1のsingle cube/freejoint、force contract、press/hold Task、canonical digestを変更しない。
+native point/frame/distanceの共通読取りは`mujoco_backend/contact_geometry.py`へ委譲するが、force抽出とその有効性判定は
+従来の本ownerに残す。新しいkinematic geometryへ偽manifestやforce=0を付けて本contractのmeasured扱いにしない。

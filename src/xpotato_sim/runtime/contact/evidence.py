@@ -8,6 +8,8 @@ and task outcome logic are intentionally outside this module.
 
 from __future__ import annotations
 
+from xpotato_sim.mujoco_backend.contact_geometry import read_contact_geometry
+
 import json
 import math
 import re
@@ -1306,13 +1308,12 @@ class ContactEvidenceExtractor:
             for name in (geom1_name, geom2_name, body1_name, body2_name)
         ):
             raise ContactEvidenceError("contact geom/body name is unavailable")
-        point = _vector3("contact.pos", contact.pos)
-        distance = _finite("contact.dist", contact.dist)
-        penetration = max(0.0, -distance)
-        frame = _vector("contact.frame", contact.frame, length=9)
-        normal = _vector3("contact.frame.normal", frame[:3])
-        if abs(_magnitude(normal) - 1.0) > 1e-9:
-            raise ContactEvidenceError("contact normal is not unit length")
+        try:
+            geometry = read_contact_geometry(contact)
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise ContactEvidenceError("invalid contact geometry") from exc
+        point, distance, penetration = geometry.point_world_m, geometry.distance_m, geometry.penetration_m
+        frame, normal = geometry.frame_world, geometry.normal_world
         classification = self._classify(
             geom1_id,
             geom2_id,

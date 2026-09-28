@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-28
 canonical_for:
   - runtime composition root
 related:
@@ -388,3 +388,14 @@ outputを結ぶ。`runtime/contact/robot_view.py`は単一sceneのRobot joint vi
 `execution/coordinated.py` は候補の一括反映と全体latch、`output/coordinated.py` は全側の既存prepare/dispatchを監督する。
 `schemas/coordinated.py` は名前付き複数手先と時計を分離する。旧単腕v1のrouteを暗黙に双腕へ拡張しない。
 `runners/coordinated_gamepad.py` は有限な保存入力の診断入口であり、participant Task/metricの第二SoTではない。
+
+## 固定物体sceneの共通model composition（#585）
+
+共通`LaunchProfile/v3`が既存Environment/Task catalogを解決し、`ModelScenePlan`を登録済みRobot model factoryへ渡す。
+Robotは診断colliderの名前と形状を所有し、Environmentはworldに置く物体・接触対を所有する。
+同じ構築済みartifactからprovider/Viewerを作り、`ModelStateSample`でrobot snapshot、全qpos、名前address、幾何観測を
+同じlock内から取得する。物体数や腕数による専用runnerを設けない。
+`runtime/scene/`はtyped manifest、binding、composition、純粋観測DTO、native measurement、Task contextを持つ。
+Taskはpure DTOを入力とし、MuJoCoやbackend measurementをimportしない。
+旧R7-H force/contact manifestは互換維持し、共通geometry抽出だけをbackend primitiveへ移す。
+詳細は[固定物体scene契約](../contracts/object-scene-contact-diagnostic.md)。

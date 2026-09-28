@@ -65,13 +65,32 @@ def test_generic_plugin_axes_do_not_embed_fast_arm_names_or_solver_types() -> No
         "elbow_joint",
         "FastArm",
         "tip\"",
-        "geom",
     )
     for directory in ("environments", "mappings", "tasks", "evaluations"):
         for path in (SRC / "plugins" / directory).rglob("*.py"):
             source = path.read_text(encoding="utf-8")
             for marker in forbidden:
                 assert marker not in source, f"{path}: {marker}"
+            assert not _uses_backend_geom(source), path
+
+
+def _uses_backend_geom(source: str) -> bool:
+    """typed geometry観測を許可し、backend geom配列・IDへの直接依存を拒否する。"""
+    tree = ast.parse(source)
+    forbidden = {"geom", "geom1", "geom2", "geom_id", "geom_name", "mj_geomDistance", "mj_contactForce"}
+    for node in ast.walk(tree):
+        name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+        if name is not None and (name in forbidden or name.startswith("geom_")):
+            return True
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in forbidden:
+            return True
+    return False
+
+
+def test_geom_guard_distinguishes_dto_from_native_model_access():
+    assert not _uses_backend_geom("observation.geometry.contacts")
+    for source in ("data.geom_xpos", "contact.geom1", "model.geom('name')", "record['geom']", "mj_contactForce(model)"):
+        assert _uses_backend_geom(source)
 
 
 def test_runtime_execution_edges_use_typed_providers_not_broad_plugins() -> None:

@@ -1,0 +1,61 @@
+/** backendの接触点・法線だけを描く。cube/colliderの複製やphysics計算を行わない。 */
+import { ArrowHelper, Group, Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from "three";
+import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
+
+export class SceneContactOverlay {
+  readonly group = new Group();
+  private geometry = new SphereGeometry(0.004, 10, 8);
+  private materials = {
+    near: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0x38bdf8}),
+    touching: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0xfacc15}),
+    penetrating: new MeshBasicMaterial({depthTest:false,depthWrite:false,color:0xf97316}),
+  };
+  private pool: { marker: Mesh; arrow: ArrowHelper }[] = [];
+  private disposed = false;
+
+  constructor() { this.group.name = "backend scene-contact geometry"; }
+
+  update(value: SceneContactPresentation): void {
+    if (this.disposed) return;
+    const contacts = value.status === "available" ? value.contacts : [];
+    // validatorの上限と一致。高頻度frameごとにGPU資源を作り直さない。
+    if (contacts.length > 256) throw new Error("scene contact overlay limit");
+    while (this.pool.length < contacts.length) {
+      const marker = new Mesh(this.geometry, this.materials.near);
+      const arrow = new ArrowHelper(new Vector3(1,0,0),new Vector3(),0.06,0xfacc15,0.015,0.008);
+      // 食い込み中も確認できる診断overlay。形状そのものの透明度や衝突は変更しない。
+      for (const object of [marker,arrow]) object.traverse(item => {
+        item.renderOrder = 1000;
+        const material = (item as typeof item & {material?: {depthTest:boolean;depthWrite:boolean}}).material;
+        if (material) {material.depthTest=false;material.depthWrite=false;}
+      });
+      this.group.add(marker,arrow);
+      this.pool.push({marker,arrow});
+    }
+    for (let i=0;i<this.pool.length;i++) {
+      const {marker,arrow} = this.pool[i], contact = contacts[i];
+      marker.visible = arrow.visible = contact !== undefined;
+      if (contact === undefined) continue;
+      marker.name = `contact ${contact.endpointId}/${contact.objectId}`;
+      marker.position.set(...contact.point);
+      marker.material = this.materials[contact.relation];
+      arrow.position.set(...contact.point);
+      arrow.setDirection(new Vector3(...contact.normal));
+    }
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    const disposed = new Set<object>();
+    this.group.traverse(object => {
+      const render = object as typeof object & {geometry?: {dispose():void}; material?: {dispose():void}};
+      for (const resource of [render.geometry,render.material]) {
+        if (resource && !disposed.has(resource)) { resource.dispose(); disposed.add(resource); }
+      }
+    });
+    if (!disposed.has(this.geometry)) this.geometry.dispose();
+    for (const material of Object.values(this.materials)) if (!disposed.has(material)) material.dispose();
+    this.group.clear(); this.pool = [];
+  }
+}

@@ -12,6 +12,7 @@ import {
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
 import { parseGamepadPlanePresentation, type GamepadPlanePresentation } from "../app/gamepadPlanePresentation.js";
 import { parseGamepadTriggerPresentation, type GamepadTriggerPresentation } from "../app/gamepadTriggerPresentation.js";
+import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
 import type { JointDisplayLayout } from "./jointPresentation.js";
 import { formatQpos } from "./mujocoQposSync.js";
 import type { ViewerFrameTimingSnapshot } from "./viewerFrameTiming.js";
@@ -95,6 +96,7 @@ export interface ProductViewerState {
   jointLayout: JointDisplayLayout | null;
   currentQposText: string;
   endpointEvaluation: TransportEndpointEvaluationPayload | null;
+  sceneContactPresentation: SceneContactPresentation;
   contactTaskPresentation: ContactTaskPresentationV1;
   contactTaskInputSource: ContactTaskInputSource;
   inputOverlay: ProductViewerInputOverlayState | null;
@@ -151,6 +153,7 @@ export function createInitialProductViewerState(profile?: ViewerRobotProfile): P
     jointLayout: null,
     currentQposText: "[]",
     endpointEvaluation: null,
+    sceneContactPresentation: {status: "absent", reason: "幾何接触診断は未選択"},
     contactTaskPresentation: unavailableContactTaskPresentation("No contact task log or metadata loaded."),
     contactTaskInputSource: "none",
     inputOverlay: null,

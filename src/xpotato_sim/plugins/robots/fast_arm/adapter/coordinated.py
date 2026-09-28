@@ -18,6 +18,9 @@ from xpotato_sim.runtime.control.viewer_motion_policy import (
     DEFAULT_VIEWER_LOCAL_ENDPOINT_MAX_DELTA_PER_TICK_M,
     DEFAULT_VIEWER_LOCAL_ENDPOINT_MAX_QPOS_DELTA_NORM_RAD,
 )
+from xpotato_sim.runtime.scene.contracts import ComposedObjectScene
+from xpotato_sim.runtime.scene.measurement import SceneGeometryObserver
+from xpotato_sim.runtime.composition.robot_model import ModelStateSample
 from .feasibility import parse_fast_arm_joint_limit_config, default_fast_arm_joint_limits_path
 
 
@@ -40,7 +43,7 @@ class FastArmAssemblyMotionProvider:
     """全腕を準備して一回で公開する。元のactuator/限界を改変せず、mj_stepは呼ばない。"""
     execution_semantics = "coordinated_joint_position_kinematic/v1"
 
-    def __init__(self, assembly: FastArmAssembly, *, built: FastArmAssemblyModel | None = None) -> None:
+    def __init__(self, assembly: FastArmAssembly, *, built: FastArmAssemblyModel | None = None, object_scene: ComposedObjectScene | None = None) -> None:
         # 保存assembly診断はbareモデルを維持し、登録モデルは共通sceneを明示注入する。
         if built is not None and (type(built) is not FastArmAssemblyModel or built.assembly != assembly):
             raise ValueError("provider scene/assembly mismatch")
@@ -54,7 +57,13 @@ class FastArmAssemblyMotionProvider:
         self._generation = 0
         self._pending: tuple[PreparedCoordinatedStep, object] | None = None
         self._lock = RLock()
+        self._scene_observer = None if object_scene is None else SceneGeometryObserver(self.model, object_scene, self.built.model_sha256)
         self.reset()
+
+    @property
+    def scene_manifest(self):
+        """固定配置identityを公開し、Environmentが別モデルをresetしないようにする。"""
+        return None if self._scene_observer is None else self._scene_observer.scene.manifest
 
     def _snapshot(self, data, generation) -> CoordinatedSnapshot:
         return CoordinatedSnapshot(self.built.model_sha256, generation, float(data.time),
@@ -75,13 +84,17 @@ class FastArmAssemblyMotionProvider:
             raise ValueError("frame_index must be a non-negative integer")
         if not isinstance(metadata, Mapping):
             raise TypeError("transport metadata must be a mapping")
+        return self.sample(frame_index=frame_index,metadata=metadata).state
+
+    def sample(self, *, frame_index: int, metadata: Mapping[str, object]) -> ModelStateSample:
+        """Robot/接触/Viewerを同じlocked dataで観測し、別world・時刻の混入を防ぐ。"""
+        if type(frame_index) is not int or frame_index < 0 or not isinstance(metadata, Mapping):
+            raise ValueError("invalid sample frame/metadata")
         with self._lock:
-            return snapshot_mujoco_state(
-                self.model,
-                self._data,
-                frame_index=frame_index,
-                metadata=metadata,
-            )
+            geometry = None if self._scene_observer is None else self._scene_observer.observe(self._data,frame_index=frame_index)
+            state = snapshot_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
+            return ModelStateSample(self._snapshot(self._data,self._generation),state,
+                tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry)
 
     def _check_data(self, data) -> None:
         if not all(np.all(np.isfinite(a)) for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
@@ -109,6 +122,8 @@ class FastArmAssemblyMotionProvider:
             mujoco.mj_resetDataKeyframe(self.model, data, key)
             mujoco.mj_forward(self.model, data)
             self._check_data(data)
+            if self._scene_observer is not None:
+                self._scene_observer.validate_initial(data)
             self._generation += 1
             self._data = data
 

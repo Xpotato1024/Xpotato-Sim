@@ -30,3 +30,11 @@ export function viewerVisualLegend(profile: ViewerRobotProfile): readonly Viewer
     ...profile.axisVisualStyles,
   ]);
 }
+
+
+/** meshの既存Robot配色を維持し、primitiveの外観は生成MJCFのRGBAを正とする。 */
+export function resolveGeomDisplayColor(style: BodyVisualStyle | null, rgba: readonly number[], mesh: boolean): string | [number,number,number] {
+  if (rgba.length !== 4 || !rgba.every(v => Number.isFinite(v) && v >= 0 && v <= 1)) throw new Error("invalid native geom RGBA");
+  if (mesh && style !== null) return style.color;
+  return [rgba[0],rgba[1],rgba[2]];
+}

@@ -40,6 +40,7 @@ completion audit、implementation report、inventory、handoff、historical reco
 | Robot Plugin / Profile / Runtime Plugin / Viewer declaration | `docs/contracts/robot-profile-runtime-viewer-profile.md` | bounded discovery、robot selection、resource ownership、backend/viewer compatibility |
 | experiment plugin composition | `docs/contracts/experiment-plugin-composition.md` | Robot、Environment、Mapping、Task、Evaluationのversioned compositionとreadiness |
 | evaluation manifest / readiness freeze | `docs/contracts/evaluation-manifest-readiness.md` | pre-run manifestのcanonical bytes、world/tool pair invariant、requested/resolved identity、software-only readiness |
+| 固定物体scene・幾何接触診断 | `docs/contracts/object-scene-contact-diagnostic.md` | 物体定義/配置、手先collision、同一frame観測と力未評価の境界 |
 | R7-H contact task / object manifest | `docs/contracts/contact-task-manifest.md` | cube physical condition、reset、target、MuJoCo setting、semantic role、canonical serialization |
 | virtual reaction-force signal | `docs/contracts/virtual-reaction-force.md` | raw contact evidenceから導出するsoftware-only signal、frame、filter、lifecycle、manifest identity |
 | contact-task trial log / viewer projection | `docs/contracts/contact-task-log-v1.md` | raw contact、derived force、Task outcomeを分離するversioned JSONLとpayload/viewer境界 |

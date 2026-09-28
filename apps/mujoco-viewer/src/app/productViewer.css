@@ -209,3 +209,6 @@ button[aria-pressed="true"] { background: #e4eee8; color: var(--accent); border-
 .gamepad-trigger-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 6px 0; overflow-wrap: anywhere; }
 .gamepad-trigger-row span { font-size: 0.82rem; text-align: right; }
 .gamepad-trigger-row small { grid-column: 1 / -1; opacity: 0.72; }
+
+.scene-contact-objects, .scene-contact-records { display: grid; gap: 0.5rem; max-height: 13rem; overflow: auto; font-size: 0.8rem; }
+.scene-contact-objects > div, .scene-contact-records > div { padding: 0.4rem; border: 1px solid #334155; border-radius: 0.35rem; }

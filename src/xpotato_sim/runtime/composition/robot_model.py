@@ -10,6 +10,9 @@ from xpotato_sim.runtime.experiment.contracts import VersionedIdentity
 from xpotato_sim.runtime.execution.coordinated import CoordinatedMotionProvider
 from xpotato_sim.runtime.composition.viewer_robot_declaration import ViewerRobotDeclaration
 from xpotato_sim.schemas import MuJoCoState
+from xpotato_sim.schemas.coordinated import CoordinatedSnapshot
+from xpotato_sim.runtime.scene.contracts import ModelScenePlan
+from xpotato_sim.runtime.scene.observation import SceneGeometryObservation
 
 
 class ModelViewerResources(Protocol):
@@ -19,7 +22,17 @@ class ModelViewerResources(Protocol):
     def write_public_tree(self, root: Path) -> tuple[Path, ...]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ModelStateSample:
+    """一つのlocked dataから取得したRobot view・全scene state・接触観測。"""
+    robot: CoordinatedSnapshot
+    state: MuJoCoState
+    robot_qpos_addresses: tuple[int, ...]
+    geometry: SceneGeometryObservation | None = None
+
+
 class ModelMotionProvider(CoordinatedMotionProvider, Protocol):
+    def sample(self, *, frame_index: int, metadata: Mapping[str, object]) -> ModelStateSample: ...
     def transport_state(self, *, frame_index: int, metadata: Mapping[str, object]) -> MuJoCoState: ...
 
 
@@ -35,7 +48,7 @@ class RobotModelRegistration:
     identity: VersionedIdentity
     endpoint_ids: tuple[str, ...]
     joint_names: tuple[str, ...]
-    build_instance: Callable[[], RobotModelInstance]
+    build_instance: Callable[..., RobotModelInstance]
     configuration_json: str = "{}"
 
     @property
@@ -56,8 +69,11 @@ class RobotModelRegistration:
         if not callable(self.build_instance):
             raise TypeError("model factory must be callable")
 
-    def build(self) -> RobotModelInstance:
-        value = self.build_instance()
+    def build(self, scene_plan: ModelScenePlan | None = None) -> RobotModelInstance:
+        """同じfactoryで追加Environmentを構成。旧no-scene呼出の契約は保持する。"""
+        if scene_plan is not None and type(scene_plan) is not ModelScenePlan:
+            raise TypeError("typed ModelScenePlan required")
+        value = self.build_instance() if scene_plan is None else self.build_instance(scene_plan=scene_plan)
         if type(value) is not RobotModelInstance:
             raise TypeError("model factory returned an invalid instance")
         snapshot = value.provider.snapshot()
@@ -67,4 +83,9 @@ class RobotModelRegistration:
             raise ValueError("model viewer/provider joint mismatch")
         if value.viewer.metadata.get("model_sha256") != snapshot.model_sha256:
             raise ValueError("model viewer/provider artifact digest mismatch")
+        if scene_plan is not None:
+            sample = value.provider.sample(frame_index=0, metadata={})
+            if (sample.geometry is None or sample.geometry.scene_digest != scene_plan.manifest.digest
+                    or sample.geometry.model_sha256 != snapshot.model_sha256):
+                raise ValueError("model factory ignored or changed selected scene")
         return value

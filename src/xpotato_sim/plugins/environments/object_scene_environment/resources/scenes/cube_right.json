@@ -1,0 +1,47 @@
+{
+  "schema_version": "object-scene-preset/v1",
+  "scene_id": "cube_right",
+  "definition_resources": [
+    "test_cube_100mm"
+  ],
+  "objects": [
+    {
+      "instance_id": "cube_right",
+      "definition": {
+        "name": "test_cube_100mm",
+        "version": 1
+      },
+      "motion_type": "fixed",
+      "pose": {
+        "frame": "mujoco_world",
+        "position_m": [
+          0.36,
+          -0.56,
+          0.46
+        ],
+        "orientation_wxyz": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "contact": {
+    "margin_m": 0.003,
+    "condim": 3,
+    "solref": [
+      0.02,
+      1.0
+    ],
+    "solimp": [
+      0.9,
+      0.95,
+      0.001,
+      0.5,
+      2.0
+    ],
+    "initial_penetration_tolerance_m": 1e-06
+  }
+}
