@@ -165,3 +165,39 @@ common publisherは`ModelStateSample`で同一lockのrobot snapshot・全state�
 Task終端後はqpos/simulation timeを凍結し、表示frameだけを進める。terminal eventとpresentation frameを分離する。
 旧のstate.qpos==全Robot qposという仮定はaddress照合に変更するが、fixed物体が自由度を増やさないことは検査する。
 これはkinematic geometry診断であり、dynamic freejoint/servo/反力は#582の後続。詳細は[固定物体scene契約](object-scene-contact-diagnostic.md)。
+
+## actuator servoの動力学実行（#582）
+
+`coordinated_actuator_servo_dynamic/v1`は同じnamed-endpoint runtime、Source/Mapping、prepare/commit ticketを使う。
+構築時に実行方式を選び、片腕/双腕ごとに別loopを持たない。旧kinematic semanticsの意味・更新値は維持する。
+
+Robot側dynamic providerは、元のposition-servo actuator形式/gear/ctrlrangeを検証し、runtime reset時のctrl targetを
+home qposへ合わせる。原本XML/STL、joint ref、質量/慣性、gain、force limitは変更しない。
+中立入力でmeasured qposへtargetを戻し続けると重力で沈下するため、targetは前回ctrlから保持/更新する。
+IK seedはtarget状態、tool-frame方向のworld変換は同じpre-stepの実測姿勢を使用し、commanded方向へ読み替えない。
+
+全armのcandidate targetを同じpre-stepから算出後、未公開の一つのMjDataで全ctrlを設定して`mj_step`を行う。
+control_dt/physics_dtは1〜1000の整数比に限定し、余りを切り捨てない。substepは設定targetを保持する。
+各substepでfinite値、solver warning、関節限界・明示した速度/追従誤差budgetを確認し、失敗候補は公開しない。
+最後の`mj_forward`は積分後qposの派生pose/contactを同期する処理で、追加の時間積分ではない。
+予測stateとmeasured公開stateは同じcandidateからcommitされる一方、command targetと実際のjoint angleは別値である。
+
+数値設定はphysics_dt_s、integrator（implicitfast/Euler）、Newton solver、iterations、toleranceを明示する。
+coneはこの実行versionではellipticで固定し、残るengine条件は固定されたMuJoCo versionとfinal modelに従う。
+速度/追従誤差budgetはsoftware診断値であって実機安全包絡ではない。既定profileではcontrol=1/60 s、physics=1/600 s。
+
+waiting_neutral/stop/faultではRobotだけでなく全worldを凍結する。非zero qvelをゼロと捏造せず最終snapshotのまま残す。
+これはsimulation pauseであり、実機が同様に停止するという主張ではない。restartは既存の新epoch/中立条件を使用する。
+全scene resetは物体の初期pose/速度、Robot状態・ctrl、時計・solver cacheを戻す。GUIの無reload再試行は#565で別途扱う。
+
+
+## 制御周期の作業域再利用
+
+providerはモデル構築時にpre-step、計画用、候補world、各腕FK用のprivate MjDataを確保する。
+prepareごとに現在のlive dataから再読込みし、前のframe・腕・失敗試行の状態を持ち越さない。
+commitの検証を全て通過した後だけlive/candidateの所有権を交換し、以後のprepareでは旧liveを作業域として使う。
+コピーされたticket、消費済みticket、reset前のticketの拒否は維持する。
+
+計画用の手先位置取得はnative mj_kinematicsに限定する。有限差分epsilon、DLS、gain、限界、
+physics/control dt、全substepの異常検査は変えない。実積分と観測整合用のmj_forwardは従来どおり実施する。
+これは数値精度・制御頻度を落とす高速化ではなく、不要な確保・計画FKでの接触solver実行を除くもの。

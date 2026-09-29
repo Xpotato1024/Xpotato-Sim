@@ -10,7 +10,7 @@ import xpotato_sim.runtime.safety.collision_policy as collision_policy
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
-    "scene": {"composition", "contracts", "objects", "observation", "measurement", "task"},
+    "scene": {"composition", "contracts", "objects", "observation", "measurement", "task", "world", "world_composition", "dynamics_observation"},
     "composition": {
         "fast_arm_coordinated",
         "robot_model",
@@ -59,6 +59,7 @@ EXPECTED_MODULES = {
         "r7_g_free_space",
     },
     "execution": {
+        "physics",
         "coordinated",
         "command_routes",
         "input_step_loop",

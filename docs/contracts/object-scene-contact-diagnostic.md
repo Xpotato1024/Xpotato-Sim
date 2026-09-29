@@ -104,3 +104,44 @@ terminal Taskのevent frameは保持し、凍結後のpresentation frameはcurre
 同一presetのresetはRobot state、simulation clock、contact、Task初期stateを戻す。Environment resetは生きた
 scene ownerだけを受理する。CLI再起動は新epoch/中立でやり直し、page reload不要GUI retryは#565へ残す。
 active中のspawn/設定変更、dynamic物体、全身衝突、実機/serial/OSC、参加者実験は追加しない。
+
+## 明示worldと可動物体（#582 / object-scene/v2）
+
+旧v1は上記の固定幾何診断を保持する。v2は同じObjectDefinitionとinstance集合へ、Environment所有の`world`を追加する。
+`world.frame=mujoco_world`、`gravity_m_s2`、`support_planes[]`を必須とし、空の支持面集合を床なしと解釈する。
+支持面はID、world位置/quaternion、摩擦、RGBAを持つ無限planeで、描画用sizeを有限な机の境界とはみなさない。
+新worldはRobot bare assemblyへ直接合成し、Robotの旧sceneから床を削って差し戻す経路を作らない。
+旧v1/v2/v3 launchの静的scene resourceは過去の条件・digestを維持するためだけに残す。
+
+`motion_type=dynamic`では名前付きfreejointを追加し、`initial_velocity`のworld並進速度m/sとworld角速度rad/sを明示する。
+fixedでは自由度を追加せず、非zero初期速度を拒否する。同じ質量/慣性/形状の定義をどちらにも使う。
+MuJoCo freejointの並進はworld、回転速度はbody frameのため、初期角速度は構築時に一回だけ変換する。
+`align=false`を指定して、物体原点と重心/慣性frameの暗黙変更を避ける。現在の物体は中心重心の均質boxのみ。
+
+v2の物体と支持面はnative collision maskで接触し、Robot toolとの明示pairも同じworldに存在する。
+物体同士の初期配置は保守的に正の隙間を要求する。床への支持接触は許可し、初期penetration tolerance超過を拒否する。
+全身/自己干渉を検証した意味ではない。数値接触は有限の食い込みを持ち、厳密な非貫通や実機安全を保証しない。
+
+## 数値条件・力の観測との境界
+
+worldはgravity/支持面を所有し、数値積分のtimestep・integrator・solver・反復数・収束toleranceはExecutionの
+`DynamicsSettings`が所有する。両方を同じ最終MJCFへ構成し、scene/model/settings digestを別々に記録する。
+複数のglobal optionを順番依存で上書きしない。dynamic実行はworld/v2を要求する一方、fixed物体だけの同じworldはkinematic診断でも再利用できる。可動物体をkinematicへ黙って固定する選択は拒否する。
+
+幾何観測v2は`force_status=separate_dynamics_evidence`とし、力をgeometry欄の0 Nへ捏造しない。
+`scene-dynamics-observation/v1`に同一model/scene/frame/timeの物体pose・world速度、Robot command/実測状態、
+actuator torque、native contact wrenchを記録する。物体poseは全scene qposからの派生観測であり第二の更新元ではない。
+支持面・物体・toolのroleが解決済みの接触だけを観測し、inactive constraintはmeasurement_unavailable/nullとする。
+force_on_geom2_world_n/torque_on_geom2_world_nmはgeom2へ働くworld wrench（トルクの基準は接触点）である。
+
+`mujoco_backend/contact_wrench.py`がnative力とcontact-frame→world変換を一元化し、既存R7-Hも同じprimitiveを使う。
+旧press/hold Task・単一cube identity・集約/分類を新worldへ偽装しない。geometry-only Taskは引き続き期間終了を観測するだけで、
+力目標達成・搬送成功は判定しない。solver力はシミュレーションの数値解であり、実機の計測力ではない。
+
+
+## 押し診断の有限固定台
+
+`cube_push`はworldのfloorをz=0に置き、`push_pedestal/v1`の固定box instanceを台として追加する。
+形状・慣性・摩擦・外観は物体定義、world固定と位置はinstance、観測目標cubeはTaskの対象選択とし、
+Robotモデルの高さやsupport planeで台を代用しない。床はz=0に置き、押し診断では底面z=0・上面z=0.41 m・有限幅/奥行のworld固定box台を別objectとして置く。
+初期cubeの底面は台上面から1 mm離し、既存の初期重なり検査を緩めず、開始後に自然に支持される。

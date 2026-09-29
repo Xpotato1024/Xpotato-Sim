@@ -1,10 +1,13 @@
-"""固定box sceneのstrictな値契約。配置と形状、表示と物理条件を分離する。"""
+"""固定/可動box sceneのstrictな値契約。配置と形状、表示と物理条件を分離する。"""
 from __future__ import annotations
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from math import isfinite, sqrt
 import re
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .world import WorldPhysics
 
 MAX_OBJECTS = 32
 MAX_SCENE_BYTES = 262144
@@ -128,12 +131,15 @@ class ObjectDefinition:
 
 @dataclass(frozen=True, slots=True)
 class ObjectInstance:
-    """world内の固定物体。dynamic/親frame指定は実装前に拒否する。"""
+    """world内の物体instance。fixed/v1を保持し、明示world/v2でdynamic初期速度を扱う。"""
     instance_id: str
     definition_id: str
     definition_version: int
     position_m: tuple[float, float, float]
     orientation_wxyz: tuple[float, float, float, float]
+    motion_type: str = "fixed"
+    initial_linear_velocity_m_s: tuple[float, float, float] = (0.,0.,0.)
+    initial_angular_velocity_rad_s: tuple[float, float, float] = (0.,0.,0.)
 
     def __post_init__(self):
         identifier(self.instance_id); identifier(self.definition_id)
@@ -144,22 +150,38 @@ class ObjectInstance:
         if abs(sqrt(sum(v*v for v in q)) - 1) > 1e-9:
             raise ValueError("unit wxyz quaternion required")
         object.__setattr__(self, "orientation_wxyz", q)
+        if self.motion_type not in ("fixed", "dynamic"):
+            raise ValueError("explicit fixed/dynamic motion required")
+        for key in ("initial_linear_velocity_m_s", "initial_angular_velocity_rad_s"):
+            object.__setattr__(self,key,vector(getattr(self,key),3))
+        if self.motion_type=="fixed" and any(self.initial_linear_velocity_m_s+self.initial_angular_velocity_rad_s):
+            raise ValueError("fixed object cannot have initial velocity")
 
     def to_document(self):
         """固定/座標系は省略せず出力する。"""
         return {"instance_id": self.instance_id, "definition": {"name": self.definition_id, "version": self.definition_version},
-            "motion_type": "fixed", "pose": {"frame": "mujoco_world", "position_m": self.position_m,
-            "orientation_wxyz": self.orientation_wxyz}}
+            "motion_type": self.motion_type, "pose": {"frame": "mujoco_world", "position_m": self.position_m,
+            "orientation_wxyz": self.orientation_wxyz},
+            **({} if self.motion_type=="fixed" else {"initial_velocity": {
+                "frame":"mujoco_world","linear_m_s":self.initial_linear_velocity_m_s,
+                "angular_rad_s":self.initial_angular_velocity_rad_s}})}
 
     @classmethod
-    def from_document(cls, raw):
-        """scene-local一意性はmanifest全体で検査する。"""
-        raw = fields(raw, {"instance_id", "definition", "motion_type", "pose"}, "instance")
+    def from_document(cls, raw, *, allow_dynamic=False):
+        """旧v1の意味は維持し、v2でだけdynamic初期状態を受理する。"""
+        dynamic = type(raw) is dict and raw.get("motion_type")=="dynamic"
+        extra = {"initial_velocity"} if dynamic and allow_dynamic else set()
+        raw = fields(raw, {"instance_id", "definition", "motion_type", "pose"}|extra, "instance")
         d = fields(raw["definition"], {"name", "version"}, "definition reference")
         p = fields(raw["pose"], {"frame", "position_m", "orientation_wxyz"}, "pose")
-        if raw["motion_type"] != "fixed" or p["frame"] != "mujoco_world":
+        if p["frame"]!="mujoco_world" or (dynamic and not allow_dynamic):
             raise ValueError("diagnostic requires fixed world-frame instances; dynamic execution is separate")
-        return cls(raw["instance_id"], d["name"], d["version"], p["position_m"], p["orientation_wxyz"])
+        velocity = fields(raw["initial_velocity"],{"frame","linear_m_s","angular_rad_s"},"initial velocity") if dynamic else None
+        if velocity is not None and velocity["frame"]!="mujoco_world":
+            raise ValueError("world initial velocity required")
+        return cls(raw["instance_id"],d["name"],d["version"],p["position_m"],p["orientation_wxyz"],raw["motion_type"],
+            (0.,0.,0.) if velocity is None else velocity["linear_m_s"],
+            (0.,0.,0.) if velocity is None else velocity["angular_rad_s"])
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,14 +212,20 @@ class ObjectSceneManifest:
     definitions: tuple[ObjectDefinition, ...]
     objects: tuple[ObjectInstance, ...]
     contact: ContactParameters
+    world: WorldPhysics | None = None
 
     def __post_init__(self):
         identifier(self.scene_id)
+        from .world import WorldPhysics
+        if self.world is not None and type(self.world) is not WorldPhysics:
+            raise TypeError("typed WorldPhysics required")
         if type(self.contact) is not ContactParameters:
             raise TypeError("typed ContactParameters required")
         for values, cls in ((self.definitions, ObjectDefinition), (self.objects, ObjectInstance)):
             if type(values) is not tuple or len(values) > MAX_OBJECTS or any(type(v) is not cls for v in values):
                 raise ValueError("typed bounded scene tuple required")
+        if self.world is None and any(o.motion_type!="fixed" for o in self.objects):
+            raise ValueError("dynamic instances require an explicit world/v2")
         ids = [(d.definition_id,d.version) for d in self.definitions]
         if len(set(ids)) != len(ids) or len({o.instance_id for o in self.objects}) != len(self.objects):
             raise ValueError("duplicate definition or instance ID")
@@ -212,9 +240,10 @@ class ObjectSceneManifest:
 
     def to_document(self):
         """instance順序で意味が変わらないcanonical projection。"""
-        return {"schema_version":"object-scene/v1", "scene_id":self.scene_id,
+        return {"schema_version":"object-scene/v1" if self.world is None else "object-scene/v2", "scene_id":self.scene_id,
                 "definitions":[d.to_document() for d in self.definitions],
-                "objects":[o.to_document() for o in self.objects], "contact":asdict(self.contact)}
+                "objects":[o.to_document() for o in self.objects], "contact":asdict(self.contact),
+                **({} if self.world is None else {"world":self.world.to_document()})}
 
     @property
     def digest(self):
@@ -223,13 +252,17 @@ class ObjectSceneManifest:
 
 
 def decode_object_scene(document: bytes) -> ObjectSceneManifest:
-    """完全展開したsceneだけを受け付けるpure readiness。"""
-    raw = fields(strict_json(document), {"schema_version","scene_id","definitions","objects","contact"}, "scene")
-    if raw["schema_version"] != "object-scene/v1":
+    """旧固定scene/v1と明示world/v2の完全展開JSONを区別する。"""
+    from .world import WorldPhysics
+    raw = strict_json(document)
+    version = raw.get("schema_version")
+    if version not in ("object-scene/v1","object-scene/v2"):
         raise ValueError("unsupported object scene schema")
+    fields(raw,{"schema_version","scene_id","definitions","objects","contact"} | ({"world"} if version.endswith("/v2") else set()),"scene")
     for key in ("definitions","objects"):
-        if type(raw[key]) is not list or len(raw[key]) > MAX_OBJECTS:
+        if type(raw[key]) is not list or len(raw[key])>MAX_OBJECTS:
             raise ValueError("bounded scene array required")
-    c = fields(raw["contact"], {"margin_m","condim","solref","solimp","initial_penetration_tolerance_m"}, "contact")
-    return ObjectSceneManifest(raw["scene_id"], tuple(ObjectDefinition.from_document(d) for d in raw["definitions"]),
-        tuple(ObjectInstance.from_document(o) for o in raw["objects"]), ContactParameters(**c))
+    c=fields(raw["contact"],{"margin_m","condim","solref","solimp","initial_penetration_tolerance_m"},"contact")
+    return ObjectSceneManifest(raw["scene_id"],tuple(ObjectDefinition.from_document(d) for d in raw["definitions"]),
+        tuple(ObjectInstance.from_document(o,allow_dynamic=version.endswith("/v2")) for o in raw["objects"]),
+        ContactParameters(**c),None if version.endswith("/v1") else WorldPhysics.from_document(raw["world"]))

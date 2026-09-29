@@ -5,12 +5,12 @@ import pytest
 from xpotato_sim.runtime.scene.objects import (
     ObjectDefinition, ObjectInstance, ObjectSceneManifest, ContactParameters, decode_object_scene, canonical,
 )
-from xpotato_sim.plugins.environments.object_scene_environment.implementation import FixedObjectSceneProvider
+from xpotato_sim.plugins.environments.object_scene_environment.implementation import ConfiguredObjectSceneProvider
 from xpotato_sim.runtime.composition.launch_profile import load_launch_profile, decode_launch_profile
 
 
 def scene():
-    return FixedObjectSceneProvider().resolve_parameters({"preset":"two_cubes"})
+    return ConfiguredObjectSceneProvider().resolve_parameters({"preset":"two_cubes"})
 
 
 def test_definition_instance_separation_and_box_inertia():
@@ -26,7 +26,7 @@ def test_scene_canonical_order_and_round_trip():
     s=scene(); data=canonical(s.to_document())
     assert decode_object_scene(data)==s
     assert replace(s,objects=tuple(reversed(s.objects))).digest==s.digest
-    assert FixedObjectSceneProvider().resolve_parameters({"scene":json.loads(data)}).digest==s.digest
+    assert ConfiguredObjectSceneProvider().resolve_parameters({"scene":json.loads(data)}).digest==s.digest
 
 
 @pytest.mark.parametrize("mutate",[
@@ -62,7 +62,7 @@ def test_invalid_json_is_not_coerced(document):
 
 @pytest.mark.parametrize("name",["../two_cubes","C:/secret","missing"])
 def test_invalid_preset_names_do_not_escape_package(name):
-    with pytest.raises(ValueError): FixedObjectSceneProvider().resolve_parameters({"preset":name})
+    with pytest.raises(ValueError): ConfiguredObjectSceneProvider().resolve_parameters({"preset":name})
 
 
 @pytest.mark.parametrize("suffix",["single","left","right","bimanual"])

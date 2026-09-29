@@ -15,12 +15,8 @@ export class SceneContactOverlay {
 
   constructor() { this.group.name = "backend scene-contact geometry"; }
 
-  update(value: SceneContactPresentation): void {
-    if (this.disposed) return;
-    const contacts = value.status === "available" ? value.contacts : [];
-    // validatorの上限と一致。高頻度frameごとにGPU資源を作り直さない。
-    if (contacts.length > 256) throw new Error("scene contact overlay limit");
-    while (this.pool.length < contacts.length) {
+  private reserve(capacity: number): void {
+    while (this.pool.length < capacity) {
       const marker = new Mesh(this.geometry, this.materials.near);
       const arrow = new ArrowHelper(new Vector3(1,0,0),new Vector3(),0.06,0xfacc15,0.015,0.008);
       // 食い込み中も確認できる診断overlay。形状そのものの透明度や衝突は変更しない。
@@ -33,6 +29,25 @@ export class SceneContactOverlay {
       this.group.add(marker,arrow);
       this.pool.push({marker,arrow});
     }
+  }
+
+  /** 観測を偽造せず、初回接触に必要なshaderだけを入力開始前に準備する。 */
+  async prepare(compile: (objects: Group) => Promise<unknown>): Promise<void> {
+    if (this.disposed) return;
+    this.reserve(1);
+    const {marker, arrow} = this.pool[0];
+    // compileはvisible objectだけを対象にする。renderer開始前なので一時的に可視化しても画面には出ない。
+    marker.visible = arrow.visible = true;
+    try { await compile(this.group); }
+    finally { marker.visible = arrow.visible = false; }
+  }
+
+  update(value: SceneContactPresentation): void {
+    if (this.disposed) return;
+    const contacts = value.status === "available" ? value.contacts : [];
+    // validatorの上限と一致。高頻度frameごとにGPU資源を作り直さない。
+    if (contacts.length > 256) throw new Error("scene contact overlay limit");
+    this.reserve(contacts.length);
     for (let i=0;i<this.pool.length;i++) {
       const {marker,arrow} = this.pool[i], contact = contacts[i];
       marker.visible = arrow.visible = contact !== undefined;
@@ -50,8 +65,15 @@ export class SceneContactOverlay {
     this.disposed = true;
     const disposed = new Set<object>();
     this.group.traverse(object => {
-      const render = object as typeof object & {geometry?: {dispose():void}; material?: {dispose():void}};
-      for (const resource of [render.geometry,render.material]) {
+      const render = object as typeof object & {
+        geometry?: {dispose():void};
+        material?: {dispose():void} | Array<{dispose():void}>;
+      };
+      const resources = [
+        render.geometry,
+        ...(Array.isArray(render.material) ? render.material : [render.material]),
+      ];
+      for (const resource of resources) {
         if (resource && !disposed.has(resource)) { resource.dispose(); disposed.add(resource); }
       }
     });

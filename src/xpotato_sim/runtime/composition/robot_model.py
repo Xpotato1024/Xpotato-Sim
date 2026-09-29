@@ -29,6 +29,7 @@ class ModelStateSample:
     state: MuJoCoState
     robot_qpos_addresses: tuple[int, ...]
     geometry: SceneGeometryObservation | None = None
+    dynamics: Mapping[str, object] | None = None
 
 
 class ModelMotionProvider(CoordinatedMotionProvider, Protocol):

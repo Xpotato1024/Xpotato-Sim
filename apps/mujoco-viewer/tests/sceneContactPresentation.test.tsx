@@ -85,3 +85,43 @@ const style={color:"#ffffff",label:"test"} as Parameters<typeof resolveGeomDispl
 assert.deepEqual(resolveGeomDisplayColor(style,[.75,.25,.1,.85],false),[.75,.25,.1]);
 assert.equal(resolveGeomDisplayColor(style,[1,1,1,1],true),"#ffffff");
 assert.throws(()=>resolveGeomDisplayColor(null,[NaN,0,0,1],false));
+
+
+// GPU準備は実観測を発生させず、最初の接触も同じpoolを使用する。
+const warmed = new SceneContactOverlay();
+let compiled = 0;
+await warmed.prepare(async (objects) => {
+  compiled += 1;
+  assert.equal(objects.children.length, 2);
+  assert.ok(objects.children.every(object => object.visible));
+});
+assert.equal(compiled, 1);
+assert.ok(warmed.group.children.every(object => !object.visible));
+const preparedMarker = warmed.group.children[0];
+warmed.update(good);
+assert.equal(warmed.group.children[0], preparedMarker);
+assert.equal(warmed.group.children.length, 2);
+warmed.update(unavailableSceneContact("stale"));
+assert.ok(warmed.group.children.every(object => !object.visible));
+warmed.dispose();
+await warmed.prepare(async () => { throw new Error("disposed overlay cannot prepare"); });
+
+// 非同期shader準備中にrendererが破棄されてもoverlay資源を安全に解放する。
+const disposingDuringPrepare = new SceneContactOverlay();
+let releaseCompile: () => void = () => {};
+const compileGate = new Promise<void>((resolve) => { releaseCompile = resolve; });
+const pendingPrepare = disposingDuringPrepare.prepare(async () => { await compileGate; });
+assert.doesNotThrow(() => disposingDuringPrepare.dispose());
+releaseCompile();
+await pendingPrepare;
+assert.equal(disposingDuringPrepare.group.children.length, 0);
+disposingDuringPrepare.dispose();
+
+
+import { geomMaterialCacheKey } from "../src/wasm-scene/visualStyles.js";
+const cubeKey = geomMaterialCacheKey("", "", "", 6, [.7, .2, .1, .85]);
+const pedestalKey = geomMaterialCacheKey("", "", "", 6, [.45, .48, .52, 1]);
+assert.notEqual(cubeKey, pedestalKey);
+assert.equal(pedestalKey, geomMaterialCacheKey("", "", "", 6, [.45, .48, .52, 1]));
+assert.notEqual(cubeKey, geomMaterialCacheKey("", "", "", 6, [.7, .2, .1, 1]));
+assert.throws(() => geomMaterialCacheKey("", "", "", 6, [NaN, 0, 0, 1]));

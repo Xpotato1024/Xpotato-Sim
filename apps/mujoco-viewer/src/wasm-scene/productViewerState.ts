@@ -9,6 +9,7 @@ import {
   type ContactTaskInputSource,
   type ContactTaskPresentationV1,
 } from "../contact/contactTaskLog.js";
+import type { DynamicsPresentation } from "./dynamicsPresentation.js";
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
 import { parseGamepadPlanePresentation, type GamepadPlanePresentation } from "../app/gamepadPlanePresentation.js";
 import { parseGamepadTriggerPresentation, type GamepadTriggerPresentation } from "../app/gamepadTriggerPresentation.js";
@@ -97,6 +98,7 @@ export interface ProductViewerState {
   currentQposText: string;
   endpointEvaluation: TransportEndpointEvaluationPayload | null;
   sceneContactPresentation: SceneContactPresentation;
+  dynamicsPresentation: DynamicsPresentation;
   contactTaskPresentation: ContactTaskPresentationV1;
   contactTaskInputSource: ContactTaskInputSource;
   inputOverlay: ProductViewerInputOverlayState | null;
@@ -154,6 +156,7 @@ export function createInitialProductViewerState(profile?: ViewerRobotProfile): P
     currentQposText: "[]",
     endpointEvaluation: null,
     sceneContactPresentation: {status: "absent", reason: "幾何接触診断は未選択"},
+    dynamicsPresentation: {status:"absent",reason:"動力学は未選択"},
     contactTaskPresentation: unavailableContactTaskPresentation("No contact task log or metadata loaded."),
     contactTaskInputSource: "none",
     inputOverlay: null,

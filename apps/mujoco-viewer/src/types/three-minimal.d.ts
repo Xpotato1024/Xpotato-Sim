@@ -242,6 +242,7 @@ declare module "three" {
     setSize(width: number, height: number, updateStyle?: boolean): void;
     setClearColor(color: unknown, alpha?: number): void;
     render(scene: Scene, camera: PerspectiveCamera): void;
+    compileAsync(scene: Object3D, camera: PerspectiveCamera, targetScene?: Scene): Promise<unknown>;
     dispose(): void;
   }
 

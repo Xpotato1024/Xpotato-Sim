@@ -12,6 +12,7 @@ from types import MappingProxyType
 from typing import Mapping
 
 import mujoco
+from xpotato_sim.schemas.scene_state import SceneStateLayout
 
 from fast_arm_core.assembly import FastArmAssembly
 from fast_arm_core.assembly_model import FastArmAssemblyModel, build_fast_arm_assembly_model
@@ -53,7 +54,7 @@ def _visual_style_selection(assembly: FastArmAssembly) -> tuple[ViewerVisualStyl
     )
 
 
-def _home_qpos(built: FastArmAssemblyModel) -> tuple[float, ...]:
+def _home_qpos(built: FastArmAssemblyModel, layout: SceneStateLayout | None = None) -> tuple[float, ...]:
     model = mujoco.MjModel.from_xml_string(
         built.xml.decode("utf-8"), dict(built.assets)
     )
@@ -64,7 +65,7 @@ def _home_qpos(built: FastArmAssemblyModel) -> tuple[float, ...]:
     mujoco.mj_resetDataKeyframe(model, data, key)
     mujoco.mj_forward(model, data)
     qpos = tuple(float(value) for value in data.qpos)
-    if len(qpos) != len(built.assembly.joint_names):
+    if len(qpos) != (len(built.assembly.joint_names) if layout is None else layout.qpos_dimension):
         raise ValueError("assembly home qpos dimension differs from named joints")
     return qpos
 
@@ -123,6 +124,7 @@ class FastArmAssemblyViewerBundle:
             {
                 "robot_profile_id": self.declaration.profile_id,
                 "model_sha256": self.built.model_sha256,
+                **({} if self.declaration.scene_state_layout is None else {"scene_state_layout_v1":self.declaration.scene_state_layout.to_document()}),
                 "model_contract_version": self.declaration.model_contract_version,
                 "robot_joint_names": list(self.declaration.joint_names),
                 "robot_qpos_dimension": self.declaration.qpos_dimension,
@@ -153,6 +155,7 @@ def build_fast_arm_assembly_viewer_bundle(
     assembly: FastArmAssembly,
     *, profile_id: str = "fast_arm_assembly",
     built: FastArmAssemblyModel | None = None,
+    scene_layout: SceneStateLayout | None = None,
 ) -> FastArmAssemblyViewerBundle:
     if type(assembly) is not FastArmAssembly:
         raise ValueError("viewer requires an explicit FastArmAssembly")
@@ -174,7 +177,8 @@ def build_fast_arm_assembly_viewer_bundle(
         for name in sorted(built.assets)
     )
     declaration = ViewerRobotDeclaration(
-        schema_version=VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION,
+        schema_version=VIEWER_ROBOT_DECLARATION_SCHEMA_VERSION if scene_layout is None else "viewer-robot-declaration/v2",
+        scene_state_layout=scene_layout,
         profile_id=profile_id,
         profile_contract_version=1,
         model_contract_version=FAST_ARM_ASSEMBLY_MODEL_CONTRACT_VERSION,
@@ -191,7 +195,7 @@ def build_fast_arm_assembly_viewer_bundle(
         joint_names=assembly.joint_names,
         qpos_dimension=len(assembly.joint_names),
     )
-    qpos = _home_qpos(built)
+    qpos = _home_qpos(built,scene_layout)
     resources: dict[str, bytes] = {
         model_path: built.xml,
         fixture_path: _fixture_bytes(model_path=model_path, qpos=qpos),

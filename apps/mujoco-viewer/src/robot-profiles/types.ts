@@ -1,3 +1,5 @@
+import type { SceneStateLayout } from "./sceneStateLayout.js";
+
 export interface ViewerBodyVisualStyle {
   color: string;
   label: string;
@@ -15,7 +17,8 @@ export interface ViewerAxisVisualStyle {
  * logical identity、resource path、qpos ordering/frameを保持し、viewer fallbackを許さない。
  */
 export interface ViewerRobotProfile {
-  readonly schemaVersion: "viewer-robot-declaration/v1";
+  readonly schemaVersion: "viewer-robot-declaration/v1" | "viewer-robot-declaration/v2";
+  readonly sceneStateLayout?: SceneStateLayout;
   readonly profileId: string;
   readonly profileContractVersion: number;
   readonly modelContractVersion: string;

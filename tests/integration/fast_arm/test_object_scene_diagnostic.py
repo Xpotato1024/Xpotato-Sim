@@ -9,14 +9,14 @@ from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.runtime.scene.contracts import ObjectSceneBuildRequest, ModelScenePlan, ToolColliderBinding
 from xpotato_sim.runtime.scene.composition import compose_object_scene
 from xpotato_sim.runtime.scene.measurement import SceneGeometryObserver
-from xpotato_sim.plugins.environments.object_scene_environment.implementation import FixedObjectSceneProvider
+from xpotato_sim.plugins.environments.object_scene_environment.implementation import ConfiguredObjectSceneProvider
 
 
 @pytest.mark.parametrize("suffix",["single","left","right","bimanual"])
 @pytest.mark.parametrize("count",[1,2])
 def test_shared_model_factory_for_all_arm_and_object_counts(suffix,count):
     p=load_launch_profile("contact-debug-"+suffix)
-    manifest=FixedObjectSceneProvider().resolve_parameters({"preset":"two_cubes"})
+    manifest=ConfiguredObjectSceneProvider().resolve_parameters({"preset":"two_cubes"})
     manifest=replace(manifest,objects=manifest.objects[:count])
     plan=replace(p.scene_plan,manifest=manifest)
     value=p.model_registration().build(plan);base=p.model_registration().build()
@@ -43,7 +43,7 @@ def test_shared_model_factory_for_all_arm_and_object_counts(suffix,count):
 
 def fixture(reverse=False):
     base=b'<mujoco><worldbody><body name="tool"><freejoint/><geom name="tool_geom" type="sphere" size="0.01" mass="0.1" contype="0" conaffinity="0"/></body><geom name="floor" type="plane" size="1 1 .01" pos="0 0 -1"/></worldbody></mujoco>'
-    m=FixedObjectSceneProvider().resolve_parameters({"preset":"cube_left"})
+    m=ConfiguredObjectSceneProvider().resolve_parameters({"preset":"cube_left"})
     m=replace(m,objects=(replace(m.objects[0],position_m=(.062,0,0)),))
     scene=compose_object_scene(ObjectSceneBuildRequest(base,{},m,(ToolColliderBinding("tool","tool_geom",(.8,0,0)),)))
     if reverse:

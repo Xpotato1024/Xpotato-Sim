@@ -61,6 +61,7 @@ class SceneGeometryObservation:
     simulation_time_s: float
     objects: tuple[ObjectPose, ...]
     contacts: tuple[SceneContact, ...]
+    dynamic: bool = False
 
     def __post_init__(self):
         """geometry-only recordの型・上限・参照を検証する。"""
@@ -79,7 +80,7 @@ class SceneGeometryObservation:
 
     def to_document(self):
         """payload用projection。計測不能な力はnullと理由を保持する。"""
-        return {"schema_version":"scene-contact-geometry/v1", "scene_digest":self.scene_digest,
+        return {"schema_version":"scene-contact-geometry/v2" if self.dynamic else "scene-contact-geometry/v1", "scene_digest":self.scene_digest,
             "model_sha256":self.model_sha256,"frame_index":self.frame_index,"simulation_time_s":self.simulation_time_s,
-            "status":"observed", "scope":"tool_object_geometry", "force_status":"not_evaluated_kinematic",
+            "status":"observed", "scope":"tool_object_geometry", "force_status":"separate_dynamics_evidence" if self.dynamic else "not_evaluated_kinematic",
             "force_n":None, "objects":[asdict(o) for o in self.objects],"contacts":[asdict(c) for c in self.contacts]}

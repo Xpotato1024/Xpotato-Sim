@@ -202,3 +202,17 @@ React計器表示は50 ms（最大20 Hz）、通常の数値ラベルは250 ms�
 `unavailable / invalid`と表示し、正常な数値列は元の順序を保持する。
 buttonの押下状態が不明なら`invalid`とし、`released`へ補完しない。
 この変更は表示内部の状態型だけに適用し、入力wire形式やbackendへの操作値を変えない。
+
+
+## 初回接触時の描画準備と集計コスト
+
+scene準備では、Robot/物体meshと接触overlayのshaderをcompileAsyncで準備してからqpos readyを通知する。
+overlayはrenderer開始前のcompile呼出し中だけ一時的にvisibleとし、完了後はhiddenへ戻すため描画frameや偽の接触recordを生成しない。scene-startupの入力開始を描画準備完了後へ保ち、
+初回接触のshader compileが進行中のheartbeatを止めることを避ける。入力expiry/安全判定は緩めない。
+
+計時統計は標本が変わったときだけ一度sortし、同じpercentileの反復計算を省く。512件の保持上限、
+p50/p95の定義、状態/不正frameの即時反映は変更しない。関節計の目盛りと不変legendはmemo化し、
+針・数値・fault表示は従来の現在state/cadenceを使用する。
+
+MjvGeomのprimitive名を取得できない場合でも、材質cacheはnative RGBAを含める。
+異なる色・透明度を持つcubeと台に、最初のprimitiveの材質を誤って共有しない。

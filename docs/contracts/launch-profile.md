@@ -160,3 +160,17 @@ sceneはpresetまたは完全な展開済みdocumentを受け、resolved出力�
 scene/Robotをmodel factoryで一度結合し、旧Task用cube manifestへ変換しない。Task targetはscene object IDの部分集合。
 v3から旧schemaへラベルだけ変える降格は拒否し、scene選択を黙って捨てない。
 具体値契約は[固定物体scene・幾何接触診断](object-scene-contact-diagnostic.md)を正とする。
+
+## v4: worldを明示した動力学実行（#582）
+
+`xpotato-sim-launch-profile/v4`はv3へ`execution.dynamics`を必須追加し、object-scene/v2の明示worldと同時に解決する。
+数値設定は`dynamics-settings/v1`、semanticsは`coordinated_actuator_servo_dynamic/v1`。
+固定診断へdynamic物体を黙って変換したり、gravity/solverを未知値から補完したりしない。旧v1/v2/v3の設定byteは維持する。
+
+配布profileは`dynamic-cube-drop`、`dynamic-fixed-contact`、`dynamic-cube-push`。共通Robotモデル選択と
+`coordination.side_to_endpoint`で原型/左/右単腕/双腕へ接続し、腕数専用のrunnerを追加しない。
+`resolved.scene`にworld/物体条件、`resolved.dynamics`に数値条件、各digestを出力する。
+world条件と積分条件の変更を同じ意味に混同せず、試行の条件固定では両方を保存する。
+
+既定Newton50 iteration/tolerance1e-10、physics_dt=1/600 s、control_dt=1/60 s、速度budget10 rad/s、追従誤差budget0.75 radは
+診断用仮定値で、実機で安全・最適と測定した値ではない。gainとtorque limitはRobot sourceのまま。

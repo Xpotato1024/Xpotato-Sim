@@ -3,6 +3,7 @@
  * qposを推定・並べ替えせず、長さ不一致と欠落をfail closedに扱う。
  */
 import type { TransportPayloadV0 } from "../types/transportPayload.js";
+import { validateSceneStateValues, decodeSceneStateLayout } from "../robot-profiles/sceneStateLayout.js";
 import { parseContactTaskPresentationV1 } from "../contact/contactTaskLog.js";
 import {
   getFrameByIndex,
@@ -291,6 +292,15 @@ export function resolveTransportQpos(
     };
   }
 
+  if (profile.sceneStateLayout) {
+    try {
+      const declared=decodeSceneStateLayout(payload.metadata.scene_state_layout_v1,profile.jointNames);
+      if(JSON.stringify(declared)!==JSON.stringify(profile.sceneStateLayout))throw new Error("scene state layout mismatch");
+      validateSceneStateValues(profile.sceneStateLayout,payload.qpos,payload.qvel);
+    } catch(error) {
+      return {status:"invalid",qpos:null,errorMessage:error instanceof Error ? error.message : "invalid full scene state",currentFrameIndex:payload.frame_index,currentTimestampS:payload.time_s,sourceLabel:"transport payload incompatible"};
+    }
+  }
   const backendProfileId = payload.metadata.robot_profile_id;
   if (backendProfileId !== profile.profileId) {
     return {
@@ -313,7 +323,7 @@ export function resolveTransportQpos(
       sourceLabel: "transport payload incompatible",
     };
   }
-  if (modelNq !== profile.qposDimension) {
+  if (modelNq !== (profile.sceneStateLayout?.qpos_dimension ?? profile.qposDimension)) {
     return {
       status: "invalid",
       qpos: null,
@@ -350,6 +360,9 @@ export function resolveTransportQpos(
     };
   }
 
+  if (profile.sceneStateLayout && Object.prototype.hasOwnProperty.call(payload.metadata,"contact_scene_robot_qpos_v1")) {
+    return {status:"invalid",qpos:null,errorMessage:"legacy Robot-only projection cannot drive a full scene",currentFrameIndex:payload.frame_index,currentTimestampS:payload.time_s,sourceLabel:"transport payload incompatible"};
+  }
   if (Object.prototype.hasOwnProperty.call(payload.metadata, "contact_scene_robot_qpos_v1")) {
     try {
       return {

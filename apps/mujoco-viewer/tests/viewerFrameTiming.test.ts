@@ -89,3 +89,31 @@ assert.equal(timing.takeLatestCandidate(), null, "dispose should clear and rejec
 assert.equal(timing.snapshot().latestReceivedFrameIndex, 7);
 
 console.log("viewer frame timing tests passed");
+
+
+// 集計は標本更新時だけ再計算する。通知回数の増加がsort回数を増やさない。
+const cachedTiming = createViewerFrameTiming(() => nowMs);
+const originalSort = Array.prototype.sort;
+let sortCalls = 0;
+try {
+  Array.prototype.sort = function(compareFn) { sortCalls += 1; return originalSort.call(this, compareFn); };
+  cachedTiming.receive(payload(1), { receivedAtMs: 0, parseDurationMs: 1 });
+  const first = cachedTiming.snapshot();
+  const beforeRepeat = sortCalls;
+  for (let i = 0; i < 100; i += 1) {
+    cachedTiming.recordUiStateUpdate();
+    assert.equal(cachedTiming.snapshot().parseDurationMsP95, first.parseDurationMsP95);
+  }
+  assert.equal(sortCalls, beforeRepeat);
+  cachedTiming.receive(payload(2), { receivedAtMs: 0, parseDurationMs: 2 });
+  assert.equal(cachedTiming.snapshot().parseDurationMsP95, 2);
+  assert.equal(sortCalls, beforeRepeat + 1);
+} finally {
+  Array.prototype.sort = originalSort;
+}
+for (let i = 0; i < 600; i += 1) cachedTiming.receive(payload(i + 3), { receivedAtMs: 0, parseDurationMs: i });
+const bounded = cachedTiming.snapshot();
+// 最後の512値 = 88..599。以前と同じnearest-rank、同じ保持件数。
+assert.equal(bounded.parseDurationMsP50, 343);
+assert.equal(bounded.parseDurationMsP95, 574);
+assert.equal(bounded.parseDurationMsMax, 599);
