@@ -84,6 +84,9 @@ EXPECTED_MODULES = {
         "world_tool_runner",
     },
     "runners": {
+        "workbench",
+        "workbench_metrics",
+        "workbench_web",
         "finite_trial",
         "coordinated_gamepad",
         "model_websocket_publisher",

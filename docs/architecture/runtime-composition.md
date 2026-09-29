@@ -42,6 +42,10 @@ provider identity、plugin identityはこの移動で変更しない。
 同じ実行を呼び、physics/Taskを二重実装しない。旧publisherのframe予算と新trialのcommit予算を分ける。
 具体契約は[有限試行](../contracts/finite-trial-runtime.md)だけを正本とする。
 
+`runners/workbench.py`は待機アプリの制御/期限監督と専用workerへの接続を所有し、workerは同じTrialRunnerを呼ぶ。
+`workbench_web.py`は明示buildのlocal配信、`workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
+phase、Task判定、記録形式、physicsをこれらに再実装しない。詳細は[Workbench契約](../contracts/workbench.md)を参照する。
+
 #406で成立したexperiment lifecycle / runnerと、#407で追加したexecution trace / motion-log recorderのownerは
 `experiment/`である。`runners/`はthin entry pointだけを所有し、Task判定、metric、record projection、
 artifact emissionを実装しない。validated v1 logからのmetric導出とcanonical artifact emissionは

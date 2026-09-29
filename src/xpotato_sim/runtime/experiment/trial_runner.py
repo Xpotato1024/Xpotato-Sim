@@ -40,6 +40,7 @@ class TrialRunner:
         self._owner, self._lock = get_ident(), Lock()
         self._status = "unselected"
         self._execution = None
+        self._model_build_count = 0
         self._condition = self._parameters = self._provenance = self._limits = None
         self._ticket = self._result = self._recorder = self._start_ref = None
         self._last_now = self._started = self._ingress_time = None
@@ -82,6 +83,16 @@ class TrialRunner:
     def tick_count(self):
         return 0 if self._execution is None else self._execution.tick_count
 
+    @property
+    def model_build_count(self):
+        """成功したModelExecution構築数。retryによるresetは含めない。"""
+        return self._model_build_count
+
+    @property
+    def viewer_resources(self):
+        """現在のnative modelが公開した不変viewer bundle。別modelをbuildしない。"""
+        return None if self._execution is None else self._execution.instance.viewer
+
     def _now(self):
         now = self._clock()
         if type(now) not in (int, float) or not isfinite(now) or now < 0:
@@ -122,6 +133,7 @@ class TrialRunner:
                 if self._parameters != canonical(parameters):
                     self._execution = None
                     execution = ModelExecution(validated, clock=self._source_clock)
+                    self._model_build_count += 1
                     condition = freeze_condition(parameters, execution.instance)
                     self._execution = execution
                     self._condition = condition
@@ -326,3 +338,14 @@ class TrialRunner:
             self._recorder = self._last_input = None
             if self._status != "recording_failed":
                 self._status = "closed"
+
+    def discard_prepared(self):
+        """開始前の準備だけを取り消す。過去結果は保持し、未開始trialの記録は作らない。"""
+        with self._mutating():
+            if self._status not in {"unselected", "ready"}:
+                raise RuntimeError("discard requires an unstarted prepared trial")
+            self._stop()
+            self._execution = None
+            self._condition = self._parameters = self._provenance = self._limits = None
+            self._ticket = self._recorder = self._start_ref = self._started = self._last_input = None
+            self._status = "unselected"

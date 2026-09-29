@@ -5,6 +5,9 @@
 `Xpotato-Sim` の docs 正本は `docs/README.md` です。
 このルート README は、current architecture、plugin、backend / viewerの最初の入口だけをまとめます。
 
+既存profileをGUIで選択して有限試行を繰り返す入口は
+[`xpotato-sim workbench`](docs/contracts/workbench.md)です。未選択で待機し、準備と開始を別操作にします。
+
 ## まず読むもの
 
 - [docs/README.md](docs/README.md)

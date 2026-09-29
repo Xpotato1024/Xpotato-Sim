@@ -392,6 +392,8 @@ serial、model stepを開始せず、実機permissionを生成しない。
 
 `runtime/runners/application.py`はLaunchProfileから既存publisherとWeb dev serverを起動する。
 `application_process.py`はそのworkerのprocess/job所有権と有限cleanupだけを所有する。
+`runtime/runners/workbench.py`は既存TrialRunner・transport・application_processを結線する待機制御入口である。
+`workbench_web.py`のHTTP配信と`workbench_metrics.py`のprocess計測は同入口の補助で、simulation/Taskのownerではない。
 CLIやPowerShellはこのownerへ委譲し、別control loop、physics、hardware permissionを持たない。
 
 ## 共同arm診断の具体composition

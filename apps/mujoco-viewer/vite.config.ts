@@ -12,8 +12,11 @@ export default defineConfig({
   base: "./",
   appType: "mpa",
   publicDir: false,
-  cacheDir: resolve(appRoot, "node_modules/.vite"),
+  cacheDir: process.env.XPOTATO_VITE_CACHE || resolve(appRoot, "node_modules/.vite"),
   server: {
+    ...(process.env.XPOTATO_WORKBENCH_PORT ? {proxy: {
+      "/mujoco/fast_arm_assembly": {target: `http://127.0.0.1:${process.env.XPOTATO_WORKBENCH_PORT}`, changeOrigin: true},
+    }} : {}),
     open: process.env.XPOTATO_SIM_LAUNCHER === "1" ? false : "/apps/mujoco-viewer/",
     fs: {
       allow: [repoRoot, appRoot],
