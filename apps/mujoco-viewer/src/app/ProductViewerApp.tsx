@@ -2,7 +2,7 @@ import { SceneContactPanel } from "./SceneContactPanel.js";
 import { DynamicsPanel } from "./DynamicsPanel.js";
 import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
 import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   parseContactTaskLogJsonl,
@@ -49,7 +49,7 @@ function formatContactVector(value: readonly number[] | null | undefined): strin
   return value === null || value === undefined ? "unavailable" : `[${value.map((item) => item.toFixed(3)).join(", ")}]`;
 }
 
-function Legend({ profile }: { profile: ViewerRobotProfile | null }) {
+const Legend = memo(function Legend({ profile }: { profile: ViewerRobotProfile | null }) {
   const legendItems = useMemo(
     () => (profile === null ? [] : viewerVisualLegend(profile)),
     [profile],
@@ -68,7 +68,7 @@ function Legend({ profile }: { profile: ViewerRobotProfile | null }) {
       ))}
     </div>
   );
-}
+});
 
 function EndpointEvaluationPanel({ state }: { state: ProductViewerState }) {
   const endpointEvaluation = state.endpointEvaluation;

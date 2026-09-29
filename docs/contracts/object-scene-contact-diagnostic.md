@@ -137,3 +137,11 @@ force_on_geom2_world_n/torque_on_geom2_world_nmはgeom2へ働くworld wrench（�
 `mujoco_backend/contact_wrench.py`がnative力とcontact-frame→world変換を一元化し、既存R7-Hも同じprimitiveを使う。
 旧press/hold Task・単一cube identity・集約/分類を新worldへ偽装しない。geometry-only Taskは引き続き期間終了を観測するだけで、
 力目標達成・搬送成功は判定しない。solver力はシミュレーションの数値解であり、実機の計測力ではない。
+
+
+## 押し診断の有限固定台
+
+`cube_push`はworldのfloorをz=0に置き、`push_pedestal/v1`の固定box instanceを台として追加する。
+形状・慣性・摩擦・外観は物体定義、world固定と位置はinstance、観測目標cubeはTaskの対象選択とし、
+Robotモデルの高さやsupport planeで台を代用しない。床はz=0に置き、押し診断では底面z=0・上面z=0.41 m・有限幅/奥行のworld固定box台を別objectとして置く。
+初期cubeの底面は台上面から1 mm離し、既存の初期重なり検査を緩めず、開始後に自然に支持される。

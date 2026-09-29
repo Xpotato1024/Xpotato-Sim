@@ -61,7 +61,7 @@ import {
   resolveNamedInitialKeyframe,
   resolveTransportQpos,
 } from "./mujocoQposSync.js";
-import { resolveBodyVisualStyle, resolveGeomDisplayColor } from "./visualStyles.js";
+import { resolveBodyVisualStyle, resolveGeomDisplayColor, geomMaterialCacheKey } from "./visualStyles.js";
 import type { BodyVisualStyle } from "./visualStyles.js";
 import {
   applyProductViewerRendererStatePatch,
@@ -76,6 +76,7 @@ import {
   createViewerFrameTiming,
   type ViewerPayloadCandidate,
 } from "./viewerFrameTiming.js";
+import { createAsyncResourceLifetime } from "./asyncResourceLifetime.js";
 
 import { validateCompiledSceneLayout } from "../robot-profiles/sceneStateLayout.js";
 import { decodeJointDisplayLayout } from "./jointPresentation.js";
@@ -293,6 +294,24 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     contactOverlay.clear();
   };
 
+  let renderResourcesReleased = false;
+  const releaseRenderResources = (): void => {
+    if (renderResourcesReleased) return;
+    renderResourcesReleased = true;
+    meshGeometryCache.clear();
+    objectByGeomIndex.clear();
+    materialByKey.clear();
+    modelMeshNameById.clear();
+    clearContactOverlay();
+    geometryOverlay.dispose();
+    scene.remove(geometryOverlay.group);
+    scene.remove(contactOverlay);
+    floorTexture.dispose();
+    floorMaterial.dispose();
+    renderer.dispose();
+  };
+  const renderResourceLifetime = createAsyncResourceLifetime(releaseRenderResources);
+
   const updateContactOverlay = (presentation: ContactTaskPresentationV1): void => {
     clearContactOverlay();
     if (presentation.status !== "available" || presentation.cube === null) {
@@ -448,7 +467,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     const sourceMeshId = sourceGeom === null ? Number.NaN : Number(sourceGeom.dataid);
     const meshId = Number.isFinite(sourceMeshId) && sourceMeshId >= 0 ? sourceMeshId : Number(geom.dataid);
     const meshName = meshId >= 0 && meshId < model.nmesh ? String(model.mesh(meshId).name ?? "") : "";
-    const cacheKey = `${bodyName}:${geomName}:${meshName}:${geom.type}`;
+    const cacheKey = geomMaterialCacheKey(bodyName, geomName, meshName, geom.type, Array.from(geom.rgba));
     const cached = materialByKey.get(cacheKey);
     if (cached !== undefined) {
       return cached as MeshPhongMaterial;
@@ -834,6 +853,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   } | null = null;
 
   const bootstrapFromPayload = async (payload: TransportPayloadV0): Promise<void> => {
+    if (disposed) return;
     try {
       if (profile === null) {
         const delivered = await loadViewerRobotProfileFromPayload(payload);
@@ -847,7 +867,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         declarationReference = delivered.reference;
         startupPoseSourceLabel = delivered.profile.initialPoseSourceLabel;
         options.onProfileResolved?.(delivered.profile);
-        await initializeModel();
+        await renderResourceLifetime.run(initializeModel);
+        if (disposed) return;
       } else {
         const deliveredReference = viewerRobotDeclarationReferenceFromPayload(payload);
         if (deliveredReference === null) {
@@ -874,6 +895,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         acceptCompatiblePayload(pending.payload, pending.observation);
       }
     } catch (error) {
+      if (disposed) return;
       const message = error instanceof Error ? error.message : String(error);
       updateRendererStatus({
         status: "error",
@@ -974,6 +996,12 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         modelNmesh: model.nmesh,
       });
 
+      // 初回接触のshader compileを実行中の入力heartbeat区間へ持ち込まない。
+      // 観測pointを作らずhidden poolを準備し、ready通知はGPU準備完了後に限る。
+      syncSceneFromCurrentData();
+      await geometryOverlay.prepare(objects => renderer.compileAsync(objects, camera, scene));
+      await renderer.compileAsync(scene, camera);
+      if (disposed) return;
       hasLoaded = true;
       syncToLatestSource();
       setCameraView(selectedCameraView);
@@ -999,10 +1027,12 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
           }
           startWebSocketClient();
         } else {
-          await initializeModel();
+          await renderResourceLifetime.run(initializeModel);
+          if (disposed) return;
           options.onProfileResolved?.(profile);
           startWebSocketClient();
         }
+        if (disposed) return;
         setCanvasSize();
         updateRendererStatus({
           statusText: formatViewerStatusText(state),
@@ -1011,6 +1041,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         resizeObserver?.observe(options.canvas);
         frameHandle = window.requestAnimationFrame(animate);
       } catch (error) {
+        if (disposed) return;
         const message = error instanceof Error ? error.message : String(error);
         updateRendererStatus({
           status: "error",
@@ -1032,6 +1063,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     setCameraView,
     setContactTaskPresentation,
     dispose() {
+      if (disposed) return;
       disposed = true;
       frameTiming.dispose();
       if (frameHandle !== null) {
@@ -1042,17 +1074,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       resizeObserver?.disconnect();
       websocketClient?.stop();
       websocketClient = null;
-      meshGeometryCache.clear();
-      objectByGeomIndex.clear();
-      materialByKey.clear();
-      modelMeshNameById.clear();
-      clearContactOverlay();
-      geometryOverlay.dispose();
-      scene.remove(geometryOverlay.group);
-      scene.remove(contactOverlay);
-      floorTexture.dispose();
-      floorMaterial.dispose();
-      renderer.dispose();
+      pendingBootstrapPayload = null;
+      // compileAsyncが内部poll中なら、外部利用だけ即時停止しGPU資源の破棄はsettle後へ遅延する。
+      renderResourceLifetime.requestDispose();
     },
   };
 }

@@ -189,3 +189,15 @@ coneはこの実行versionではellipticで固定し、残るengine条件は固�
 waiting_neutral/stop/faultではRobotだけでなく全worldを凍結する。非zero qvelをゼロと捏造せず最終snapshotのまま残す。
 これはsimulation pauseであり、実機が同様に停止するという主張ではない。restartは既存の新epoch/中立条件を使用する。
 全scene resetは物体の初期pose/速度、Robot状態・ctrl、時計・solver cacheを戻す。GUIの無reload再試行は#565で別途扱う。
+
+
+## 制御周期の作業域再利用
+
+providerはモデル構築時にpre-step、計画用、候補world、各腕FK用のprivate MjDataを確保する。
+prepareごとに現在のlive dataから再読込みし、前のframe・腕・失敗試行の状態を持ち越さない。
+commitの検証を全て通過した後だけlive/candidateの所有権を交換し、以後のprepareでは旧liveを作業域として使う。
+コピーされたticket、消費済みticket、reset前のticketの拒否は維持する。
+
+計画用の手先位置取得はnative mj_kinematicsに限定する。有限差分epsilon、DLS、gain、限界、
+physics/control dt、全substepの異常検査は変えない。実積分と観測整合用のmj_forwardは従来どおり実施する。
+これは数値精度・制御頻度を落とす高速化ではなく、不要な確保・計画FKでの接触solver実行を除くもの。

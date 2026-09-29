@@ -29,13 +29,18 @@ class _SnapshotKinematics:
     def __init__(self, model, base, addresses):
         self.model, self.addresses = model, addresses
         self.data = mujoco.MjData(model)
-        mujoco.mj_copyData(self.data, model, base)
+        self.load(base)
+
+    def load(self, base):
+        """呼出ごとに同じpre-stepから再読込みし、前の腕・試行を混入しない。"""
+        mujoco.mj_copyData(self.data, self.model, base)
 
     def forward(self, qpos_rad):
         if len(qpos_rad) != len(self.addresses.qpos_addresses):
             raise ValueError("named arm qpos shape mismatch")
         self.data.qpos[list(self.addresses.qpos_addresses)] = qpos_rad
-        mujoco.mj_forward(self.model, self.data)
+        # FKのsite位置だけが必要。接触solver/actuator計算は候補worldの積分側で行う。
+        mujoco.mj_kinematics(self.model, self.data)
         return tuple(float(v) for v in self.data.site_xpos[self.addresses.tip_site_id])
 
 
@@ -59,6 +64,12 @@ class FastArmAssemblyMotionProvider:
         self._lock = RLock()
         self._scene_observer = None if object_scene is None else SceneGeometryObserver(self.model, object_scene, self.built.model_sha256)
         self.reset()
+        # private作業域はmodel lifetimeで確保し、tickごとの大容量MjData確保を避ける。
+        self._base_data = mujoco.MjData(self.model)
+        self._planning_data = mujoco.MjData(self.model)
+        self._candidate_data = mujoco.MjData(self.model)
+        self._kinematics = {arm.arm_id: _SnapshotKinematics(self.model, self._data, arm)
+                            for arm in self.addresses}
 
     @property
     def scene_manifest(self):
@@ -146,7 +157,7 @@ class FastArmAssemblyMotionProvider:
 
     def _integrate_candidate(self, base, candidates, dt_s):
         """kinematic診断のqpos反映。dynamic積分とのdispatchは構築時だけ。"""
-        candidate_data=mujoco.MjData(self.model)
+        candidate_data=self._candidate_data
         mujoco.mj_copyData(candidate_data,self.model,base)
         for arm in self.addresses:
             candidate_data.qpos[list(arm.qpos_addresses)]=candidates[arm.arm_id]
@@ -162,8 +173,10 @@ class FastArmAssemblyMotionProvider:
             reference = base if observed is None else observed
             velocity = np.asarray(reference.site_xmat[arm.tip_site_id]).reshape(3, 3) @ velocity
         q = tuple(float(base.qpos[i]) for i in arm.qpos_addresses)
+        kinematics = self._kinematics[arm.arm_id]
+        kinematics.load(base)
         solver = LocalEndpointMotionGenerator(
-            endpoint_kinematics=_SnapshotKinematics(self.model, base, arm),
+            endpoint_kinematics=kinematics,
             endpoint_model="mujoco_named_assembly_tip",
             fd_epsilon_rad=DEFAULT_VIEWER_LOCAL_ENDPOINT_FD_EPSILON_RAD,
             damping=DEFAULT_VIEWER_LOCAL_ENDPOINT_DAMPING,
@@ -192,7 +205,7 @@ class FastArmAssemblyMotionProvider:
                 raise ValueError("commands must cover all named endpoints exactly once")
             self._check_data(self._data)
             before = self.snapshot()
-            base = mujoco.MjData(self.model)
+            base = self._base_data
             mujoco.mj_copyData(base, self.model, self._data)
             by_id = {c.endpoint_id: c for c in commands}
             planning = self._planning_state(base)
@@ -217,6 +230,7 @@ class FastArmAssemblyMotionProvider:
             self._check_data(pending[1])
             if self._snapshot(pending[1], self._generation + 1) != candidate.predicted:
                 raise ValueError("candidate modified after preparation")
-            self._data = pending[1]
+            # 検査完了後にlive/candidateを交換。以後のprepareは旧liveを作業域にする。
+            self._candidate_data, self._data = self._data, pending[1]
             self._generation += 1
             return self.snapshot()

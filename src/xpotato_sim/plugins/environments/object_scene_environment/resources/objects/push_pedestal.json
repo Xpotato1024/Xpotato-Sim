@@ -1,0 +1,30 @@
+{
+  "definition_id": "push_pedestal",
+  "version": 1,
+  "geometry": {
+    "type": "box",
+    "half_extents_m": [
+      0.45,
+      0.8,
+      0.205
+    ]
+  },
+  "inertia": {
+    "mode": "uniform_box",
+    "mass_kg": 40.0
+  },
+  "surface": {
+    "sliding_friction": 0.8,
+    "torsional_friction_m": 0.0,
+    "rolling_friction_m": 0.0
+  },
+  "appearance": {
+    "rgba": [
+      0.45,
+      0.48,
+      0.52,
+      1.0
+    ]
+  },
+  "provenance": "押し診断用の固定台。寸法と40 kgはsimulation仮定値。世界への固定はjointなしで定義し、質量で代用しない。"
+}

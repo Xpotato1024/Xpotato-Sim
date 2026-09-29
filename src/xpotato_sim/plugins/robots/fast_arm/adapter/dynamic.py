@@ -43,11 +43,11 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
 
     def _planning_state(self,base):
         """保持中のcommand targetをseedとする。中立でmeasured poseへ追従し続けて沈下させない。"""
-        planning=mujoco.MjData(self.model)
+        planning=self._planning_data
         mujoco.mj_copyData(planning,self.model,base)
         for arm in self.addresses:
             planning.qpos[list(arm.qpos_addresses)]=base.ctrl[list(arm.actuator_ids)]
-        mujoco.mj_forward(self.model,planning)
+        mujoco.mj_kinematics(self.model,planning)
         return planning
 
     def _check_data(self,data):
@@ -63,7 +63,7 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
 
     def _integrate_candidate(self,base,candidates,dt_s):
         substeps=self.settings.substeps(dt_s)
-        data=mujoco.MjData(self.model)
+        data=self._candidate_data
         mujoco.mj_copyData(data,self.model,base)
         for arm in self.addresses:
             targets=np.asarray(candidates[arm.arm_id])

@@ -2,7 +2,8 @@
   "schema_version": "object-scene-preset/v2",
   "scene_id": "cube_push",
   "definition_resources": [
-    "test_cube_100mm"
+    "test_cube_100mm",
+    "push_pedestal"
   ],
   "objects": [
     {
@@ -17,7 +18,7 @@
         "position_m": [
           0.36,
           0.56,
-          0.46
+          0.461
         ],
         "orientation_wxyz": [
           1.0,
@@ -37,6 +38,28 @@
           0,
           0,
           0
+        ]
+      }
+    },
+    {
+      "instance_id": "pedestal",
+      "definition": {
+        "name": "push_pedestal",
+        "version": 1
+      },
+      "motion_type": "fixed",
+      "pose": {
+        "frame": "mujoco_world",
+        "position_m": [
+          0.55,
+          0.0,
+          0.205
+        ],
+        "orientation_wxyz": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
         ]
       }
     }
@@ -68,9 +91,9 @@
       {
         "plane_id": "floor",
         "position_m": [
-          0,
-          0,
-          0.41
+          0.0,
+          0.0,
+          0.0
         ],
         "orientation_wxyz": [
           1,

@@ -38,3 +38,10 @@ export function resolveGeomDisplayColor(style: BodyVisualStyle | null, rgba: rea
   if (mesh && style !== null) return style.color;
   return [rgba[0],rgba[1],rgba[2]];
 }
+
+
+/** MjvGeomで名前を得られないprimitiveでも、色/透明度の異なる物体を混同しない。 */
+export function geomMaterialCacheKey(body: string, geom: string, mesh: string, type: number, rgba: readonly number[]): string {
+  resolveGeomDisplayColor(null, rgba, false);
+  return JSON.stringify([body, geom, mesh, type, rgba]);
+}
