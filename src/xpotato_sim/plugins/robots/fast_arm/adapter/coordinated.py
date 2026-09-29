@@ -148,6 +148,42 @@ class FastArmAssemblyMotionProvider:
         with self._lock:
             self._pending = None
 
+    def numerical_condition(self):
+        """実際のnative modelと実行policyの数値条件をcopyで公開する。"""
+        from dataclasses import asdict
+        with self._lock:
+            return {
+                "schema_version": "model-numerical-condition/v1",
+                "execution_semantics": self.execution_semantics,
+                "mujoco_version": mujoco.__version__,
+                "joint_limits": asdict(self.limits),
+                "native": {name: getattr(self.model, name).tolist() for name in (
+                    "jnt_range", "jnt_limited", "actuator_ctrlrange", "actuator_forcerange",
+                    "actuator_gainprm", "actuator_biasprm", "actuator_dynprm",
+                    "dof_damping", "dof_armature", "body_mass", "body_inertia")},
+                "options": {"timestep_s": float(self.model.opt.timestep),
+                    "gravity_m_s2": self.model.opt.gravity.tolist(),
+                    "integrator": int(self.model.opt.integrator), "solver": int(self.model.opt.solver),
+                    "iterations": int(self.model.opt.iterations), "tolerance": float(self.model.opt.tolerance)},
+                "controller": {"fd_epsilon_rad": DEFAULT_VIEWER_LOCAL_ENDPOINT_FD_EPSILON_RAD,
+                    "damping": DEFAULT_VIEWER_LOCAL_ENDPOINT_DAMPING,
+                    "max_qpos_delta_norm_rad": DEFAULT_VIEWER_LOCAL_ENDPOINT_MAX_QPOS_DELTA_NORM_RAD,
+                    "max_endpoint_delta_per_tick_m": DEFAULT_VIEWER_LOCAL_ENDPOINT_MAX_DELTA_PER_TICK_M},
+            }
+
+    def trial_state(self):
+        """全物体・actuator・warmstart等を含むnative integration stateを保存用に読む。"""
+        with self._lock:
+            spec = mujoco.mjtState.mjSTATE_INTEGRATION
+            state = np.empty(mujoco.mj_stateSize(self.model, spec))
+            mujoco.mj_getState(self.model, self._data, state, spec)
+            return {"schema_version": "model-integration-state/v1",
+                "model_sha256": self.built.model_sha256, "mujoco_version": mujoco.__version__,
+                "state_spec": int(spec), "integration_state": state.tolist(),
+                "time_s": float(self._data.time), "qpos": self._data.qpos.tolist(),
+                "qvel": self._data.qvel.tolist(), "act": self._data.act.tolist(),
+                "ctrl": self._data.ctrl.tolist()}
+
     def _initialize_data(self, data):
         """旧kinematicのhome/controlは変更しない。実行方式固有の初期化hook。"""
 

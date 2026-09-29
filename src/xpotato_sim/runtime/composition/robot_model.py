@@ -37,6 +37,12 @@ class ModelMotionProvider(CoordinatedMotionProvider, Protocol):
     def transport_state(self, *, frame_index: int, metadata: Mapping[str, object]) -> MuJoCoState: ...
 
 
+class TrialStateProvider(Protocol):
+    """有限試行用の数値条件と全integration state。古いproviderへ暗黙補完しない。"""
+    def numerical_condition(self) -> Mapping[str, object]: ...
+    def trial_state(self) -> Mapping[str, object]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class RobotModelInstance:
     provider: ModelMotionProvider

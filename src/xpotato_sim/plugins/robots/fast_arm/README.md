@@ -20,6 +20,11 @@ resourceのcurrent値は[`plugin.py`](plugin.py)とadapter declarationを正と�
 
 ## lifecycleとside effect
 
+名前付きmodel providerは有限trial向けに`numerical_condition()`と`trial_state()`を公開する。
+前者は実際のnative model・関節制限・controller数値条件のcopy、後者は全物体を含むMuJoCo integration stateのcopyである。
+resetではhomeの全stateへ戻しpending候補を破棄する。model/FK/candidate作業域の再利用とtrial寿命の境界は
+[有限試行契約](../../../../../docs/contracts/finite-trial-runtime.md)を参照する。trial IDや結果fileの所有者はruntimeである。
+
 import / discoveryはhardwareへ接続しない。runtime assembly後にpackage resourceからMuJoCo modelを
 loadし、simulatorを構築する。serial、OSC、robot hardwareはopenしない。
 

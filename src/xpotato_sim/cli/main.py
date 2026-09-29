@@ -133,6 +133,15 @@ def build_parser() -> argparse.ArgumentParser:
     mode = app.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="設定と依存だけを検査（起動しない）")
     mode.add_argument("--startup-check", action="store_true", help="両serverの起動と終了だけを検証")
+    trial = commands.add_parser("trial", help="明示Gamepad記録で有限試行を実行・保存する")
+    trial.add_argument("--profile", required=True)
+    trial.add_argument("--fixture", type=Path, required=True)
+    trial.add_argument("--result-root", type=Path, required=True)
+    trial.add_argument("--software-revision", required=True, help="実行sourceのrevision（未commit変更も明記）")
+    trial.add_argument("--ticks", type=_positive_int, required=True)
+    trial.add_argument("--input-wait-s", type=_positive_float, default=5.0)
+    trial.add_argument("--wall-s", type=_positive_float, default=60.0)
+    trial.add_argument("--prepare-s", type=_positive_float, default=30.0)
     return parser
 
 
@@ -143,6 +152,18 @@ def _resolve_runtime_capabilities(robot_id: str) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
+    if args.command == "trial":
+        from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
+        from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
+        from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
+        from xpotato_sim.runtime.runners.finite_trial import run_finite_trial
+        limits = TrialLimits(args.ticks, args.input_wait_s, args.wall_s, args.prepare_s)
+        fixture = load_trial_fixture(args.fixture)
+        result = run_finite_trial(load_launch_profile(args.profile), fixture=fixture, limits=limits,
+            result_root=args.result_root, software_revision=args.software_revision).to_document()
+        print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        return 0 if (result["recording"] == "complete"
+            and result["runner_stop_reason"] in {"simulation_budget", "task_success"}) else 1
     if args.command == "profile":
         from xpotato_sim.runtime.runners.application import (
             list_application_profiles,
