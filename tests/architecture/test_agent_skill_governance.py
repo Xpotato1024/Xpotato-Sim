@@ -773,3 +773,37 @@ def test_candidate_provenance_can_contain_issue_and_sha_evidence() -> None:
     assert "PR #403" in candidate
     assert "3ce7f30" in candidate
     assert MODULE.validate(ROOT).accepted
+
+
+def test_current_agent_routing_is_model_independent_across_skill_lifecycle() -> None:
+    policy_paths = [
+        ROOT / "AGENTS.md",
+        ROOT / "docs" / "operations" / "codex-workflow.md",
+        ROOT / "docs" / "operations" / "agent-skill-governance.md",
+        *sorted((ROOT / ".agents" / "skills").glob("*/SKILL.md")),
+        *sorted((ROOT / ".agents" / "skills").glob("*/agents/openai.yaml")),
+        *sorted((ROOT / ".agents" / "skill-evals").glob("*.toml")),
+    ]
+    legacy_routing_names = ("Sol", "Astra", "Luna", "GPT-5", "GPT-6")
+    violations = {
+        str(path.relative_to(ROOT)): [
+            name for name in legacy_routing_names if name in path.read_text(encoding="utf-8")
+        ]
+        for path in policy_paths
+    }
+    for path in sorted((ROOT / ".agents" / "skill-candidates").glob("*.toml")):
+        candidate = tomllib.loads(path.read_text(encoding="utf-8"))
+        candidate.pop("observable_evidence", None)
+        current_policy = repr(candidate)
+        names = [name for name in legacy_routing_names if name in current_policy]
+        if names:
+            violations[str(path.relative_to(ROOT))] = names
+    assert not {path: names for path, names in violations.items() if names}
+
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    workflow = (ROOT / "docs" / "operations" / "codex-workflow.md").read_text(encoding="utf-8")
+    governance = (ROOT / "docs" / "operations" / "agent-skill-governance.md").read_text(encoding="utf-8")
+    assert "repository側では特定modelやmodel間の担当分担を固定せず" in agents
+    assert "repositoryは特定model名、model ID、model階層、model間の担当表を固定しない" in workflow
+    assert "Skill systemはこれを複製・上書きしない" in governance
+    assert "現在の担当指定やpromotion条件へ読み替えない" in governance
