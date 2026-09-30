@@ -69,6 +69,7 @@ EXPECTED_MODULES = {
         "pipeline",
     },
     "experiment": {
+        "edited_condition",
         "trial_condition",
         "trial_fixture",
         "trial_record",

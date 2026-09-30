@@ -42,6 +42,10 @@ provider identity、plugin identityはこの移動で変更しない。
 同じ実行を呼び、physics/Taskを二重実装しない。旧publisherのframe予算と新trialのcommit予算を分ける。
 具体契約は[有限試行](../contracts/finite-trial-runtime.md)だけを正本とする。
 
+`experiment/edited_condition.py`はWorkbenchの展開条件/v1、descriptor、strict編集入口、clone/diffを所有する。
+既存catalogとlaunch-profile decoderへ接続し、任意pathやcodeを含むGUI専用設定engineを作らない。
+descriptorで公開する型・値域は同じ入口の検証に使い、scene/Task/physicsの追加検証は既存ownerへ渡す。
+
 `runners/workbench.py`は待機アプリの制御/期限監督と専用workerへの接続を所有し、workerは同じTrialRunnerを呼ぶ。
 `workbench_web.py`は明示buildのlocal配信、`workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
 phase、Task判定、記録形式、physicsをこれらに再実装しない。詳細は[Workbench契約](../contracts/workbench.md)を参照する。

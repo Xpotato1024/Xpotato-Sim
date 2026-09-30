@@ -23,7 +23,7 @@ related:
 ## 有限試行
 
 `trial`は名前付きモデルv2〜v4と明示Gamepad fixtureを共通TrialRunnerへ渡し、ローカル結果を保存する。
-GUI/control serverは`workbench`、構造化editorと全metric artifactは後続#593/#584の範囲である。
+GUI/control serverは`workbench`、構造化editorはWorkbenchへ接続済み。正式な全metric artifactは#584の範囲である。
 
 ```powershell
 uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root <保存先> --ticks 4 --software-revision <実行sourceのrevision>
@@ -32,7 +32,7 @@ uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/tr
 保存先・fixture・tick予算・software revisionは必須。既存の`profile`、`app`、`viewer`、`replay`の意味は変えない。
 待機期限、終了理由、保存file、非対応経路は[有限試行契約](../contracts/finite-trial-runtime.md)を参照する。
 
-installable entry point は `selfrionette` である。robot は暗黙選択せず、既存の Robot
+installable entry point は `xpotato-sim` である。robot は暗黙選択せず、既存の Robot
 Catalog と Robot Bundle から `--robot` で解決する。runtime command の実行前に、必要な
 typed provider が Bundle に一意に存在することを検証する。
 
@@ -87,3 +87,48 @@ JSONの仕様とpath解決は`docs/contracts/launch-profile.md`を参照する�
 `--check`は依存と設定だけ、`--startup-check`はloopback serverの起動/終了だけを検証する。
 profileにrobotが明記されるので、このsubcommandに別の`--robot`はない。
 既存replay/viewerの選択肢と引数は維持する。手順は`backend-viewer-startup.md`を参照する。
+
+## 操作引数の詳細
+
+Workbenchの全option・単位・必須/任意・組合せとcopy/paste初期起動は[root README](../../README.md#workbenchオプション)を参照する。`--condition`は展開済み条件/v1を共通resolverで検証し、`--run-once`でもGUIと同じ適用条件を使用する。profile/ticks/期限optionは同時指定しない。
+
+以下は既存の補助commandで、browser制御を暗黙に開始しない。PowerShellでrepository rootから実行する。
+
+| command | flag | 必須・既定・単位 | 意味と組合せ |
+| --- | --- | --- | --- |
+| `profile` | `selector` | 任意・一覧 | 登録名またはJSON path。Source/modelを開始しない |
+| `app` | `--profile` | 必須 | 既存launch profile名/path |
+| `app` | `--web-port`, `--backend-port` | 任意・profile値、1〜65535 | WebとWebSocketのportを明示override |
+| `app` | `--no-browser` | 任意・off | 自動browser起動を止める |
+| `app` | `--check`, `--startup-check` | 任意・off、相互排他 | 依存検査のみ／server起動と終了のみ |
+| `trial` | `--profile`, `--fixture`, `--result-root`, `--software-revision` | 必須 | 検証済みprofile、有限入力、保存先、実行revision |
+| `trial` | `--ticks` | 必須・正整数 | 有限commit予算。旧profile stepsを予算へ代用しない |
+| `trial` | `--input-wait-s`, `--wall-s`, `--prepare-s` | 任意・5/60/30 s | 正の有限秒。入力準備／総実時間／native準備 |
+| `replay` | `--robot` | 必須 | Robot Catalog ID。例`fast_arm` |
+| `replay` | `--steps` | 任意・1、正整数 | dry-run step数 |
+| `replay` | `--dt-s` | 任意・Robot既定、s | 正の制御周期 |
+| `replay` | `--preset` | 任意・なし | `sweep_x`。明示sourceと不整合な組合せは拒否 |
+| `replay` | `--input-source` | 任意・未指定 | `programmed_target`/`replay`/`noop`。未指定時は既存replay経路 |
+| `replay` | `--output` | 任意・stdout | NDJSON出力path。GUI結果fileとは別 |
+| `viewer` | `--robot` | 必須 | 同じRobot Catalog ID |
+| `viewer` | `--host`, `--port` | 任意・127.0.0.1/8766 | publisher bindとport。browser page URLとは別 |
+| `viewer` | `--steps`, `--dt-s` | 任意・1、1/60 s | 有限配信数と制御周期 |
+| `viewer` | `--interval-s`, `--grace-period-s` | 任意・0/0.05 s | 非負の配信間隔と終了猶予 |
+| `viewer` | `--preset`, `--input-source` | 任意・なし | presetは`sweep_x`。sourceは上記3種と`viewer` |
+
+```powershell
+uv run xpotato-sim app --profile sim-gamepad --check
+uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
+uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
+```
+
+`viewer`はpublisherだけでWebページを起動しない。別端末のViewer dev serverは次の手順とする。
+
+```powershell
+npm --prefix apps/mujoco-viewer run dev -- --host 127.0.0.1 --port 5173
+```
+
+閲覧URLは`http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766`。
+`ws`は既存のquery互換alias、`websocketUrl`が優先する。Workbenchの操作資格とは異なる。
+終了は各起動端末のCtrl+C。Workbenchと違い旧appはprofileの有限実行完了でも終了する。
+独立wheelの配布は`uv build --wheel src/xpotato_sim/plugins/robots/fast_arm/core --out-dir`とrootの`uv build --wheel --out-dir`で両distributionを用意する。出力先にはtask用の絶対temporary root配下を指定する。

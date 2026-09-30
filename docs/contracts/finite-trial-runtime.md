@@ -37,7 +37,8 @@ Evaluation、表示比較条件、participant、seedによる乱数試験は本�
 `start`はreadyだけ、`retry`は正常に記録されたterminalだけで新trial ID/epochを発行してreadyへ戻す。
 retry自体は開始しない。Task successとrunner停止理由は別fieldで、Taskなしをsuccessと補完しない。
 保存失敗は`recording_failed`、prepare/reset失敗は`faulted`で停止し、同ownerの再実行を禁止する。
-Workbenchの明示prepareによる復旧は旧runnerをcloseして新しいrunnerを作る。失敗trialの自動再開ではない。
+Workbenchのprepare/reset失敗からの明示prepareは旧runnerをcloseして新しいrunnerを作る。
+記録失敗後の同アプリでの次条件適用は拒否し、原因確認後に明示再起動する。失敗trialの自動再開ではない。
 開始前だけ`discard_prepared()`でnative参照とticketを破棄して未選択へ戻せる。
 
 simulation予算は成功したprovider commitによるtick数×control dtだけを消費する。

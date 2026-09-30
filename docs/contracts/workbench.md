@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-29
+last_verified: 2026-10-01
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -20,7 +20,10 @@ related:
 結果保存→明示「同じ条件で再試行」を行う。次条件と適用中profileは分けて表示する。
 drop/fixed-contact/push、片腕/双腕、幾何/動力学を共通`TrialRunner`へ渡す。
 v1や非対応Sourceは理由付きで不可表示し、別profileやneutral入力へ置換しない。
-全軸parameter editorは#593であり、本契約には含めない。
+Basicは登録preset、Advancedはbackend descriptorによるparameter/物体editorである。
+Robotモデル、物体定義・配置、Mapping、Task期間、有限予算を編集できる。
+Inputはnamed-model経路で`viewer`/`gamepad/v1`だけに対応する。別Source/Mapping、正式Evaluation、
+Robot固有寸法・gain、任意物体集合・形状型追加は理由付きで無効にし、別機能へ代用しない。
 
 GUIと`--run-once`は同じ制御service、worker、TrialRunnerを使用する。既存`trial` CLIも
 同じTrialRunnerを使う。headlessにはrenderer ACKを要求しない。MuJoCoがphysical stateの
@@ -63,6 +66,7 @@ buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む
 
 | option | 既定・意味 |
 | --- | --- |
+| `--condition` | export済み展開条件JSON。profile/ticks/期限optionと排他。予算は条件内limitsを使用 |
 | `--backend-port` / `--web-port` | 8766 / 5173。異なるloopback portのみ |
 | `--ticks` | 省略時は選択profileのsteps。有限なcommit予算 |
 | `--input-wait-s` | 5秒。Start後の入力中立待ち |
@@ -92,8 +96,9 @@ OSのprocess回収時間までのhard realtime保証ではない。結果確定�
 owner切断もactive/処理中なら同じ監督を開始する。閲覧peerの不正要求でowner試行を停止しない。
 
 開始前STOPは準備を破棄して未選択へ戻る。active STOPはoperator_abortを保存し、次のprepare/retryも明示操作とする。
-prepare/reset失敗・記録失敗後は自動再開しない。生存workerで明示「検証・準備」を行うと、失敗したrunnerをcloseし、
-新しいrunnerで検証・準備する。過去結果と不完全fileは保持する。記録失敗をsuccess/retry可能へ変換しない。
+prepare/reset失敗後は自動再開しない。生存workerで明示「検証・準備」を行うと、失敗したrunnerをcloseし、
+新しいrunnerで検証・準備する。記録失敗後は編集・適用・retryを拒否し、原因確認後にアプリを明示再起動する。
+過去結果と不完全fileは保持し、記録失敗をsuccessへ変換しない。
 worker死亡・強制終了後はアプリを終了して明示再起動する。GUIだけの再接続ではworkerを復活させない。
 
 ## 入力と資源所有
@@ -122,4 +127,31 @@ WASM heapは実exportされたdata propertyがある場合だけ読み、未expo
 timer/listenerの値はこのownerの数でありbrowser全体の実測ではない。RSSが直ちに低下しないだけでリークと断定しない。
 反復・モデル切替・新規起動の固定build実測と合成deviceによるfrontend入力確認は、
 [software検証note](../experiment-notes/2026-09-29-workbench-software-validation.md)へ分離する。
-Mapping単独のparameter編集は#593であり、単体検証や短期測定を無期限のリーク不在・実Gamepad受入へ読み替えない。
+parameter/model編集後も同じ資源所有とepoch隔離を使う。単体検証や短期測定を無期限のリーク不在・実Gamepad受入へ読み替えない。
+
+## 展開条件と停止中の編集
+
+`experiment/edited_condition.py`が`workbench-condition/v1`、descriptorとstrict入口を所有する。
+条件は`schema_version`、登録`preset_id`、`configuration`（Robot/model/Input/Mapping/coordination/execution）、
+登録モデル構成の`model_configuration_sha256`、展開済みEnvironment、Task、未対応を表すEvaluation null、
+有限`limits`を持つ。登録モデル構成が変わった古いexportは拒否し、local path、port、trial IDは含めない。
+旧launch-profile v1〜v4の保存byte/digest・CLIは変更せず、内部で既存decoderと`resolve_trial_profile`へ渡す。
+GUIと`--condition --run-once --fixture`は同じresolver/service/worker/TrialRunnerを使う。
+
+型・単位・選択肢・minimum/maximum・排他的minimum・availability/reasonはbackend descriptorとして返し、
+同じdescriptorを入口検査に使う。model選択と登録endpoint bindingの変更は明示した一操作で、他の条件を置換しない。
+物体はpresetの有界集合とidentityに束縛する。定義（box半寸法m、質量kg、摩擦）と配置（world位置m、
+単位wxyz quaternion、fixed/dynamic、初期速度）を分離し、同一MuJoCo worldへ既存Environmentが構築する。
+kinematicのdynamic物体は拒否する。物体数・形状型の追加や新Taskは本editorでは公開しない。
+
+`clone`は登録presetから新しい展開コピー、`edit`はparameter検証、`export`は検証済みコピー、
+`import`はJSON内容の再検証、`diff`は適用条件（未適用時は次条件）との差分を返す。
+60,000 bytes上限、exact field/配列構造、登録identity、有限数、既存parameter/physics契約を検査する。
+重複JSON key、未知field/ID、path/XML/code/import参照、非対応組合せを捨てず拒否する。
+exportはschema・完全展開値を保存し、import後のcanonical条件が再現する。server上のfile selectorは存在しない。
+
+編集応答は期待revisionとticketを検査し、active、処理中、記録失敗、旧epochで拒否する。
+次条件は適用conditionと別のコピーであり、editだけでnative worldを変更しない。
+「検証・準備」は共通resolverの後にnative buildと既存初期貫通検査を行い、成功したassetだけをallowlistへ公開する。
+旧trialが実行された場合はterminal・記録確定後だけ次条件を適用する。readyの未開始previewは破棄して再準備できる。
+STOP中のprepare遅延完了・旧frame/入力/loadは既存generation/epoch gateで無効にする。

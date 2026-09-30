@@ -24,6 +24,7 @@ from websockets.exceptions import ConnectionClosed
 from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, load_launch_profile, repository_workspace
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits, resolve_trial_profile
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition, descriptors, condition_diff, MAX_BYTES
 from xpotato_sim.runtime.runners.application_process import OwnedApplicationWorkers, join_application_job
 from xpotato_sim.runtime.runners.workbench_metrics import process_memory
 from xpotato_sim.transport import mujoco_state_to_payload
@@ -90,6 +91,7 @@ class WorkbenchControl:
         self.stop_id = None
         self.stop_deadline = None
         self.dead = False
+        self.next_condition = None
 
     def complete(self, rid, error=None):
         if rid in self.history:
@@ -151,6 +153,34 @@ class WorkbenchControl:
             self.owner = client
             return {"type": "claimed"}, None
         self.authorize(client, r)
+        if op in {"edit", "clone", "export", "import", "diff"}:
+            expected = {"op", "capability", "revision", "ticket"}
+            if op in {"edit", "import", "diff"}:
+                expected.add("condition")
+            if op == "clone":
+                expected.add("profile_id")
+            if set(r) != expected or type(r["revision"]) is not int or r["revision"] != self.revision or r["ticket"] != self.state["ticket"]:
+                raise ValueError("未知fieldまたは旧revision/ticketです")
+            if self.busy or self.state["phase"] not in {"unselected", "ready", "terminal"}:
+                raise ValueError("条件編集は停止中・記録確定後だけです")
+            if op == "diff":
+                if self.next_condition is None:
+                    raise ValueError("次条件がありません")
+                return {"type": "condition_diff", "changes": condition_diff(self.state.get("applied_condition") or self.next_condition, r["condition"])}, None
+            if op == "export":
+                if self.next_condition is None:
+                    raise ValueError("次条件がありません")
+            else:
+                value = preset_condition(r["profile_id"]) if op == "clone" else r["condition"]
+                if op == "import":
+                    if type(value) is not str:
+                        raise ValueError("importはJSON文字列です。server pathは受け付けません")
+                    value = value.encode("utf-8")
+                self.next_condition = resolve_condition(value)[2]
+                self.revision += 1
+            return {"type": "edited_condition", "condition": self.next_condition,
+                "descriptors": descriptors(self.next_condition), "revision": self.revision,
+                "generation": self.generation, "ticket": self.state["ticket"]}, None
         if op == "input":
             if set(r) != {"op", "capability", "ticket", "message"}:
                 raise ValueError("未知field")
@@ -162,6 +192,8 @@ class WorkbenchControl:
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
             fields.add("profile_id")
+            if "condition" in r:
+                fields.add("condition")
         if set(r) != fields or op not in {"prepare", "start", "retry", "stop", "renderer_ready"}:
             raise ValueError("未知operationまたはfieldです")
         rid = r["id"]
@@ -183,10 +215,15 @@ class WorkbenchControl:
         if op != "stop" and self.busy:
             raise ValueError("処理中です")
         if op == "prepare":
-            if phase not in {"unselected", "ready", "terminal", "faulted", "recording_failed"}:
+            if phase not in {"unselected", "ready", "terminal", "faulted"}:
                 raise ValueError("停止中の正常なownerだけが準備できます")
             if not any(p["id"] == r["profile_id"] and p["available"] for p in self.catalog):
                 raise ValueError("利用可能な登録profile IDが必要です")
+            if "condition" in r:
+                _, _, normalized = resolve_condition(r["condition"])
+                if normalized["preset_id"] != r["profile_id"]:
+                    raise ValueError("preset/condition ID不一致")
+                r = {**r, "condition": normalized}
             self.generation += 1
             self.renderer_epoch = None
         elif op == "retry":
@@ -244,6 +281,7 @@ def execution_worker(url, config):
     assets = []
     prepared_assets = ()
     prepared_viewer = None
+    applied_condition = None
     fixture_start = None
     fixture_index = 0
     next_tick = monotonic()
@@ -256,6 +294,7 @@ def execution_worker(url, config):
             "simulation_time_s": runner.tick_count * profile.dt_s if profile else 0.0,
             "result": None if runner.result is None else runner.result.to_document(), "error": runner.error,
             "condition": None if runner.condition is None else runner.condition.to_document(),
+            "applied_condition": applied_condition,
             "worker_pid": os.getpid(),
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
@@ -285,10 +324,15 @@ def execution_worker(url, config):
                                 retired_builds += runner.model_build_count
                                 runner.close()
                                 runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"])
-                            profile = load_launch_profile(cmd["profile_id"])
-                            limits = TrialLimits(config.get("ticks") or profile.steps,
-                                config["input_wait_s"], config["wall_s"], config["prepare_s"])
+                            if "condition" in cmd:
+                                profile, limits, candidate = resolve_condition(cmd["condition"])
+                            else:
+                                profile = load_launch_profile(cmd["profile_id"])
+                                limits = TrialLimits(config.get("ticks") or profile.steps,
+                                    config["input_wait_s"], config["wall_s"], config["prepare_s"])
+                                candidate = preset_condition(cmd["profile_id"], limits)
                             runner.prepare(profile, limits)
+                            applied_condition = candidate
                             generation = cmd["generation"]
                             asset_root = Path(config["asset_root"])
                             # 単一世代のみ公開。準備中は親が旧allowlistを停止する。
@@ -393,6 +437,13 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
     control = WorkbenchControl(profile_catalog(), capability or secrets.token_urlsafe(32), require_renderer=not config.get("run_once"))
     control.state["preselected_profile"] = config.get("profile")
     control.state["fixture_mode"] = bool(config.get("fixture"))
+    control.state["initial_condition"] = config.get("condition")
+    if control.state["initial_condition"] is None and config.get("profile") and not config.get("run_once"):
+        selected = load_launch_profile(config["profile"])
+        control.state["initial_condition"] = preset_condition(config["profile"], TrialLimits(config.get("ticks") or selected.steps,
+            config["input_wait_s"], config["wall_s"], config["prepare_s"]))
+    control.next_condition = control.state["initial_condition"]
+    control.state["initial_descriptors"] = [] if control.next_condition is None else descriptors(control.next_condition)
     worker_key = secrets.token_urlsafe(32)
     peers = set()
     worker = None
@@ -515,7 +566,8 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                         if command["op"] == "prepare":
                             allowed_assets = set()
                             latest_frame = None
-                            prepare_deadline = monotonic() + config["prepare_s"] + 2
+                            prepare_budget = command.get("condition", {}).get("limits", {}).get("prepare_s", config["prepare_s"])
+                            prepare_deadline = monotonic() + prepare_budget + 2
                         if command["op"] == "stop":
                             enqueue_stop(command)
                         else:
@@ -638,6 +690,8 @@ async def run_headless_client(config, capability):
             if event["phase"] == "unselected" and not selected:
                 selected = True
                 op, extra = "prepare", {"profile_id": config["profile"]}
+                if config.get("condition"):
+                    extra["condition"] = config["condition"]
             elif event["phase"] == "ready" and not started:
                 started = True
                 op, extra = "start", {}
@@ -650,6 +704,17 @@ async def run_headless_client(config, capability):
 
 def run_workbench(args):
     workspace = repository_workspace()
+    condition = None
+    if getattr(args, "condition", None):
+        if args.profile or args.ticks or any(getattr(args, key) is not None for key in ("input_wait_s", "wall_s", "prepare_s")):
+            raise ValueError("conditionはprofile/ticks/期限optionと排他です（予算は条件に保存されます）")
+        with args.condition.open("rb") as stream:
+            _, _, condition = resolve_condition(stream.read(MAX_BYTES + 1))
+        args.profile = condition["preset_id"]
+    for key, default in (("input_wait_s", 5.), ("wall_s", 360.), ("prepare_s", 30.)):
+        if getattr(args, key) is None:
+            setattr(args, key, default)
+    TrialLimits(args.ticks or 1, args.input_wait_s, args.wall_s, args.prepare_s)
     if args.profile and args.profile not in list_launch_profiles():
         raise ValueError("登録profile IDだけを指定できます")
     args.result_root = args.result_root.resolve()
@@ -673,6 +738,7 @@ def run_workbench(args):
             "fixture": None if args.fixture is None else str(args.fixture.resolve()), "profile": args.profile}
         config["web_dist"] = None if args.web_dist is None else str(args.web_dist.resolve())
         config["run_once"] = args.run_once
+        config["condition"] = condition
         config["diagnostic_memory"] = args.diagnostic_memory
         (directory / "worker.json").write_text(json.dumps(config), encoding="utf-8")
         with OwnedApplicationWorkers() as web_workers, OwnedApplicationWorkers() as workers:

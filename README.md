@@ -1,145 +1,90 @@
 # Xpotato-Sim
 
-ロボット操作・実験のためのシミュレーション中心の基盤。Selfrionetteは対応する入力装置の一つです。
+MuJoCoを物理状態の正本とするロボット実験環境です。Workbenchで条件を編集し、初期状態を確認して有限試行を反復できます。以下はWindows PowerShellで、cloneしたリポジトリrootから実行します。
 
-`Xpotato-Sim` の docs 正本は `docs/README.md` です。
-このルート README は、current architecture、plugin、backend / viewerの最初の入口だけをまとめます。
+## 初回セットアップと起動
 
-既存profileをGUIで選択して有限試行を繰り返す入口は
-[`xpotato-sim workbench`](docs/contracts/workbench.md)です。未選択で待機し、準備と開始を別操作にします。
-
-## まず読むもの
-
-- [docs/README.md](docs/README.md)
-- [docs/architecture/dependency-boundaries.md](docs/architecture/dependency-boundaries.md)
-- [docs/architecture/runtime-composition.md](docs/architecture/runtime-composition.md)
-- [docs/contracts/experiment-plugin-composition.md](docs/contracts/experiment-plugin-composition.md)
-- [src/xpotato_sim/plugins/README.md](src/xpotato_sim/plugins/README.md)
-- [docs/operations/backend-viewer-startup.md](docs/operations/backend-viewer-startup.md)
-- [docs/operations/websocket-host-port-contract.md](docs/operations/websocket-host-port-contract.md)
-- [docs/operations/runtime-to-viewer-e2e-smoke.md](docs/operations/runtime-to-viewer-e2e-smoke.md)
-- [apps/mujoco-viewer/README.md](apps/mujoco-viewer/README.md)
-
-## current architecture
-
-MuJoCoがphysical stateのsource of truthであり、Three.js / browser viewerはrenderingと
-read-only diagnosticsを担当します。複数層のcompositionは`src/xpotato_sim/runtime/`だけが所有します。
-pluginはRobot、Environment、Mapping、Task、Evaluation、Input Sourceの6軸で独立選択しますが、
-現在のproduction診断・運用pathはRobot、Input Source、Mappingが中心です。
-Environment、Task、Evaluationにもfree-space/contactのproduction pluginと専用runnerがあります。
-全6軸の選択をgeneric CLI / Web UIが一律に提供するわけではありません。
-
-## directory map
-
-- [`src/xpotato_sim/`](src/xpotato_sim/README.md): Python packageと各layerの入口
-- [`src/xpotato_sim/plugins/`](src/xpotato_sim/plugins/README.md): plugin hierarchyと追加方法
-- [`apps/mujoco-viewer/`](apps/mujoco-viewer/README.md): rendering-only browser viewer
-- [`scripts/`](scripts/README.md): repository / diagnostics / viewer / hardware script
-- [`tests/`](tests/README.md): test ownershipとvalidation入口
-- [`firmware/`](firmware/README.md): hardware firmwareとlegacy境界
-- [`docs/`](docs/README.md): canonical Source of Truth Map
-- [`research/`](research/README.md): research logの記録条件
-
-## セットアップ
-
-- Python 側は `uv run ...` を使います。
-- root projectはuv workspaceで独立distribution `fast_arm_core`を通常dependencyとして解決します。
-  `uv sync --frozen --group dev`はrootとcoreをeditableに同期し、配布確認ではcore wheelとroot wheelを別々にbuild/installします。
-- viewer 側は `apps/mujoco-viewer` 配下で `npm ci` を実行します。
-- browser viewer 用の build は `npm run browser:build` です。
-- `npm run typecheck`はTypeScript静的検証、`npm run build`はViteによるブラウザbundle生成です。
-- `npm test` は viewer runtime / WebSocket skeleton のテストを実行します。
-
-独立wheelの確認:
-
-```bash
-uv build --wheel src/xpotato_sim/plugins/robots/fast_arm/core --out-dir dist
-uv build --wheel --out-dir dist
-```
-
-root sdist/wheelは`fast_arm_core` sourceを内包せず、install時にcore wheelを通常dependencyとして要求します。
-rootのpackage dataはadapter resourceだけを明示収集し、物理mount pointは`MANIFEST.in`でもpruneします。
-
-## 起動導線
-
-通常はリポジトリrootから次の一つを実行します。初回だけ`uv sync --frozen --group dev`と
-`npm --prefix apps/mujoco-viewer ci`で依存を揃えてください。
+Python **3.11以上**、uv、Git、Node.js **20系の20.19以上、または22.12以上**、npm、WebGL2対応ブラウザを用意します。`pyproject.toml`と`uv.lock`がPython依存の正本です。lockはMuJoCo 3.9.0、matplotlib 3.11.0、websockets 16.0、pytest 9.0.3を固定しています。`fast-arm-core`は同じcheckoutのuv workspace dependencyとして解決します。Viewerの依存は`apps/mujoco-viewer/package-lock.json`に固定され、package指定はReact 19、Three.js 0.184、MuJoCo WASM 3.9、Vite 7、TypeScript 5.9系です。
 
 ```powershell
-uv run xpotato-sim app --profile sim-gamepad
+uv sync --frozen --group dev
+npm --prefix apps/mujoco-viewer ci
+$workbenchTemp = Join-Path $env:TEMP 'xpotato-workbench'
+$results = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/results'
+New-Item -ItemType Directory -Force -Path $workbenchTemp, $results | Out-Null
+$revision = git rev-parse HEAD
+uv run xpotato-sim workbench --temporary-root $workbenchTemp --result-root $results --software-revision $revision --open-browser
 ```
 
-`sim-keyboard` / `replay-sweep`へprofileを切り替えられます。Webとbackendの両方を起動し、
-ブラウザを一度だけ開きます。終了はCtrl+Cまたはprofileの有限実行完了です。
-`uv run xpotato-sim app --profile sim-gamepad --check`は検査のみを行います。
-設定仕様は`docs/contracts/launch-profile.md`、操作の正本は`docs/operations/backend-viewer-startup.md`です。
-以下は低位の個別開発・診断用の入口です。
+Workbenchは未選択・無入力・無physics stepで待機します。起動端末に表示される操作URLで「操作権を取得」し、presetを選択してください。操作URLの一時資格は他人へ共有しません。資格なしのURLは閲覧専用で、表示できても試行は操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。
 
-### backend / dry-run
+1. preset選択で次条件をcloneします。旧v1などの非対応presetは理由付きで無効です。
+2. 「Advanced設定」でRobotモデル、Environment物体、Input、Mapping、Task、Evaluationと有限予算を確認・編集します。単位・可否はbackendが提供します。物体定義の半寸法・質量・摩擦とworld配置の位置・単位quaternion・fixed/dynamicは別項目です。
+3. 「次条件を検証」でparameter契約を検査し、「検証・準備」でnative modelを構築して初期貫通も検査します。成功した同一MuJoCo worldだけをpreviewします。
+4. 初期sceneとshaderの準備完了後に「開始」。Gamepadの新しい中立入力から有限試行が進みます。
+5. 終端・保存完了後に「同じ条件で再試行」、または次条件を編集して「検証・準備」。ページの再読込は不要です。適用中の条件とtrial ID/epochは書き換えません。
 
-```bash
-uv run xpotato-sim replay --robot fast_arm --steps 1
+モデル選択は登録されたendpoint bindingも明示変更します。bindingはフォームに表示されます。非対応軸・組合せは理由を表示し、代替を暗黙選択しません。接触観測Taskは診断であり、正式experimentの保持・持上げ評価や未実装metricを0・成功として報告しません。
+
+「条件をexport」は検証済みの展開条件`workbench-condition/v1`をダウンロードします。「条件JSONをimport」はローカルで選んだfileの内容をbackendへ渡して再検証します。server path、任意XML、code、import参照は受け付けません。「適用条件との差分」で変更箇所を確認できます。物体集合・identityは選択presetに束縛され、任意物体追加や形状型追加は本editorの対象外です。
+
+試行停止は「停止を要求」。結果が確定するまで次条件を適用しません。記録失敗は成功扱いせず、fileを保持して原因を確認し、アプリを明示再起動してください。アプリ全体の終了は起動端末の **Ctrl+C** です。試行終了だけではGUIを閉じません。再接続は状態照会だけで、自動開始しません。
+
+## 条件をheadlessで再現する
+
+exportしたfileを、次のコマンドが使用する`$env:LOCALAPPDATA/Xpotato-Sim/condition.json`へ保存します。fixtureは同梱の短いsoftware検証入力です。GUIでも`--fixture`に同じfileを指定すれば、同じ展開条件・有限予算から実効condition/model/scene/dynamics identityを再現できます。これは参加者や実Gamepadの結果ではありません。
+
+```powershell
+$condition = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/condition.json'
+uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/trial_gamepad/short-movement.json --run-once --temporary-root $workbenchTemp --result-root $results --software-revision $revision
+```
+
+短いfixtureで試す場合、export前にAdvancedの`limits.max_ticks`を **5** にしてください。`--condition`と`--profile`／`--ticks`は排他です。条件内の有限予算を使用します。fixtureのないheadless実行や隠れた中立入力の補完はありません。
+
+結果は`$results/<新しいtrial ID>/`に`condition.json`、`initial-state.json`、`start.json`、`final-state.json`、`terminal.json`として保存します。`terminal.json`が保存完了のmarkerです。過去結果は上書きしません。途中fileだけを正常結果と見なさないでください。CLIのexit 0は記録完了とsimulation予算到達またはTaskの成功終端（診断期間完了を含む）を示し、正式な課題達成を保証しません。
+
+## Workbenchオプション
+
+すべて`uv run xpotato-sim workbench`に続けます。pathは操作者がCLIで指定するもので、GUIからserverの保存先を指定できません。
+
+| flag | 必須・既定 | 意味・単位・組合せ |
+| --- | --- | --- |
+| `--temporary-root` | 必須 | 事前に作成した絶対directory。一時server資産を起動ごとに子directoryへ隔離 |
+| `--result-root` | 必須 | trial別の永続結果directory。例は上記`$results` |
+| `--software-revision` | 必須 | 実行source revision。未commit変更があればそのidentityも記載 |
+| `--profile` | 任意・未選択 | 登録preset ID。指定だけでは開始しない |
+| `--condition` | 任意 | export済み条件JSON。profile/ticksと排他。GUIでは初期次条件、headlessでは適用条件 |
+| `--web-port` | 任意・5173 | loopback Web port。control portと別にする |
+| `--backend-port` | 任意・8766 | loopback control WebSocket／asset port |
+| `--web-dist` | 任意・Vite dev | 明示production buildのroot。自動fallbackなし |
+| `--open-browser` | 任意・off | 操作URLをブラウザで開く。run-onceと排他 |
+| `--startup-check` | 任意・off | Web/worker起動・終了だけを確認。run-onceと排他 |
+| `--run-once` | 任意・off | headless有限実行。profileまたはconditionとfixtureが必須 |
+| `--fixture` | 任意・live Gamepad | 有限software入力JSON。browser入力とは排他 |
+| `--ticks` | 任意・profileのsteps | 有限commit数。正整数。conditionと排他 |
+| `--input-wait-s` | 任意・5 s | 開始後の入力準備上限。正の有限秒 |
+| `--wall-s` | 任意・360 s | 開始後の総実時間上限。正の有限秒 |
+| `--prepare-s` | 任意・30 s | native準備上限。正の有限秒 |
+| `--diagnostic-memory` | 任意・off | Python allocation追跡を明示的に有効化 |
+| `--control-stdin` | 任意・off | 自動検証用の一時操作資格をstdin 1行から読む。通常利用では不要 |
+
+`--condition`使用時のticks・待機/wall/prepare上限は条件内`limits`に保存されます。CLIの期限optionとの同時指定は拒否します。
+
+## その他のよく使うコマンド
+
+```powershell
+uv run xpotato-sim profile
+uv run xpotato-sim profile dynamic-cube-drop
+uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root $results --ticks 5 --software-revision $revision
 uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
+uv run xpotato-sim workbench --help
 ```
 
-dry-run は NDJSON payload / backend path の確認用です。WebSocket server は起動せず、browser viewer にも直接接続しません。
+| command | 主なflag・既定 | 用途 |
+| --- | --- | --- |
+| `profile` | selector任意・省略は一覧 | 登録名または明示JSON pathを解決。起動・stepしない |
+| `trial` | profile/fixture/result-root/ticks/software-revision必須 | 共通runnerによる有限headless。input-wait/wall/prepareは5/60/30 s |
+| `replay` | robot必須、steps=1、preset任意 | NDJSON dry-run。WebSocketやGUIを起動しない |
+| `app` | profile必須、`--check`任意 | 旧profile起動／依存検査。Workbench editorとは別の既存入口 |
 
-### WebSocket publisher
-
-```bash
-uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
-```
-
-browser viewer に payload v0 を流す local/dev publisher です。標準的な loopback は `127.0.0.1:8766` です。
-
-### Web viewer
-
-```bash
-cd apps/mujoco-viewer
-npm ci
-npm run browser:build
-```
-
-browser で開く URL 例:
-
-```text
-apps/mujoco-viewer/index.html?websocketUrl=ws://127.0.0.1:8766
-```
-
-互換 alias:
-
-```text
-apps/mujoco-viewer/index.html?ws=ws://127.0.0.1:8766
-```
-
-browser page URL と WebSocket URL は別です。viewer は `websocketUrl` を優先し、`ws` は互換 alias です。query がない場合は自動接続しません。
-
-### live viewer smoke
-
-```bash
-uv run python scripts/viewer/run_live_viewer_smoke.py --host 127.0.0.1 --port 8766 --steps 3 --grace-period-s 5
-```
-
-browser / viewer smoke の補助導線です。CLI は browser URL と WebSocket endpoint を区別して出力します。
-
-## URL と host の注意
-
-- `127.0.0.1` / `localhost` は同じ machine 上の browser 向け loopback です。
-- `0.0.0.0` は server 側の bind address です。browser URL の host としては通常使いません。
-- LAN / Tailscale / public host から開くときは、browser から見える host を URL に使います。
-- bind host と browser から見える host は別です。
-- viewer page URL と WebSocket endpoint URL は別です。
-- 詳細な host / port / URL contract は [docs/operations/websocket-host-port-contract.md](docs/operations/websocket-host-port-contract.md) を参照してください。
-
-## 参照
-
-- [docs/operations/runtime-dry-run.md](docs/operations/runtime-dry-run.md)
-- [docs/operations/unified-cli.md](docs/operations/unified-cli.md)
-- [docs/operations/websocket-publisher-runner.md](docs/operations/websocket-publisher-runner.md)
-- [docs/operations/live-viewer-smoke.md](docs/operations/live-viewer-smoke.md)
-- [docs/operations/runtime-to-viewer-e2e-smoke.md](docs/operations/runtime-to-viewer-e2e-smoke.md)
-- [docs/operations/browser-visual-smoke.md](docs/operations/browser-visual-smoke.md)
-- [docs/reports/audits/r6-g-p3-startup-script-gap-audit.md](docs/reports/audits/r6-g-p3-startup-script-gap-audit.md)
-- [docs/reports/audits/r6-f-completion-audit.md](docs/reports/audits/r6-f-completion-audit.md)
-
-名称移行と起動方法: [Xpotato-Simへの名称移行](docs/operations/xpotato-sim-migration.md)。
+全commandのflag、組合せ、publisher・legacy参照は[統一CLI](docs/operations/unified-cli.md)、条件と停止・資源契約は[Workbench](docs/contracts/workbench.md)、設計の入口は[Source of Truth Map](docs/README.md)を参照してください。ブラウザ閲覧URLとWebSocket接続URLは別です。Workbenchはloopbackのみで、LAN／公開bindを提供しません。
