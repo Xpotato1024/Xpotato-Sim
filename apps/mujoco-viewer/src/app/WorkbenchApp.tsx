@@ -7,7 +7,8 @@ import {JointInstruments} from "../ui/JointInstruments.js";
 import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
 import "./workbench.css";
-import {canConnect, createWorkbenchGamepadMessages, preparationIsCurrent, type Preparation} from "./workbenchLifecycle.js";
+import {canConnect, conditionReadIsCurrent, createWorkbenchGamepadMessages, preparationIsCurrent, type Preparation} from "./workbenchLifecycle.js";
+import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
 type Status = {phase: string; revision: number; generation: number; busy: string|null;
@@ -33,6 +34,12 @@ export function WorkbenchApp() {
   const [connected,setConnected] = useState(false);
   const [ready,setReady] = useState<string|null>(null);
   const [error,setError] = useState("");
+  const [edited,setEdited]=useState<Condition|null>(null);
+  const [descriptors,setDescriptors]=useState<Descriptor[]>([]);
+  const [changes,setChanges]=useState<any[]>([]);
+  const exporting=useRef(false);
+  const initialized=useRef(false);
+  const editRequest=(op:string,extra:object={})=>{const s=current.current;if(s) send({op,capability:capability.current,revision:s.revision,ticket:s.ticket,...extra});};
   const [state,setState] = useState(createInitialProductViewerState);
   const readyEpoch = useRef<string|null>(null);
   const preparing = useRef<Preparation|null>(null);
@@ -70,12 +77,27 @@ export function WorkbenchApp() {
             if(current.current?.phase==="ready" && current.current.ticket?.epoch===readyEpoch.current) command("renderer_ready");
           }
           if(message.type==="rejected" || message.error) setError(message.error);
+          if(message.type==="rejected") exporting.current=false;
+          if(message.type==="edited_condition" && current.current && message.generation===current.current.generation
+              && message.ticket?.epoch===current.current.ticket?.epoch && message.revision>=current.current.revision) {
+            setEdited(message.condition);setSelected(message.condition.preset_id);setDescriptors(message.descriptors);
+            current.current={...current.current,revision:message.revision};setStatus(current.current);setError("");
+            if(exporting.current) {
+              exporting.current=false;
+              const url=URL.createObjectURL(new Blob([JSON.stringify(message.condition,null,2)],{type:"application/json"}));
+              const a=document.createElement("a");a.href=url;a.download="workbench-condition.json";a.click();URL.revokeObjectURL(url);
+            }
+          }
+          if(message.type==="condition_diff") setChanges(message.changes);
           if(message.type==="status") {
             if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
               || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
               r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
             }
             current.current=message;setStatus(message);
+            if(message.initial_condition && !initialized.current) {
+              initialized.current=true;setEdited(message.initial_condition);setDescriptors(message.initial_descriptors);
+            }
             if(message.preselected_profile) setSelected(old=>old||message.preselected_profile);
             if(message.ticket?.epoch!==readyEpoch.current) setReady(null);
           }
@@ -135,15 +157,16 @@ export function WorkbenchApp() {
       {!owned && connected && capability.current && <button onClick={()=>send({op:"claim",capability:capability.current})}>操作権を取得</button>}
     </header>
     <section className="workbench-controls">
-      <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy} onChange={e=>setSelected(e.target.value)}>
+      <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy||!owned} onChange={e=>{setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
         <option value="">profileを選択してください</option>
         {status?.profiles.map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
       </select></label>
-      <button disabled={!owned||!selected||active||busy} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected});}}>検証・準備</button>
+      <button disabled={!owned||!selected||active||busy||status?.phase==="recording_failed"} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,...(edited?{condition:edited}:{})});}}>検証・準備</button>
       <button disabled={!owned||busy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch} onClick={()=>command("start")}>開始</button>
       <button disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
       <button disabled={!owned||busy||status?.phase!=="terminal"} onClick={()=>{setReady(null);command("retry");}}>同じ条件で再試行</button>
       <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phases[status?.phase??"unselected"]??status?.phase}</p>
+      <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       {(error||status?.error) && <p role="alert">{error||status?.error}</p>}
@@ -153,7 +176,21 @@ export function WorkbenchApp() {
       data-epoch={ready??""} aria-label="MuJoCo初期sceneと試行" />
       <div>{["iso","operator","top","front","fit"].map(view=><button key={view} onClick={()=>renderer.current?.setCameraView(view as any)}>{({iso:"斜め",operator:"操作者",top:"上",front:"前",fit:"全体"} as any)[view]}</button>)}</div>
       <JointInstruments state={state} numbers={state}/></section>
-      <aside><SceneContactPanel value={state.sceneContactPresentation} live={connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
+      <aside><ConditionEditor condition={edited} descriptors={descriptors} onChange={setEdited} disabled={!owned||active||busy||status?.phase==="recording_failed"}
+        onError={setError} onValidate={()=>editRequest("edit",{condition:edited})} onImport={async file=>{
+          const captured=current.current;const ws=socket.current;if(!captured) return;
+          try {
+            const condition=await file.text();const now=current.current;
+            if(!conditionReadIsCurrent(ws,captured,socket.current,now)) {
+              setError("条件file読取中に世代が変わりました。改めてimportしてください");return;
+            }
+            send({op:"import",capability:capability.current,revision:captured.revision,ticket:captured.ticket,condition});
+          } catch(e) {setError(String(e));}
+        }}
+        onExport={()=>{exporting.current=true;editRequest("edit",{condition:edited});}}
+        onDiff={()=>editRequest("diff",{condition:edited})}/>
+        {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
+        <SceneContactPanel value={state.sceneContactPresentation} live={connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
         <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
         </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>

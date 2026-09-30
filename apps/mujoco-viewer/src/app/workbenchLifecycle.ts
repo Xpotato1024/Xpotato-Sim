@@ -11,6 +11,14 @@ export function canConnect(socket: {readyState: number}|null): boolean {
   return socket === null || (socket.readyState !== 0 && socket.readyState !== 1);
 }
 
+/** file読取り中のSTOP・新trial・再接続後に旧importを送らない。未選択epochも比較する。 */
+export function conditionReadIsCurrent(capturedSocket:object|null,
+  captured:{revision:number;generation:number;ticket:{epoch:string}|null},socket:object|null,
+  status:{revision:number;generation:number;ticket:{epoch:string}|null}|null):boolean {
+  return capturedSocket===socket && status!==null && captured.revision===status.revision
+    && captured.generation===status.generation && captured.ticket?.epoch===status.ticket?.epoch;
+}
+
 /** 毎回実sampleを取得する。初回欠測は入力待ち、取得後の喪失は明示stale。 */
 export function createWorkbenchGamepadMessages(newSession:()=>string=()=>crypto.randomUUID()) {
   let epoch:string|null=null;

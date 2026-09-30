@@ -144,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     trial.add_argument("--prepare-s", type=_positive_float, default=30.0)
     workbench = commands.add_parser("workbench", help="未選択で待機する有限試行Workbench")
     workbench.add_argument("--profile", help="初期選択する登録ID（開始は別操作）")
+    workbench.add_argument("--condition", type=Path, help="GUI exportと共通の展開済み条件JSON（profile/ticksと排他）")
     workbench.add_argument("--result-root", type=Path, required=True)
     workbench.add_argument("--temporary-root", type=Path, required=True)
     workbench.add_argument("--software-revision", required=True)
@@ -157,9 +158,9 @@ def build_parser() -> argparse.ArgumentParser:
     workbench.add_argument("--control-stdin", action="store_true", help="自動検証用の一時制御資格をstdinの1行から読む（保存しない）")
     workbench.add_argument("--fixture", type=Path, help="明示software検証fixture。通常のGamepad入力とは排他")
     workbench.add_argument("--ticks", type=_positive_int, help="明示した有限検証予算。省略時は選択profileのsteps")
-    workbench.add_argument("--input-wait-s", type=_positive_float, default=5.0)
-    workbench.add_argument("--wall-s", type=_positive_float, default=360.0)
-    workbench.add_argument("--prepare-s", type=_positive_float, default=30.0)
+    workbench.add_argument("--input-wait-s", type=_positive_float, default=None, help="入力待機上限秒（既定5、conditionと排他）")
+    workbench.add_argument("--wall-s", type=_positive_float, default=None, help="実時間上限秒（既定360、conditionと排他）")
+    workbench.add_argument("--prepare-s", type=_positive_float, default=None, help="準備上限秒（既定30、conditionと排他）")
     return parser
 
 

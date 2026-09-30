@@ -5,6 +5,9 @@ rendering-only applicationである。最初の起動手順は
 [backend / viewer startup](../../docs/operations/backend-viewer-startup.md)を参照する。
 
 待機型の`WorkbenchApp`はprofile一覧、準備、開始、停止、保存結果、同条件retryを提供する。
+初回setupとcopy/paste起動は[root README](../../README.md)を参照する。Advancedはbackend descriptorに基づく
+parameterと物体定義/world配置のフォームを提供し、検証済み条件のclone/diff/export/importを共通resolverへ渡す。
+次条件を編集しても適用中のworldは変わらず、native build・初期貫通検査後だけpreviewする。
 制御状態とphysicsはbackendの共通TrialRunnerが所有し、browserは描画準備ACKと既存Gamepad入力だけを送る。
 dev/buildの明示起動、再接続時のclaim、failureからの復旧、resource counterの範囲は
 [Workbench契約](../../docs/contracts/workbench.md)を参照する。
