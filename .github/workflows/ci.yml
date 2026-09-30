@@ -5,9 +5,22 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  python-validation:
+  python-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [runtime, general]
+    env:
+      PYTHONPATH: .github
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,21 +28,70 @@ jobs:
           python-version: "3.12"
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - name: Install dependencies
         run: uv sync --frozen --group dev
       - name: Validate changed Markdown
-        if: github.event_name == 'pull_request'
+        if: matrix.shard == 'general' && github.event_name == 'pull_request'
         env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/python-cache
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           uv run python scripts/repository/validate_markdown_docs.py --base-ref "$BASE_SHA" --strict-map --strict-links
       - name: Run tests
-        run: uv run pytest tests/architecture tests/schemas tests/support tests/runtime tests/mujoco_backend tests/transport tests/motion tests/kinematics tests/plugins tests/integration tests/selfrionette -q
+        shell: bash
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/python-cache
+        run: |
+          mkdir -p "$RUNNER_TEMP/python-results"
+          if [ "${{ matrix.shard }}" = general ]; then
+            uv run pytest tests --collect-only -q -p python_ci \
+              --ci-reference "$RUNNER_TEMP/python-results/reference.json" \
+              -o cache_dir="$RUNNER_TEMP/reference-cache" \
+              > "$RUNNER_TEMP/python-results/reference.log" 2>&1
+          fi
+          uv run pytest tests -q -p python_ci --ci-shard "${{ matrix.shard }}" \
+            --ci-report "$RUNNER_TEMP/python-results/report.json" \
+            --durations=30 --junitxml="$RUNNER_TEMP/python-results/junit.xml" \
+            -o cache_dir="$RUNNER_TEMP/pytest-cache" --basetemp="$RUNNER_TEMP/pytest-tmp" \
+            2>&1 | tee "$RUNNER_TEMP/python-results/pytest.log"
       - name: Compile Python files
+        if: matrix.shard == 'general'
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/python-cache
         run: uv run python -m compileall src tests
       - name: Check diff whitespace
+        if: matrix.shard == 'general'
         run: git diff --check
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/python-results
+          if-no-files-found: error
+          retention-days: 14
+
+  python-validation:
+    if: always()
+    needs: [python-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: python-*
+          path: ${{ runner.temp }}/python-reports
+      - name: Require all jobs and complete disjoint execution
+        if: always()
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python .github/python_ci.py --reports "$RUNNER_TEMP/python-reports"
 
   viewer-validation:
     runs-on: ubuntu-latest
