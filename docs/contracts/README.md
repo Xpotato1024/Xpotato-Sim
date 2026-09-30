@@ -14,6 +14,8 @@ related:
 
 canonical contract文書:
 
+- `docs/contracts/finite-trial-runtime.md`
+
 - `docs/contracts/parallel-work-contracts.md`
 - `docs/contracts/motion-command.md`
 - `docs/contracts/physical-output.md`

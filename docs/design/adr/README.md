@@ -14,6 +14,8 @@ ADRはdesign decisionを、その時点のcontextとprovenanceを含めて記録
 
 ## Decision records
 
+- [ADR 0012: アプリ寿命と有限試行の分離](0012-finite-trial-runtime.md)
+
 - `0001-use-mujoco-as-physics-sot.md`: MuJoCoをphysics source of truthとする。
 - `0002-use-threejs-as-renderer-only.md`: Three.jsをrenderer-onlyとする。
 - `0003-skeleton-first-development.md`: 初期skeleton-first development判断。

@@ -59,6 +59,7 @@ EXPECTED_MODULES = {
         "r7_g_free_space",
     },
     "execution": {
+        "model_execution",
         "physics",
         "coordinated",
         "command_routes",
@@ -68,6 +69,10 @@ EXPECTED_MODULES = {
         "pipeline",
     },
     "experiment": {
+        "trial_condition",
+        "trial_fixture",
+        "trial_record",
+        "trial_runner",
         "composition",
         "contracts",
         "endpoint_reach_evidence",
@@ -79,6 +84,7 @@ EXPECTED_MODULES = {
         "world_tool_runner",
     },
     "runners": {
+        "finite_trial",
         "coordinated_gamepad",
         "model_websocket_publisher",
         "application",

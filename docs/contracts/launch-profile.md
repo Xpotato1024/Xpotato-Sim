@@ -14,6 +14,10 @@ related:
 
 ## 役割
 
+#591の有限trialは[有限試行契約](finite-trial-runtime.md)で別の意味条件digestを固定する。
+本契約のv1〜v4保存byte、configuration digest、旧CLI/publisherの意味は維持する。
+新trialは実効fieldを再検証し、元保存JSONを来歴として記録する。
+
 `runtime/composition/launch_profile.py`は、`xpotato-sim-launch-profile/v1` JSONを
 既存のRobot、Input Source、Mapping、command routeへ解決する。Robot Profileのモデル定義や
 関節範囲、Experiment Manifestの実験条件を複製しない。process、Source開始、model step、

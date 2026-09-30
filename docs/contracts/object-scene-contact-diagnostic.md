@@ -32,7 +32,7 @@ related:
 | `runtime/scene/observation.py` | backend非依存のgeometry DTO、値整合検査 |
 | `mujoco_backend/contact_geometry.py` | native contactのpoint/frame/distance共通読取り |
 | Task Plugin | 対象物IDと有限観測のphase/terminal条件 |
-| common model publisher | 同一lock/snapshot/frameの結線、停止、payload |
+| 共通ModelExecution | 同一lock/snapshot/frameの結線、Task観測、停止。publisherと有限trialから共用 |
 | Viewer | 適用済みposeと同一frameの表示のみ |
 
 旧`ContactTaskManifest/v1`は単一cube・force・press/holdという別contractである。新sceneを偽の旧manifestに

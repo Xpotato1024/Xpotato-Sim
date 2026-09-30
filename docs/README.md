@@ -20,6 +20,7 @@ completion audit、implementation report、inventory、handoff、historical reco
 
 | Topic | Canonical document | Notes |
 |---|---|---|
+| 有限試行の条件・実行・結果 | `docs/contracts/finite-trial-runtime.md` | 共通runner、条件freeze、reset/retry、有限CLI、最小ローカル結果 |
 | Xpotato-Simへの名称移行 | `docs/operations/xpotato-sim-migration.md` | package・CLI・旧profile互換性と履歴の保持 |
 | 複数手先の共同実行・出力監督 | `docs/contracts/coordinated-arm-runtime.md` | 同一snapshot、一括反映、全側prepare、fault latchと停止確認の境界 |
 | Gamepad XYZ / analog trigger Z | `docs/contracts/gamepad-trigger-control.md` | stick XY、LT/RT Z量、LB/RB符号、左右同時入力 |

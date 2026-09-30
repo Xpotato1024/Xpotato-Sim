@@ -36,6 +36,12 @@ interpreter-based `RuntimePipeline`はC4で退役し、`ControlMappedRuntimePipe
 contractやrunnerをpackage rootからre-exportしない。catalog access前のlazy-load、resolved Bundleのtyped
 provider identity、plugin identityはこの移動で変更しない。
 
+#591の`execution/model_execution.py`は名前付きmodelの入力・commit・同一snapshot・Task観測を所有する。
+`experiment/trial_condition.py`、`trial_runner.py`、`trial_record.py`、`trial_fixture.py`は実効条件、
+有限試行寿命、排他的ローカル記録、明示fixtureを所有する。`runners/finite_trial.py`と既存model publisherは
+同じ実行を呼び、physics/Taskを二重実装しない。旧publisherのframe予算と新trialのcommit予算を分ける。
+具体契約は[有限試行](../contracts/finite-trial-runtime.md)だけを正本とする。
+
 #406で成立したexperiment lifecycle / runnerと、#407で追加したexecution trace / motion-log recorderのownerは
 `experiment/`である。`runners/`はthin entry pointだけを所有し、Task判定、metric、record projection、
 artifact emissionを実装しない。validated v1 logからのmetric導出とcanonical artifact emissionは

@@ -1,0 +1,28 @@
+{
+  "schema_version": "trial-gamepad-fixture/v1",
+  "fixture_id": "short_movement",
+  "provenance": "明示的なsoftware検証用Gamepad記録。neutral、左右stick移動、neutralの3標本。人間・実機からの取得evidenceではない。",
+  "samples": [
+    {"offset_s": 0.0, "message": {
+      "type": "viewer_control_message", "timestamp_s": 0.0, "sequence": 0,
+      "source_kind": "gamepad", "provider_id": "gamepad/v1", "provider_schema": "viewer_gamepad_sample/v1",
+      "metadata": {"viewer_provider_session_id": "short-movement-v1"},
+      "gamepad": {"index": 0, "id": "software-fixture", "connected": true, "raw_axes": [0,0,0,0], "axes": [0,0,0,0],
+        "buttons": [{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0}], "stale": false, "zero_state": true}
+    }},
+    {"offset_s": 0.02, "message": {
+      "type": "viewer_control_message", "timestamp_s": 0.02, "sequence": 1,
+      "source_kind": "gamepad", "provider_id": "gamepad/v1", "provider_schema": "viewer_gamepad_sample/v1",
+      "metadata": {"viewer_provider_session_id": "short-movement-v1"},
+      "gamepad": {"index": 0, "id": "software-fixture", "connected": true, "raw_axes": [0.3,0,-0.3,0], "axes": [0.3,0,-0.3,0],
+        "buttons": [{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0}], "stale": false, "zero_state": false}
+    }},
+    {"offset_s": 0.04, "message": {
+      "type": "viewer_control_message", "timestamp_s": 0.04, "sequence": 2,
+      "source_kind": "gamepad", "provider_id": "gamepad/v1", "provider_schema": "viewer_gamepad_sample/v1",
+      "metadata": {"viewer_provider_session_id": "short-movement-v1"},
+      "gamepad": {"index": 0, "id": "software-fixture", "connected": true, "raw_axes": [0,0,0,0], "axes": [0,0,0,0],
+        "buttons": [{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0},{"pressed":false,"value":0}], "stale": false, "zero_state": true}
+    }}
+  ]
+}

@@ -12,6 +12,18 @@ related:
 
 # 統一 CLI
 
+## 有限試行
+
+`trial`は名前付きモデルv2〜v4と明示Gamepad fixtureを共通TrialRunnerへ渡し、ローカル結果を保存する。
+GUI/control server、構造化editor、全metric artifactはそれぞれ#592/#593/#584の範囲である。
+
+```powershell
+uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root <保存先> --ticks 4 --software-revision <実行sourceのrevision>
+```
+
+保存先・fixture・tick予算・software revisionは必須。既存の`profile`、`app`、`viewer`、`replay`の意味は変えない。
+待機期限、終了理由、保存file、非対応経路は[有限試行契約](../contracts/finite-trial-runtime.md)を参照する。
+
 installable entry point は `selfrionette` である。robot は暗黙選択せず、既存の Robot
 Catalog と Robot Bundle から `--robot` で解決する。runtime command の実行前に、必要な
 typed provider が Bundle に一意に存在することを検証する。
