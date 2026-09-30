@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-28
+last_verified: 2026-10-01
 canonical_for:
   - repository-local agent Skill governance
 related:
@@ -240,3 +240,5 @@ Skill候補だけの変更は可能なら独立commitにし、product変更と�
 ## 担当・再利用・復旧の継承
 
 [Codex workflow](codex-workflow.md)をSkillにも適用する。参照先Skillの全手順を自動連鎖させず、失敗・不足・失効した範囲だけを確認する。通常実装の担当交代、model pin、全件再実行、全面fresh reviewを追加の完了条件にしない。必要な独立性・権限・Skill変更時の関連evalは維持する。
+
+model selection、reasoning effort、routingの正本は上位instruction、Codexのユーザー設定・実効設定、ユーザーの明示指定であり、Skill systemはこれを複製・上書きしない。Skill本文、candidateの現行方針、evalのtrigger / route boundaryへ特定model名、model ID、model階層、model間担当表を恒常ルールとして固定しない。過去のmodel名をevidenceや履歴として保持する場合はprovenanceとして扱い、現在の担当指定やpromotion条件へ読み替えない。

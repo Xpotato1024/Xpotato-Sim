@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-28
+last_verified: 2026-10-01
 canonical_for:
   - Codex workflow
 related:
@@ -40,9 +40,9 @@ promotionおよび廃止は[`agent-skill-governance.md`](agent-skill-governance.
 
 ### 担当とモデル設定
 
-通常の実装は一人の実装担当が、調査、実装、変更に必要な検証、失敗の修正、文書同期、引継ぎまで一貫して担当する。既定の候補はSol。通常の修正をAstraへ往復させない。Astraの利用は、重要な設計判断と、リスクに応じて必要な独立レビューに絞る。Astraを呼ぶ必要がないことを判定するためだけにAstraを呼ばない。
+通常の実装は一人のprimary agentが、調査、設計、実装、変更に必要な検証、失敗の修正、文書同期、引継ぎまで一貫して担当する。実装、レビュー、修正をmodel間で往復させることを既定workflowにしない。独立レビューは、重要な設計判断、高リスク変更、明示gateなど、実質的な独立性が必要な場合にだけ追加する。
 
-Sol / Astraは役割に対する推奨であり、固定model ID、強制切替、起動許可の追加ではない。system / developer instruction、Codexのユーザー設定・実効設定、ユーザーの明示したmodel指定を尊重する。それらと異なる場合は許可された同等の担当で役割を満たし、repo側から設定を上書きしない。model名だけを理由に停止・再実行しない。requested / configured / observedを区別し、未観測のmodel切替や委譲成功を報告しない。
+repositoryは特定model名、model ID、model階層、model間の担当表を固定しない。model selection、reasoning effort、routingはsystem / developer instruction、Codexのユーザー設定・実効設定、ユーザーの明示指定を正とし、repo側から上書きしない。利用可能なmodelが変わってもrepo文書の改訂を必須にしない。model名だけを理由に停止・再実行せず、requested / configured / observedを区別し、未観測のmodel切替や委譲成功を報告しない。
 
 独立レビューの要否は、security・権限、データ保全・復旧、公開contract、実機、本番、重大な設計変更などの実質的リスクと明示gateで判断する。小さいdiffだから安全とは限らない。一方、通常の自己検証で十分な変更へ形式的な追加レビューを作らない。必要な独立レビューは実装担当とは別コンテキストでread-onlyに実施し、作者の結論を正解として引き継がない。上位指示や既存の必須レビュー条件は維持する。
 
