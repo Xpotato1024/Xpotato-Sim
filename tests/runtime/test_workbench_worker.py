@@ -133,3 +133,54 @@ def test_worker_retry_reuses_prepared_assets_after_terminal_or_stop(tmp_path, mo
     assert states["retry"]["state"]["ticket"]["epoch"] != states["p"]["state"]["ticket"]["epoch"]
     assert {p.relative_to(asset_root).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
             for p in asset_root.rglob("*") if p.is_file()} == original_files
+
+
+@pytest.mark.parametrize("failure", ["start.json", "terminal.json"])
+def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_path, monkeypatch, failure):
+    from pathlib import Path
+    import xpotato_sim.runtime.runners.workbench as module
+    from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+    from xpotato_sim.runtime.experiment.trial_record import TrialRecorder
+    from xpotato_sim.runtime.experiment.edited_condition import preset_condition
+    now=[10.];events=[];failed_files={};failed_trial=[]
+    d=preset_condition("dynamic-cube-drop");d["limits"].update(max_ticks=2,prepare_s=11.)
+    commands=[{"op":"prepare","id":"p1","generation":1,"profile_id":"dynamic-cube-drop","condition":d},
+        {"op":"start","id":"start","generation":1},"wait_failure",
+        {"op":"retry","id":"retry","generation":1},
+        {"op":"prepare","id":"p2","generation":2,"profile_id":"dynamic-cube-drop","condition":d},
+        {"op":"close"}]
+    original=TrialRecorder.write
+    def write(recorder,name,doc):
+        if name==failure and not failed_trial:raise OSError("injected persistence failure")
+        return original(recorder,name,doc)
+    monkeypatch.setattr(TrialRecorder,"write",write)
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY","test")
+    monkeypatch.setattr(module,"monotonic",lambda:now[0])
+    monkeypatch.setattr(module,"TrialRunner",lambda **kw:TrialRunner(**kw,clock=lambda:now[0]))
+    class Wire:
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def send(self,value):
+            event=json.loads(value);events.append(event)
+            state=event.get("state",{})
+            if state.get("phase")=="recording_failed" and not failed_trial:
+                failed_trial.append(state["ticket"]["trial_id"])
+                failed_files.update({p:p.read_bytes() for p in (tmp_path/"results"/failed_trial[0]).rglob("*") if p.is_file()})
+        def recv(self,**kw):
+            if commands[0]=="wait_failure":
+                if not failed_trial:
+                    now[0]+=.02;assert now[0]<12;raise TimeoutError
+                commands.pop(0)
+            return json.dumps(commands.pop(0))
+    monkeypatch.setattr("websockets.sync.client.connect",lambda *a,**kw:Wire())
+    execution_worker("ws://test",{"result_root":str(tmp_path/"results"),"asset_root":str(tmp_path/"assets"),
+        "software_revision":"test","ticks":2,"input_wait_s":5,"wall_s":30,"prepare_s":.01,
+        "fixture":str(Path(__file__).parents[1]/"fixtures/trial_gamepad/short-movement.json")})
+    states={e["id"]:e for e in events if e.get("type")=="worker_status" and e.get("id")}
+    assert states["retry"]["error"] and states["retry"]["state"]["phase"]=="recording_failed"
+    assert states["retry"]["state"]["result"]["recording"]=="failed"
+    assert states["p2"]["state"]["phase"]=="ready" and states["p2"]["state"]["ticks"]==0
+    assert states["p2"]["state"]["ticket"]["trial_id"]!=failed_trial[0]
+    assert states["p2"]["state"]["ticket"]["epoch"]!=states["p1"]["state"]["ticket"]["epoch"]
+    assert {p:p.read_bytes() for p in failed_files}==failed_files
+    assert len(list((tmp_path/"results").iterdir()))==1

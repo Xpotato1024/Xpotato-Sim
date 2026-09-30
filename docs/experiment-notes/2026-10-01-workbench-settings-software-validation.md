@@ -50,3 +50,13 @@ git diff --check
 
 compile、Viewer全test script/typecheck/build、wheel同梱、READMEの6種helpと6種実commandも検査する。
 独立reviewはこのnoteの証拠ではなく、実装者の自己レビューと区別する。CIはcurrent PR headで別に確認する。
+
+## 親レビュー後のsoftware回帰
+
+親の独立レビュー指摘を現在codeで確認して修正した。既存14試行・12rebuildの資源証拠は、同じnative/GPU所有経路の証拠として保持する。
+追加の実Edge・固定build検証では、CLIのticks=5、prepare=17 s、input-wait=7 s、wall=60 sをpreset cloneへ保持した。
+editor応答を遅延させ、応答待ちのdraft変更禁止と異なるrequest IDの応答無効化を検査した。
+file読取も遅延し、malformed importのtyped拒否後に同じ接続で編集を再開した。
+その後4保存試行・2model rebuild・export/importと同一fixtureでのCLI condition byte parityが成功した。
+実worker回帰ではstart／terminal保存失敗後のretryを拒否し、明示prepareで新ID/epoch・未開始readyへ復旧、失敗fileのbyte不変を検査する。
+追加証拠はrepository外の`browser-parent-corrections.json`、`parent-focused-final.txt`に保存する。参加者結果・正式metrics・hardware検証ではない。

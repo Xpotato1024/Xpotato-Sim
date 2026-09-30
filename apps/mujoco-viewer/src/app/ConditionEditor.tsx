@@ -2,16 +2,19 @@ import {useState} from "react";
 
 export type Descriptor = {path:(string|number)[]; type:string; unit:string; minimum:number|null;
   maximum:number|null; exclusive_minimum:boolean; choices:(string|number)[]|null; available:boolean; reason:string|null;
-  model_bindings?:Record<string,Record<string,string>>;model_configuration_digests?:Record<string,string>};
+  model_bindings?:Record<string,Record<string,string>>;model_configuration_digests?:Record<string,string>;
+  motion_templates?:Record<string,Record<string,any>>};
 export type Condition = {preset_id:string; [key:string]:any};
 export function valueAt(document:any,path:(string|number)[]):any {return path.reduce((v,k)=>v?.[k],document);}
-export function changedCondition(document:Condition,path:(string|number)[],value:any):Condition {
+export function changedCondition(document:Condition,path:(string|number)[],value:any,descriptor?:Descriptor):Condition {
   const next=structuredClone(document); let target:any=next;
   for(const k of path.slice(0,-1)) target=target[k];
   target[path[path.length-1]]=value;
   if(path[path.length-1]==="motion_type") {
-    if(value==="fixed") delete target.initial_velocity;
-    else target.initial_velocity={frame:"mujoco_world",linear_m_s:[0,0,0],angular_rad_s:[0,0,0]};
+    const template=descriptor?.motion_templates?.[value];
+    if(!template) throw new Error("backend motion templateがありません");
+    delete target.initial_velocity;
+    Object.assign(target,structuredClone(template));
   }
   return next;
 }
@@ -41,11 +44,11 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
     {advanced && <nav aria-label="設定軸">{groups.map((name,index)=><button key={name} aria-pressed={axis===index} onClick={()=>setAxis(index)}>{name}</button>)}</nav>}
     {advanced && condition && groups.map((name,index)=><fieldset key={name} hidden={axis!==index} disabled={disabled}><legend>{name}</legend>
       <div className="condition-fields">{descriptors.filter(d=>group(d.path)===index && !["schema_version","preset_id"].includes(String(d.path[0]))
-        && (d.available || ["name","provider","evaluation","environment","task"].includes(String(d.path[d.path.length-1])))).map(d=>{
+        && (d.available || ["name","provider","evaluation","environment","task","steps","interval_s","grace_period_s"].includes(String(d.path[d.path.length-1])))).map(d=>{
         const path=d.path.join("."); const value=valueAt(condition,d.path);
         return <label key={path} title={path}><span>{labelFor(d.path)} {d.unit && `(${d.unit})`}</span>
           {d.available?(d.choices?<select aria-label={path} value={value} onChange={e=>{
-            const next=changedCondition(condition,d.path,typeof value==="number"?Number(e.target.value):e.target.value);
+            const next=changedCondition(condition,d.path,typeof value==="number"?Number(e.target.value):e.target.value,d);
             if(d.model_bindings) next.configuration.coordination.side_to_endpoint=d.model_bindings[e.target.value];
             if(d.model_configuration_digests) next.model_configuration_sha256=d.model_configuration_digests[e.target.value];
             onChange(next);

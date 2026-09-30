@@ -97,7 +97,7 @@ owner切断もactive/処理中なら同じ監督を開始する。閲覧peerの�
 
 開始前STOPは準備を破棄して未選択へ戻る。active STOPはoperator_abortを保存し、次のprepare/retryも明示操作とする。
 prepare/reset失敗後は自動再開しない。生存workerで明示「検証・準備」を行うと、失敗したrunnerをcloseし、
-新しいrunnerで検証・準備する。記録失敗後は編集・適用・retryを拒否し、原因確認後にアプリを明示再起動する。
+新しいrunnerで検証・準備する。記録失敗後は原因確認後の明示prepareを許可し、失敗runnerをcloseして新trial ID/epochで準備する。失敗file・失敗分類は保持し、retry・自動開始は拒否する。active/finalizing中は適用しない。
 過去結果と不完全fileは保持し、記録失敗をsuccessへ変換しない。
 worker死亡・強制終了後はアプリを終了して明示再起動する。GUIだけの再接続ではworkerを復活させない。
 
@@ -151,7 +151,12 @@ kinematicのdynamic物体は拒否する。物体数・形状型の追加や新T
 exportはschema・完全展開値を保存し、import後のcanonical条件が再現する。server上のfile selectorは存在しない。
 
 編集応答は期待revisionとticketを検査し、active、処理中、記録失敗、旧epochで拒否する。
+GUIのeditor操作はrequest ID付きの単一in-flightとし、file読取中もdraft変更を禁止する。
+遅延・失敗・別要求の応答は他のdraftやexportを変更しない。socket/revision/generation/epoch変更で失効し、30 sの待機上限を持つ。
+CLIで明示したticks・input/wall/prepare上限は初期条件と各preset cloneに保持する。outer watchdogも受付済みconditionのprepare_sを使う。
+executionのsteps/interval_s/grace_period_sは旧app専用で有限trialには作用しないため編集を無効にし、理由を表示する。
+fixed/dynamic遷移はObjectInstance契約から公開されたmotion templateを使い、frontendへ物理defaultを重複定義しない。
 次条件は適用conditionと別のコピーであり、editだけでnative worldを変更しない。
 「検証・準備」は共通resolverの後にnative buildと既存初期貫通検査を行い、成功したassetだけをallowlistへ公開する。
-旧trialが実行された場合はterminal・記録確定後だけ次条件を適用する。readyの未開始previewは破棄して再準備できる。
+旧trialが実行された場合はterminal・記録確定後だけ次条件を適用する。記録失敗で保存処理が終了した場合は、前述の明示prepare復旧だけを許可する。readyの未開始previewは破棄して再準備できる。
 STOP中のprepare遅延完了・旧frame/入力/loadは既存generation/epoch gateで無効にする。

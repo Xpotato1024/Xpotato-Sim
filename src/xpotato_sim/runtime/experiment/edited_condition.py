@@ -11,6 +11,7 @@ from xpotato_sim.runtime.experiment.trial_condition import TrialLimits, resolve_
 from xpotato_sim.runtime.scene.objects import canonical, fields, strict_json, number, decode_object_scene
 from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
 from xpotato_sim.runtime.experiment.contracts import PluginSelection
+from xpotato_sim.runtime.scene.objects import ObjectInstance
 
 SCHEMA = "workbench-condition/v1"
 MAX_BYTES = 60000
@@ -52,7 +53,8 @@ def descriptors(document):
         parent = str(path[-2]) if len(path) > 1 else ""
         numeric = type(value) in (float, int)
         editable = numeric and key != "version" and parent != "definition" and "version" not in path
-        if "coordination" in path or "contact" in path or "keyboard_config" in path:
+        legacy_execution = path[:2] == ("configuration", "execution") and key in {"steps", "interval_s", "grace_period_s"}
+        if "coordination" in path or "contact" in path or "keyboard_config" in path or legacy_execution:
             editable = False
         choices = None
         if key == "motion_type":
@@ -67,7 +69,7 @@ def descriptors(document):
         if key == "output_side":
             choices = ["left", "right"]
             editable = True
-        if parent == "signs" and editable:
+        if parent in {"signs", "axis_signs"} and editable:
             choices = [-1, 1]
         unit = ""
         label = parent if key.isdigit() else key
@@ -93,13 +95,15 @@ def descriptors(document):
                 minimum = 0
             if key in {"steps", "max_ticks", "iterations"}:
                 minimum, maximum = 1, 1000 if key == "iterations" else 2**31-1
-        integer = key in {"steps", "max_ticks", "iterations", "trigger_button", "sign_button", "mode_button"} or parent in {"axes", "axis_indices", "signs"}
+        integer = key in {"steps", "max_ticks", "iterations", "trigger_button", "sign_button", "mode_button"} or parent in {"axes", "axis_indices", "signs", "axis_signs"}
         result.append({"path": list(path), "type": "integer" if numeric and integer else "number" if numeric else "enum" if choices else "string",
             "unit": unit, "minimum": minimum, "maximum": maximum, "exclusive_minimum": exclusive,
             "choices": choices, "available": editable,
             **({"model_bindings": {m.identity.name: ({"left": m.endpoint_ids[0]} if len(m.endpoint_ids)==1 else dict(zip(("left", "right"), m.endpoint_ids))) for m in models}} if path == ("configuration", "model", "name") else {}),
             **({"model_configuration_digests": {m.identity.name: m.configuration_sha256 for m in models}} if path == ("configuration", "model", "name") else {}),
-            "reason": None if editable else ("接触数値条件はpreset固定（初期貫通判定の安全閾値を含む）" if "contact" in path else
+            **({"motion_templates": ObjectInstance.motion_templates()} if key == "motion_type" else {}),
+            "reason": None if editable else ("旧app専用設定で有限TrialRunnerには適用されません。試行予算はlimits.max_ticksで編集してください" if legacy_execution else
+                "接触数値条件はpreset固定（初期貫通判定の安全閾値を含む）" if "contact" in path else
                 "keyboard parameterはnamed-model/Gamepad経路では使用しません" if "keyboard_config" in path else
                 "Inputはnamed-model試行でviewer/gamepad/v1だけに対応します" if "input" in path else
                 "正式Evaluation/metricsは未対応です" if path[0] == "evaluation" else
@@ -145,7 +149,7 @@ def resolve_condition(document):
             if type(actual) is dict and actual.get("motion_type") == "fixed":
                 expected.pop("initial_velocity", None)
             elif type(actual) is dict and actual.get("motion_type") == "dynamic" and "initial_velocity" not in expected:
-                expected["initial_velocity"] = {"frame": "mujoco_world", "linear_m_s": [0,0,0], "angular_rad_s": [0,0,0]}
+                expected.update(ObjectInstance.motion_templates()["dynamic"])
     # 任意plugin/参照やnested unknown fieldを入口で拒否する。形状と配列集合はpreset契約に束縛。
     def shape(actual, expected, path=()):
         if type(expected) is dict:
@@ -157,6 +161,8 @@ def resolve_condition(document):
                 raise ValueError(f"{path}: presetの有界配列構造が必要です")
             for i, v in enumerate(expected):
                 shape(actual[i], v, path+(i,))
+        elif type(actual) in (dict, list):
+            raise ValueError(f"{path}: scalar required")
     shape(document, baseline)
     expected_leaves = dict(_leaves(baseline))
     metadata = {tuple(d["path"]): d for d in descriptors(baseline)}
