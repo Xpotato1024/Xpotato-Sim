@@ -1,12 +1,14 @@
 # Xpotato-Sim
 
-MuJoCoを物理状態の正本とするロボット実験環境です。Workbenchで条件を編集し、初期状態を確認して有限試行を反復できます。以下はWindows PowerShellで、cloneしたリポジトリrootから実行します。
+MuJoCoを物理状態の正本とするロボット実験環境です。Workbenchで条件を編集し、初期状態を確認して有限試行を反復できます。以下はWindows PowerShell用です。初回は保存先directoryから始め、clone後はリポジトリrootで実行します。既にclone済みなら最初の2行を省略してください。
 
 ## 初回セットアップと起動
 
-Python **3.11以上**、uv、Git、Node.js **20系の20.19以上、または22.12以上**、npm、WebGL2対応ブラウザを用意します。`pyproject.toml`と`uv.lock`がPython依存の正本です。lockはMuJoCo 3.9.0、matplotlib 3.11.0、websockets 16.0、pytest 9.0.3を固定しています。`fast-arm-core`は同じcheckoutのuv workspace dependencyとして解決します。Viewerの依存は`apps/mujoco-viewer/package-lock.json`に固定され、package指定はReact 19、Three.js 0.184、MuJoCo WASM 3.9、Vite 7、TypeScript 5.9系です。
+Python **3.11以上**、uv、Git、Node.js **20.xの20.19以上、または22.12以上（21.x／22.0〜22.11は対象外）**、npm、WebGL2対応ブラウザを用意します。依存versionの正本は`pyproject.toml`／`uv.lock`と`apps/mujoco-viewer/package-lock.json`です。以下のcommandで固定依存と同梱`fast-arm-core`をインストールします。
 
 ```powershell
+git clone https://github.com/Xpotato1024/Xpotato-Sim.git
+Set-Location Xpotato-Sim
 uv sync --frozen --group dev
 npm --prefix apps/mujoco-viewer ci
 $workbenchTemp = Join-Path $env:TEMP 'xpotato-workbench'
@@ -16,7 +18,7 @@ $revision = git rev-parse HEAD
 uv run xpotato-sim workbench --temporary-root $workbenchTemp --result-root $results --software-revision $revision --open-browser
 ```
 
-Workbenchは未選択・無入力・無physics stepで待機します。起動端末に表示される操作URLで「操作権を取得」し、presetを選択してください。操作URLの一時資格は他人へ共有しません。資格なしのURLは閲覧専用で、表示できても試行は操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。
+Workbenchは未選択・無入力・無physics stepで待機します。`--open-browser`が自動で開いた操作ページで「操作権を取得」し、presetを選択してください。端末に表示されるURLは閲覧専用で、操作資格は印字しません。自動で開いた操作URLの一時資格は他人へ共有しません。資格なしのURLは表示できても試行を操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。
 
 1. preset選択で次条件をcloneします。旧v1などの非対応presetは理由付きで無効です。
 2. 「Advanced設定」でRobotモデル、Environment物体、Input、Mapping、Task、Evaluationと有限予算を確認・編集します。単位・可否はbackendが提供します。物体定義の半寸法・質量・摩擦とworld配置の位置・単位quaternion・fixed/dynamicは別項目です。
@@ -28,7 +30,7 @@ Workbenchは未選択・無入力・無physics stepで待機します。起動�
 
 「条件をexport」は検証済みの展開条件`workbench-condition/v1`をダウンロードします。「条件JSONをimport」はローカルで選んだfileの内容をbackendへ渡して再検証します。server path、任意XML、code、import参照は受け付けません。「適用条件との差分」で変更箇所を確認できます。物体集合・identityは選択presetに束縛され、任意物体追加や形状型追加は本editorの対象外です。
 
-試行停止は「停止を要求」。結果が確定するまで次条件を適用しません。記録失敗は成功扱いせず、fileを保持して原因を確認し、アプリを明示再起動してください。アプリ全体の終了は起動端末の **Ctrl+C** です。試行終了だけではGUIを閉じません。再接続は状態照会だけで、自動開始しません。
+試行停止は「停止を要求」。結果が確定するまで次条件を適用しません。記録失敗は成功扱いせず、fileを保持して保存先等の原因を確認してください。その後「検証・準備」で新runner・新trialを明示準備できます。失敗trialのretryや自動開始は行いません。worker死亡時はアプリを再起動します。アプリ全体の終了は起動端末の **Ctrl+C** です。試行終了だけではGUIを閉じません。再接続は状態照会だけで、自動開始しません。
 
 ## 条件をheadlessで再現する
 
@@ -41,7 +43,7 @@ uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/tri
 
 短いfixtureで試す場合、export前にAdvancedの`limits.max_ticks`を **5** にしてください。`--condition`と`--profile`／`--ticks`は排他です。条件内の有限予算を使用します。fixtureのないheadless実行や隠れた中立入力の補完はありません。
 
-結果は`$results/<新しいtrial ID>/`に`condition.json`、`initial-state.json`、`start.json`、`final-state.json`、`terminal.json`として保存します。`terminal.json`が保存完了のmarkerです。過去結果は上書きしません。途中fileだけを正常結果と見なさないでください。CLIのexit 0は記録完了とsimulation予算到達またはTaskの成功終端（診断期間完了を含む）を示し、正式な課題達成を保証しません。
+結果は`$results/<新しいtrial ID>/`に`condition.json`、`initial-state.json`、`start.json`、`final-state.json`、`terminal.json`として保存します。`terminal.json`が保存完了のmarkerです。過去結果は上書きしません。途中fileだけを正常結果と見なさないでください。CLIのexit 0は`recording=complete`かつ`runner_stop_reason=simulation_budget`または`task_success`です。任意のTask終端や診断期間終了だけではexit 0にならず、正式な課題達成も保証しません。
 
 ## Workbenchオプション
 

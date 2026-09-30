@@ -19,6 +19,15 @@ export function conditionReadIsCurrent(capturedSocket:object|null,
     && captured.generation===status.generation && captured.ticket?.epoch===status.ticket?.epoch;
 }
 
+/** 単一editor要求の応答だけを取り込み、同socketの遅延応答も隔離する。 */
+export function editorReplyIsCurrent(pending:{id:string;socket:object|null;status:{revision:number;generation:number;ticket:{epoch:string}|null}}|null,
+  reply:{request_id?:string;revision?:number;generation?:number;ticket?:{epoch:string}|null;type:string},
+  socket:object|null,status:{revision:number;generation:number;ticket:{epoch:string}|null}|null):boolean {
+  return !!pending && reply.request_id===pending.id && conditionReadIsCurrent(pending.socket,pending.status,socket,status)
+    && (reply.type==="condition_diff" || (reply.type==="edited_condition" && reply.revision===pending.status.revision+1
+      && reply.generation===pending.status.generation && reply.ticket?.epoch===pending.status.ticket?.epoch));
+}
+
 /** 毎回実sampleを取得する。初回欠測は入力待ち、取得後の喪失は明示stale。 */
 export function createWorkbenchGamepadMessages(newSession:()=>string=()=>crypto.randomUUID()) {
   let epoch:string|null=null;

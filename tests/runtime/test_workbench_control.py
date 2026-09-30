@@ -160,7 +160,7 @@ def test_dead_worker_cannot_revive_and_history_distinguishes_completion():
     assert replay["completed"] and replay["error"] == "worker died"
 
 
-@pytest.mark.parametrize("phase", ["faulted", "unselected", "terminal"])
+@pytest.mark.parametrize("phase", ["faulted", "recording_failed", "unselected", "terminal"])
 def test_explicit_prepare_is_recovery_not_automatic_start(phase):
     c = controller()
     c.state["phase"] = phase
@@ -168,11 +168,11 @@ def test_explicit_prepare_is_recovery_not_automatic_start(phase):
     assert command["op"] == "prepare" and c.renderer_epoch is None
 
 
-def test_recording_failure_cannot_apply_another_condition():
+def test_recording_failure_cannot_retry_failed_trial():
     c = controller()
     c.state["phase"] = "recording_failed"
     with pytest.raises(ValueError):
-        c.command("owner", request(c, "prepare", profile_id="known"))
+        c.command("owner", request(c, "retry"))
     assert c.generation == 0 and c.busy is None
 
 

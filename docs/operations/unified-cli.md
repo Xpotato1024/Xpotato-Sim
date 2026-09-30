@@ -131,4 +131,8 @@ npm --prefix apps/mujoco-viewer run dev -- --host 127.0.0.1 --port 5173
 閲覧URLは`http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766`。
 `ws`は既存のquery互換alias、`websocketUrl`が優先する。Workbenchの操作資格とは異なる。
 終了は各起動端末のCtrl+C。Workbenchと違い旧appはprofileの有限実行完了でも終了する。
+Workbenchの端末表示URLは閲覧専用であり、制御資格付きページは`--open-browser`で開く。
+GUIのpreset cloneは明示CLI予算を保持する。`--condition`とprofile/ticks/input-wait/wall/prepare optionは、`--flag=value`形式も含め排他である。
+headless exit 0は記録完了かつ`simulation_budget`または`task_success`だけである。
+記録失敗の原因確認後は明示prepareで新runnerを準備できるが、失敗trialのretry・自動開始・file上書きは行わない。
 独立wheelの配布は`uv build --wheel src/xpotato_sim/plugins/robots/fast_arm/core --out-dir`とrootの`uv build --wheel --out-dir`で両distributionを用意する。出力先にはtask用の絶対temporary root配下を指定する。

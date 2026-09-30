@@ -55,6 +55,52 @@ async def until(ws, predicate):
                 return event
 
 
+def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usable(tmp_path,monkeypatch):
+    from xpotato_sim.runtime.experiment.edited_condition import preset_condition
+    now=[10.]
+    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.monotonic",lambda:now[0])
+    async def scenario():
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1",0));port=reservation.getsockname()[1]
+        worker=Worker();worker.url=f"ws://127.0.0.1:{port}/control"
+        service=asyncio.create_task(serve_workbench({"port":port,"web_port":port+1,"prepare_s":.01,
+            "result_root":str(tmp_path),"asset_root":str(tmp_path)},worker,tmp_path,capability="test-capability"))
+        try:
+            await asyncio.wait_for(worker.connected.wait(),5)
+            async with connect(worker.url,proxy=None) as owner:
+                await owner.send(json.dumps({"op":"claim","capability":"test-capability"}))
+                await until(owner,lambda e:e["type"]=="claimed")
+                for value in (None,[],"invalid"):
+                    d=preset_condition("dynamic-cube-drop");d["environment"]["parameters"]=value
+                    await owner.send(json.dumps({"op":"import","request_id":"bad-import","condition":json.dumps(d),
+                        "capability":"test-capability","revision":0,"ticket":None}))
+                    rejected=await until(owner,lambda e:e["type"]=="rejected")
+                    assert rejected["request_id"]=="bad-import" and "AttributeError" not in rejected["error"]
+                await owner.send('{"op":"status"}')
+                state=await until(owner,lambda e:e["type"]=="status")
+                assert state["revision"]==0 and state["phase"]=="unselected"
+                d=preset_condition("dynamic-cube-drop");d["limits"]["prepare_s"]=17.
+                await owner.send(json.dumps({"op":"prepare","id":"valid-after-bad","profile_id":"dynamic-cube-drop",
+                    "capability":"test-capability","revision":0,"ticket":None,"condition":d}))
+                assert (await until(owner,lambda e:e["type"]=="accepted"))["id"]=="valid-after-bad"
+                prepared=await asyncio.wait_for(worker.commands.get(),5)
+                assert prepared["op"]=="prepare" and prepared["condition"]["limits"]["prepare_s"]==17.
+                # configの0.01 s+猶予を超えても、編集条件17 sの親監督がworkerを終了しない。
+                now[0]=13.;await asyncio.sleep(.15)
+                await owner.send('{"op":"status"}')
+                assert (await until(owner,lambda e:e["type"]=="status"))["busy"]=="valid-after-bad"
+                assert worker.close_count==0
+                await owner.send(json.dumps({"op":"stop","id":"stop-after-bad","capability":"test-capability",
+                    "revision":1,"ticket":None}))
+                assert (await until(owner,lambda e:e["type"]=="accepted"))["id"]=="stop-after-bad"
+                assert (await asyncio.wait_for(worker.commands.get(),5))["op"]=="stop"
+        finally:
+            worker.returncode=1;service.cancel();await asyncio.gather(service,return_exceptions=True)
+            if hasattr(worker,"task"):
+                worker.task.cancel();await asyncio.gather(worker.task,return_exceptions=True)
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("disconnect", [False, True])
 def test_stop_during_prepare_survives_old_completion_and_status(tmp_path, monkeypatch, disconnect):
     monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog",

@@ -157,6 +157,13 @@ class ObjectInstance:
         if self.motion_type=="fixed" and any(self.initial_linear_velocity_m_s+self.initial_angular_velocity_rad_s):
             raise ValueError("fixed object cannot have initial velocity")
 
+    @classmethod
+    def motion_templates(cls):
+        """editorの明示motion遷移を、同じObjectInstance初期値契約から公開する。"""
+        return {"fixed": {}, "dynamic": {"initial_velocity": {"frame": "mujoco_world",
+            "linear_m_s": list(cls.__dataclass_fields__["initial_linear_velocity_m_s"].default),
+            "angular_rad_s": list(cls.__dataclass_fields__["initial_angular_velocity_rad_s"].default)}}}
+
     def to_document(self):
         """固定/座標系は省略せず出力する。"""
         return {"instance_id": self.instance_id, "definition": {"name": self.definition_id, "version": self.definition_version},

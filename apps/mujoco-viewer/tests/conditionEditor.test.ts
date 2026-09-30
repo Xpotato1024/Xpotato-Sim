@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import {changedCondition,valueAt} from "../src/app/ConditionEditor.js";
-import {conditionReadIsCurrent} from "../src/app/workbenchLifecycle.js";
+import {conditionReadIsCurrent,editorReplyIsCurrent} from "../src/app/workbenchLifecycle.js";
 
 const applied={preset_id:"test",environment:{objects:[{motion_type:"fixed",pose:{position_m:[0,0,1]}}]}};
 const next=changedCondition(applied,["environment","objects",0,"pose","position_m",2],.6);
 assert.equal(valueAt(next,["environment","objects",0,"pose","position_m",2]),.6);
 assert.equal(applied.environment.objects[0].pose.position_m[2],1);
-const dynamic=changedCondition(next,["environment","objects",0,"motion_type"],"dynamic");
-assert.deepEqual(dynamic.environment.objects[0].initial_velocity.linear_m_s,[0,0,0]);
-assert.equal("initial_velocity" in changedCondition(dynamic,["environment","objects",0,"motion_type"],"fixed").environment.objects[0],false);
+const descriptor={motion_templates:{fixed:{},dynamic:{initial_velocity:{frame:"mujoco_world",linear_m_s:[.1,.2,.3],angular_rad_s:[.4,.5,.6]}}}} as any;
+const dynamic=changedCondition(next,["environment","objects",0,"motion_type"],"dynamic",descriptor);
+assert.deepEqual(dynamic.environment.objects[0].initial_velocity.linear_m_s,[.1,.2,.3]);
+assert.equal("initial_velocity" in changedCondition(dynamic,["environment","objects",0,"motion_type"],"fixed",descriptor).environment.objects[0],false);
+assert.throws(()=>changedCondition(next,["environment","objects",0,"motion_type"],"dynamic"),/backend motion template/);
 const socket={},captured={revision:2,generation:1,ticket:{epoch:"old"}};
 assert.equal(conditionReadIsCurrent(socket,captured,socket,{...captured}),true);
 assert.equal(conditionReadIsCurrent(socket,captured,{},captured),false);
@@ -16,4 +18,13 @@ assert.equal(conditionReadIsCurrent(socket,captured,socket,{...captured,revision
 assert.equal(conditionReadIsCurrent(socket,captured,socket,{...captured,generation:2}),false);
 assert.equal(conditionReadIsCurrent(socket,captured,socket,{...captured,ticket:{epoch:"new"}}),false);
 assert.equal(conditionReadIsCurrent(socket,{...captured,ticket:null},socket,{...captured,ticket:null}),true);
-console.log("condition editor: 10 assertions passed");
+const pending={id:"export-id",socket,status:captured};
+const reply={type:"edited_condition",request_id:"export-id",revision:3,generation:1,ticket:{epoch:"old"}};
+assert.equal(editorReplyIsCurrent(pending,reply,socket,captured),true);
+assert.equal(editorReplyIsCurrent(pending,{...reply,request_id:"clone-id"},socket,captured),false);
+assert.equal(editorReplyIsCurrent(null,reply,socket,captured),false);
+assert.equal(editorReplyIsCurrent(pending,reply,socket,{...captured,revision:3}),false);
+assert.equal(editorReplyIsCurrent(pending,{...reply,generation:2},socket,captured),false);
+assert.equal(editorReplyIsCurrent(pending,{...reply,revision:4},socket,captured),false);
+assert.equal(editorReplyIsCurrent(pending,{...reply,type:"rejected"},socket,captured),false);
+console.log("condition editor: 18 assertions passed");

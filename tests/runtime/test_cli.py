@@ -8,6 +8,18 @@ import pytest
 cli = importlib.import_module("xpotato_sim.cli.main")
 
 
+@pytest.mark.parametrize("flag,value", [("profile","dynamic-cube-drop"),("ticks","5"),
+    ("input-wait-s","7"),("wall-s","60"),("prepare-s","17")])
+@pytest.mark.parametrize("equals", [False,True])
+def test_condition_conflicts_with_explicit_launch_budgets_before_io(tmp_path,capsys,flag,value,equals):
+    args=["workbench","--condition",str(tmp_path/"not-opened.json"),"--temporary-root",str(tmp_path),
+        "--result-root",str(tmp_path/"results"),"--software-revision","test"]
+    args+=([f"--{flag}={value}"] if equals else [f"--{flag}",value])
+    assert cli.main(args)==1
+    assert "排他" in capsys.readouterr().err
+    assert not (tmp_path/"results").exists()
+
+
 class _BundleWithCapabilities:
     def provider(self, identity):
         return object()

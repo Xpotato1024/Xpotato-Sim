@@ -74,7 +74,7 @@ def profile_catalog():
 
 class WorkbenchControl:
     """制御revision、connection所有権、bounded履歴。physicsは所有しない。"""
-    def __init__(self, catalog, capability, *, require_renderer=True):
+    def __init__(self, catalog, capability, *, require_renderer=True, launcher_limits=None):
         self.catalog = catalog
         self.capability = capability
         self.require_renderer = require_renderer
@@ -92,6 +92,7 @@ class WorkbenchControl:
         self.stop_deadline = None
         self.dead = False
         self.next_condition = None
+        self.launcher_limits = launcher_limits or {}
 
     def complete(self, rid, error=None):
         if rid in self.history:
@@ -155,6 +156,11 @@ class WorkbenchControl:
         self.authorize(client, r)
         if op in {"edit", "clone", "export", "import", "diff"}:
             expected = {"op", "capability", "revision", "ticket"}
+            if "request_id" in r:
+                expected.add("request_id")
+                if not isinstance(r["request_id"], str) or not ID.fullmatch(r["request_id"]):
+                    raise ValueError("有効なeditor要求IDが必要です")
+            correlation = {"request_id": r["request_id"]} if "request_id" in r else {}
             if op in {"edit", "import", "diff"}:
                 expected.add("condition")
             if op == "clone":
@@ -166,19 +172,27 @@ class WorkbenchControl:
             if op == "diff":
                 if self.next_condition is None:
                     raise ValueError("次条件がありません")
-                return {"type": "condition_diff", "changes": condition_diff(self.state.get("applied_condition") or self.next_condition, r["condition"])}, None
+                return {"type": "condition_diff", **correlation, "changes": condition_diff(self.state.get("applied_condition") or self.next_condition, r["condition"])}, None
             if op == "export":
                 if self.next_condition is None:
                     raise ValueError("次条件がありません")
             else:
-                value = preset_condition(r["profile_id"]) if op == "clone" else r["condition"]
+                if op == "clone":
+                    if r["profile_id"] not in list_launch_profiles():
+                        raise ValueError("cloneは登録preset IDだけです。server pathは受け付けません")
+                    selected = load_launch_profile(r["profile_id"])
+                    value = preset_condition(r["profile_id"], TrialLimits(self.launcher_limits.get("ticks") or selected.steps,
+                        self.launcher_limits.get("input_wait_s", 5), self.launcher_limits.get("wall_s", 360),
+                        self.launcher_limits.get("prepare_s", 30)))
+                else:
+                    value = r["condition"]
                 if op == "import":
                     if type(value) is not str:
                         raise ValueError("importはJSON文字列です。server pathは受け付けません")
                     value = value.encode("utf-8")
                 self.next_condition = resolve_condition(value)[2]
                 self.revision += 1
-            return {"type": "edited_condition", "condition": self.next_condition,
+            return {"type": "edited_condition", **correlation, "condition": self.next_condition,
                 "descriptors": descriptors(self.next_condition), "revision": self.revision,
                 "generation": self.generation, "ticket": self.state["ticket"]}, None
         if op == "input":
@@ -215,7 +229,7 @@ class WorkbenchControl:
         if op != "stop" and self.busy:
             raise ValueError("処理中です")
         if op == "prepare":
-            if phase not in {"unselected", "ready", "terminal", "faulted"}:
+            if phase not in {"unselected", "ready", "terminal", "faulted", "recording_failed"}:
                 raise ValueError("停止中の正常なownerだけが準備できます")
             if not any(p["id"] == r["profile_id"] and p["available"] for p in self.catalog):
                 raise ValueError("利用可能な登録profile IDが必要です")
@@ -433,8 +447,14 @@ class Peer:
                 await asyncio.wait_for(self.ws.send(json.dumps(value, allow_nan=False)), 2)
 
 
+def prepare_watchdog_deadline(command, config, now):
+    """受付・正規化済みprepareの実効期限へ、親監督の終了猶予だけを加える。"""
+    budget = command.get("condition", {}).get("limits", {}).get("prepare_s", config["prepare_s"])
+    return now + budget + 2
+
+
 async def serve_workbench(config, workers, directory, *, open_browser=False, startup_check=False, capability=None, web_process=None):
-    control = WorkbenchControl(profile_catalog(), capability or secrets.token_urlsafe(32), require_renderer=not config.get("run_once"))
+    control = WorkbenchControl(profile_catalog(), capability or secrets.token_urlsafe(32), require_renderer=not config.get("run_once"), launcher_limits=config)
     control.state["preselected_profile"] = config.get("profile")
     control.state["fixture_mode"] = bool(config.get("fixture"))
     control.state["initial_condition"] = config.get("condition")
@@ -546,6 +566,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
             peers.add(peer)
             sender = asyncio.create_task(peer.send())
             while True:
+                request = {}
                 try:
                     request = first if first is not None else decode_request(await ws.recv())
                     first = None
@@ -566,8 +587,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                         if command["op"] == "prepare":
                             allowed_assets = set()
                             latest_frame = None
-                            prepare_budget = command.get("condition", {}).get("limits", {}).get("prepare_s", config["prepare_s"])
-                            prepare_deadline = monotonic() + prepare_budget + 2
+                            prepare_deadline = prepare_watchdog_deadline(command, config, monotonic())
                         if command["op"] == "stop":
                             enqueue_stop(command)
                         else:
@@ -580,7 +600,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     if request["op"] == "status" and latest_frame:
                         peer.put(latest_frame)
                 except (ValueError, TypeError, KeyError, OSError, RecursionError) as exc:
-                    peer.put({"type": "rejected", "error": str(exc)[:500]})
+                    peer.put({"type": "rejected", "request_id": request.get("request_id"), "error": str(exc)[:500]})
         except ConnectionClosed:
             # 切断はfinallyで所有権と停止監督へ反映し、正常closeをhandler障害にしない。
             pass

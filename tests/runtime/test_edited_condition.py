@@ -80,6 +80,71 @@ def test_descriptors_and_backend_ranges_agree():
             resolve_condition(invalid)
 
 
+@pytest.mark.parametrize("path", [("environment", "parameters"), ("environment", "parameters", "scene"),
+    ("environment", "parameters", "scene", "objects"), ("environment", "parameters", "scene", "objects", 0),
+    ("environment", "parameters", "scene", "definitions", 0), ("configuration", "model")])
+@pytest.mark.parametrize("value", [None, [], "invalid"])
+def test_nested_import_types_are_typed_rejections(path, value):
+    d=condition(); target=d
+    for k in path[:-1]: target=target[k]
+    target[path[-1]]=value
+    c=WorkbenchControl([],"key");c.owner="owner"
+    with pytest.raises(ValueError):
+        c.command("owner",{"op":"import","capability":"key","revision":0,"ticket":None,
+            "request_id":"import-bad","condition":canonical(d).decode()})
+    assert c.command("owner",{"op":"status"})[0]["phase"]=="unselected"
+    assert c.owner=="owner" and c.revision==0
+
+
+def test_legacy_noop_parameters_disabled_and_motion_template_owned():
+    from xpotato_sim.runtime.scene.objects import ObjectInstance
+    d=condition(); metadata={tuple(x["path"]):x for x in descriptors(d)}
+    for key in ("steps","interval_s","grace_period_s"):
+        path=("configuration","execution",key)
+        assert not metadata[path]["available"] and "TrialRunner" in metadata[path]["reason"]
+        bad=deepcopy(d);bad["configuration"]["execution"][key]+=1
+        with pytest.raises(ValueError):resolve_condition(bad)
+    motion=next(x for x in metadata.values() if x["path"][-1]=="motion_type")
+    assert motion["motion_templates"]==ObjectInstance.motion_templates()
+    # Eulerは既存DynamicsSettings契約が明示対応している。
+    d["configuration"]["execution"]["dynamics"]["integrator"]="Euler"
+    assert resolve_condition(d)[2]["configuration"]["execution"]["dynamics"]["integrator"]=="Euler"
+
+
+def test_gui_preset_clones_preserve_launcher_budgets_and_correlation():
+    c=WorkbenchControl([],"key",launcher_limits={"ticks":5,"input_wait_s":7,"wall_s":8,"prepare_s":9});c.owner="owner"
+    for preset in ("dynamic-cube-drop","dynamic-cube-push"):
+        reply,_=c.command("owner",{"op":"clone","capability":"key","revision":c.revision,"ticket":None,
+            "profile_id":preset,"request_id":"clone-request"})
+        assert reply["request_id"]=="clone-request"
+        assert reply["condition"]["limits"]=={"max_ticks":5,"input_wait_s":7.,"wall_s":8.,"prepare_s":9.}
+
+
+def test_clone_path_is_rejected_before_filesystem_load(monkeypatch):
+    def forbidden(*args):raise AssertionError("server filesystem must not be read")
+    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.load_launch_profile",forbidden)
+    c=WorkbenchControl([],"key");c.owner="owner"
+    with pytest.raises(ValueError,match="server path"):
+        c.command("owner",{"op":"clone","capability":"key","revision":0,"ticket":None,
+            "profile_id":"C:/private/profile.json"})
+
+
+def test_accepted_condition_watchdog_matches_worker_limits_and_rejects_bad_requests():
+    from xpotato_sim.runtime.runners.workbench import prepare_watchdog_deadline
+    d=condition();d["limits"]["prepare_s"]=17.
+    c=WorkbenchControl([{"id":"dynamic-cube-drop","available":True}],"key");c.owner="owner"
+    request={"op":"prepare","id":"budget","capability":"key","revision":0,"ticket":None,
+        "profile_id":"dynamic-cube-drop","condition":d}
+    bad=deepcopy(request);bad["condition"]["limits"]["prepare_s"]=-1
+    with pytest.raises(ValueError):c.command("owner",bad)
+    assert c.generation==0 and c.busy is None
+    _,accepted=c.command("owner",request)
+    limits=resolve_condition(accepted["condition"])[1]
+    assert prepare_watchdog_deadline(accepted,{"prepare_s":.01},10)==10+limits.prepare_s+2
+    with pytest.raises(ValueError):c.command("owner",{**request,"id":"stale"})
+    assert prepare_watchdog_deadline({"op":"prepare"},{"prepare_s":9},10)==21
+
+
 def test_browser_json_number_spelling_preserves_condition():
     d=condition()
     def javascript_numbers(value):
