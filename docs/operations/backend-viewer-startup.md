@@ -22,6 +22,9 @@ related:
 MuJoCo backendがsimulation stateを所有し、browserは受信qposの描画と入力取得を担当する。
 実機の測定値や操作許可はこの起動手順では生成しない。
 
+profile未選択で起動し有限試行を繰り返す場合は[Workbenchの起動手順](../contracts/workbench.md#起動)を使う。
+`workbench`のdev/build選択と既存`app --profile`の固定profile起動は別の入口である。
+
 ## 初回セットアップ
 
 リポジトリrootで実行する。依存のinstallと毎回の起動を分ける。

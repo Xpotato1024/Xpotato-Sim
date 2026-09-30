@@ -142,6 +142,24 @@ def build_parser() -> argparse.ArgumentParser:
     trial.add_argument("--input-wait-s", type=_positive_float, default=5.0)
     trial.add_argument("--wall-s", type=_positive_float, default=60.0)
     trial.add_argument("--prepare-s", type=_positive_float, default=30.0)
+    workbench = commands.add_parser("workbench", help="未選択で待機する有限試行Workbench")
+    workbench.add_argument("--profile", help="初期選択する登録ID（開始は別操作）")
+    workbench.add_argument("--result-root", type=Path, required=True)
+    workbench.add_argument("--temporary-root", type=Path, required=True)
+    workbench.add_argument("--software-revision", required=True)
+    workbench.add_argument("--web-port", type=_port, default=5173)
+    workbench.add_argument("--backend-port", type=_port, default=8766)
+    workbench.add_argument("--web-dist", type=Path, help="検証済みVite buildのroot。省略時はsource dev server")
+    workbench.add_argument("--open-browser", action="store_true")
+    workbench.add_argument("--startup-check", action="store_true")
+    workbench.add_argument("--diagnostic-memory", action="store_true", help="明示診断時だけPython allocation追跡を有効化")
+    workbench.add_argument("--run-once", action="store_true", help="明示profile/fixtureで同じserviceを有限実行する（headlessの明示Start）")
+    workbench.add_argument("--control-stdin", action="store_true", help="自動検証用の一時制御資格をstdinの1行から読む（保存しない）")
+    workbench.add_argument("--fixture", type=Path, help="明示software検証fixture。通常のGamepad入力とは排他")
+    workbench.add_argument("--ticks", type=_positive_int, help="明示した有限検証予算。省略時は選択profileのsteps")
+    workbench.add_argument("--input-wait-s", type=_positive_float, default=5.0)
+    workbench.add_argument("--wall-s", type=_positive_float, default=360.0)
+    workbench.add_argument("--prepare-s", type=_positive_float, default=30.0)
     return parser
 
 
@@ -152,6 +170,9 @@ def _resolve_runtime_capabilities(robot_id: str) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
+    if args.command == "workbench":
+        from xpotato_sim.runtime.runners.workbench import run_workbench
+        return run_workbench(args)
     if args.command == "trial":
         from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
         from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
@@ -251,7 +272,7 @@ def _run(args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     previous_break = None
-    if args.command == "app" and hasattr(signal, "SIGBREAK"):
+    if args.command in {"app", "workbench"} and hasattr(signal, "SIGBREAK"):
         def interrupt(signum, frame):
             raise KeyboardInterrupt
         previous_break = signal.signal(signal.SIGBREAK, interrupt)

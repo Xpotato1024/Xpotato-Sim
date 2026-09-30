@@ -112,6 +112,8 @@ declare module "three" {
 
   export class AxesHelper extends Object3D {
     constructor(size?: number);
+    geometry: BufferGeometry;
+    material: {dispose(): void} | {dispose(): void}[];
   }
 
   export class HemisphereLight extends Object3D {
@@ -238,6 +240,8 @@ declare module "three" {
     constructor(parameters?: { canvas?: HTMLCanvasElement; antialias?: boolean; alpha?: boolean });
     domElement: HTMLCanvasElement;
     outputColorSpace: unknown;
+    renderLists: {dispose(): void};
+    info: {memory: {geometries: number; textures: number}; programs?: unknown[]};
     setPixelRatio(pixelRatio: number): void;
     setSize(width: number, height: number, updateStyle?: boolean): void;
     setClearColor(color: unknown, alpha?: number): void;

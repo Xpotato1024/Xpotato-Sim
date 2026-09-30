@@ -4,6 +4,11 @@ browser上でMuJoCo WASM sceneを描画し、payload-v0のstateとdiagnostic ove
 rendering-only applicationである。最初の起動手順は
 [backend / viewer startup](../../docs/operations/backend-viewer-startup.md)を参照する。
 
+待機型の`WorkbenchApp`はprofile一覧、準備、開始、停止、保存結果、同条件retryを提供する。
+制御状態とphysicsはbackendの共通TrialRunnerが所有し、browserは描画準備ACKと既存Gamepad入力だけを送る。
+dev/buildの明示起動、再接続時のclaim、failureからの復旧、resource counterの範囲は
+[Workbench契約](../../docs/contracts/workbench.md)を参照する。
+
 ## responsibilityと境界
 
 input overlayは、既存のpayload-v0 endpoint metadataを型付きのrequested、resolved、

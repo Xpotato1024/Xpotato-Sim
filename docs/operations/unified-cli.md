@@ -12,10 +12,18 @@ related:
 
 # 統一 CLI
 
+## 待機型Workbench
+
+`workbench --temporary-root <既存の絶対path> --result-root <保存先> --software-revision <source identity> --open-browser`
+は未選択で待機する。profile選択・prepare・renderer ACK・Startを分離し、trial終了後もアプリを保持する。
+`--web-dist <build root>`は明示固定build、省略時はVite dev server。`--run-once --profile <登録ID> --fixture <path>`は
+同じservice/TrialRunnerの有限headless実行である。詳細なPowerShell起動例、期限、復旧、権限は
+[Workbench契約](../contracts/workbench.md)を参照する。旧commandの引数・動作は維持する。
+
 ## 有限試行
 
 `trial`は名前付きモデルv2〜v4と明示Gamepad fixtureを共通TrialRunnerへ渡し、ローカル結果を保存する。
-GUI/control server、構造化editor、全metric artifactはそれぞれ#592/#593/#584の範囲である。
+GUI/control serverは`workbench`、構造化editorと全metric artifactは後続#593/#584の範囲である。
 
 ```powershell
 uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root <保存先> --ticks 4 --software-revision <実行sourceのrevision>

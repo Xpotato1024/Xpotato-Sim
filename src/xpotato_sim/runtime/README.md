@@ -59,6 +59,8 @@ runtime package rootは`RuntimeConfig`とRobot catalog resolver 5件だけをlaz
 
 ## canonical routing
 
+- [Workbench制御・停止監督・資源所有](../../../docs/contracts/workbench.md): `runners/workbench.py`が共通TrialRunnerを専用workerへ接続する。
+
 - [runtime composition](../../../docs/architecture/runtime-composition.md)
 - [dependency boundary](../../../docs/architecture/dependency-boundaries.md)
 - [plugin system](../plugins/README.md)

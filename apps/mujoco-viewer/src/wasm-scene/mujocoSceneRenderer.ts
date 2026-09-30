@@ -2,6 +2,7 @@
  * MuJoCo/WASM sceneをThree.jsへ描画投影するrenderer。
  * Python/MuJoCo physical stateをSoTとし、viewer-side FK/IKや独立physics stepを行わない。
  */
+import {exportedHeapBytes} from "./exportedHeap.js";
 import {
   AmbientLight,
   ArrowHelper,
@@ -54,7 +55,7 @@ import {
   type ViewerWebSocketClient,
   type ViewerWebSocketPayloadObservation,
 } from "../transport/websocketClient.js";
-import { loadMujocoWasm } from "./mujocoWasmLoader.js";
+import { loadMujocoWasm, mujocoWasmModuleBuilds } from "./mujocoWasmLoader.js";
 import { matrixFromMujocoGeom } from "./mujocoSceneTransforms.js";
 import {
   formatQpos,
@@ -95,6 +96,10 @@ export interface MujocoSceneRendererOptions {
 
 /** render resource lifecycle。dispose後はcanvas/scene resourceを再利用しない。 */
 export interface MujocoSceneRenderer {
+  prepareWorkbench(payload: TransportPayloadV0, epoch: string): Promise<void>;
+  applyWorkbench(payload: TransportPayloadV0, epoch: string): void;
+  invalidateWorkbench(): void;
+  counters(): Record<string, number|null>;
   applyOfflinePayload(payload: TransportPayloadV0): void;
   setCameraView(view: CameraView | "fit"): void;
   start(): Promise<void>;
@@ -178,7 +183,7 @@ function buildPrimitiveGeometry(type: number, size: ArrayLike<number>): BufferGe
 
 /** 検証済みmodel/profileからprojection rendererを構築し、Robot fallbackを行わない。 */
 export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): MujocoSceneRenderer {
-  const frameTiming = createViewerFrameTiming();
+  let frameTiming = createViewerFrameTiming();
   let profile = options.profile;
   let declarationReference: ViewerRobotDeclarationReference | null = null;
   const state = createInitialProductViewerState(profile ?? undefined);
@@ -201,8 +206,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   contactOverlay.name = "read-only contact-task overlay";
   scene.add(contactOverlay);
   const geometryOverlay = new SceneContactOverlay();
-  const geometryStream = new SceneContactStream();
-  const dynamicsStream = new DynamicsStream();
+  let geometryStream = new SceneContactStream();
+  let dynamicsStream = new DynamicsStream();
   scene.add(geometryOverlay.group);
 
   const renderer = new WebGLRenderer({ canvas: options.canvas, antialias: true });
@@ -259,6 +264,17 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   let hasLoaded = false;
   let disposed = false;
   let frameHandle: number | null = null;
+  let workbenchEpoch: string | null = null;
+  let loadGeneration = 0;
+  let modelBuilds = 0;
+  let modelDeletes = 0;
+  let liveVfs = 0;
+  let workbenchChain: Promise<void> = Promise.resolve();
+  const lifetimeAbort = new AbortController();
+  let prepareAbort: AbortController | null = null;
+  let listening = false;
+  let lastWorkbenchFrame = -1;
+  let lastWorkbenchTime = -1;
 
   const websocketUrl =
     options.websocketUrl === undefined || options.websocketUrl === null || options.websocketUrl.trim() === ""
@@ -295,9 +311,39 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   };
 
   let renderResourcesReleased = false;
+  const releaseModel = (): void => {
+    hasLoaded = false;
+    const geometries = new Set<BufferGeometry>();
+    const materials = new Set<MeshPhongMaterial>();
+    for (const object of objectByGeomIndex.values()) {
+      geometries.add(object.geometry);
+      for (const material of (Array.isArray(object.material) ? object.material : [object.material])) {
+        if (material !== floorMaterial) materials.add(material as MeshPhongMaterial);
+      }
+      scene.remove(object);
+    }
+    for (const geometry of meshGeometryCache.values()) geometries.add(geometry);
+    for (const material of materialByKey.values()) if (material !== floorMaterial) materials.add(material);
+    const textures = new Set<any>();
+    for (const material of materials) {
+      for (const value of Object.values(material)) if (value && (value as any).isTexture && value !== floorTexture) textures.add(value);
+      material.dispose();
+    }
+    for (const texture of textures) texture.dispose();
+    for (const geometry of geometries) geometry.dispose();
+    for (const resource of [mjvScene, mjvOption, mjvPerturb, mjvCamera, data]) resource?.delete();
+    if (model) { model.delete(); modelDeletes += 1; }
+    model = data = mjvScene = mjvOption = mjvPerturb = mjvCamera = undefined;
+    meshGeometryCache.clear(); objectByGeomIndex.clear(); materialByKey.clear(); modelMeshNameById.clear();
+    renderer.renderLists.dispose();
+  };
   const releaseRenderResources = (): void => {
     if (renderResourcesReleased) return;
     renderResourcesReleased = true;
+    releaseModel();
+    controls.dispose();
+    axesHelper.geometry.dispose();
+    for (const material of (Array.isArray(axesHelper.material) ? axesHelper.material : [axesHelper.material])) material.dispose();
     meshGeometryCache.clear();
     objectByGeomIndex.clear();
     materialByKey.clear();
@@ -466,7 +512,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     const geomName = geom.name === undefined ? "" : String(geom.name);
     const sourceMeshId = sourceGeom === null ? Number.NaN : Number(sourceGeom.dataid);
     const meshId = Number.isFinite(sourceMeshId) && sourceMeshId >= 0 ? sourceMeshId : Number(geom.dataid);
-    const meshName = meshId >= 0 && meshId < model.nmesh ? String(model.mesh(meshId).name ?? "") : "";
+    const meshName = meshId >= 0 && meshId < model.nmesh ? (modelMeshNameById.get(meshId) ?? "") : "";
     const cacheKey = geomMaterialCacheKey(bodyName, geomName, meshName, geom.type, Array.from(geom.rgba));
     const cached = materialByKey.get(cacheKey);
     if (cached !== undefined) {
@@ -527,6 +573,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         mesh.receiveShadow = true;
         objectByGeomIndex.set(geomIndex, mesh);
         scene.add(mesh);
+        sourceGeom?.delete?.();
       }
 
       mesh.matrixAutoUpdate = false;
@@ -646,7 +693,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   let selectedCameraView: CameraView = options.initialCameraView ?? "iso";
   const setCameraView = (view: CameraView | "fit"): void => {
     if (view !== "fit") selectedCameraView = view;
-    if (data === null) return;
+    if (!data) return;
     const framing = cameraPresentation(data.xpos, selectedCameraView);
     if (framing === null) return;
     controls.target.set(...framing.target);
@@ -856,7 +903,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     if (disposed) return;
     try {
       if (profile === null) {
-        const delivered = await loadViewerRobotProfileFromPayload(payload);
+        const delivered = await loadViewerRobotProfileFromPayload(payload,
+          (input, init) => fetch(input, {...init, signal:lifetimeAbort.signal}));
+        if (disposed) return;
         const expectedProfileId = options.expectedProfileId?.trim() || null;
         if (expectedProfileId !== null && delivered.profile.profileId !== expectedProfileId) {
           throw new Error(
@@ -907,29 +956,37 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     }
   };
 
-  const initializeModel = async (): Promise<void> => {
+  const initializeModel = async (isCurrent: () => boolean = () => !disposed,
+    signal: AbortSignal = lifetimeAbort.signal): Promise<void> => {
+    const checkCurrent = () => { if (!isCurrent()) throw new Error("旧scene準備を破棄しました"); };
     const activeProfile = requireProfile();
     updateRendererStatus({ status: "loading" });
 
     mujocoApi = await loadMujocoWasm();
+    checkCurrent();
 
-    const response = await fetch(activeProfile.modelUrl);
+    const response = await fetch(activeProfile.modelUrl, {signal});
     if (!response.ok) {
       throw new Error(`failed to fetch ${activeProfile.modelUrl}: ${response.status} ${response.statusText}`);
     }
 
     const xml = await response.text();
+    checkCurrent();
     const vfs = new mujocoApi.MjVFS();
+    liveVfs += 1;
     try {
       for (const [vfsPath, assetUrl] of activeProfile.vfsAssets.entries()) {
-        const assetResponse = await fetch(assetUrl);
+        const assetResponse = await fetch(assetUrl, {signal});
         if (!assetResponse.ok) {
           throw new Error(`failed to fetch ${assetUrl}: ${assetResponse.status} ${assetResponse.statusText}`);
         }
-        vfs.addBuffer(vfsPath, new Uint8Array(await assetResponse.arrayBuffer()));
+        const bytes = new Uint8Array(await assetResponse.arrayBuffer());
+        checkCurrent();
+        vfs.addBuffer(vfsPath, bytes);
       }
 
       model = mujocoApi.MjModel.from_xml_string(xml, vfs);
+      modelBuilds += 1;
       data = new mujocoApi.MjData(model);
       if (model.nq !== (activeProfile.sceneStateLayout?.qpos_dimension ?? activeProfile.qposDimension)) {
         throw new Error(
@@ -962,6 +1019,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       const modelStat = model.stat as any;
       const modelCenter = Array.from(modelStat.center as ArrayLike<number>);
       const modelExtent = Number(modelStat.extent);
+      modelStat.delete?.();
       controls.target.set(modelCenter[0], modelCenter[1], modelCenter[2]);
       camera.position.set(
         modelCenter[0] + modelExtent * 1.8,
@@ -1000,8 +1058,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       // 観測pointを作らずhidden poolを準備し、ready通知はGPU準備完了後に限る。
       syncSceneFromCurrentData();
       await geometryOverlay.prepare(objects => renderer.compileAsync(objects, camera, scene));
+      checkCurrent();
       await renderer.compileAsync(scene, camera);
-      if (disposed) return;
+      checkCurrent();
       hasLoaded = true;
       syncToLatestSource();
       setCameraView(selectedCameraView);
@@ -1009,12 +1068,81 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         status: "ready",
         sceneSummaryText: `loaded ${model.ngeom} geoms and ${model.nmesh} compiled meshes`,
       });
+    } catch (error) {
+      releaseModel();
+      throw error;
     } finally {
       vfs.delete();
+      liveVfs -= 1;
     }
   };
 
   return {
+    prepareWorkbench(payload, epoch) {
+      const generation = ++loadGeneration;
+      prepareAbort?.abort();
+      const abort = new AbortController();
+      prepareAbort = abort;
+      workbenchEpoch = null;
+      const operation = workbenchChain.catch(() => {}).then(async () => {
+        if (disposed || generation !== loadGeneration) throw new Error("旧scene準備を破棄しました");
+        const reference = viewerRobotDeclarationReferenceFromPayload(payload);
+        const runtime = payload.metadata.coordinated_runtime_v1 as {epoch?: string} | undefined;
+        if (!reference || runtime?.epoch !== epoch) throw new Error("初期scene/epochが不一致です");
+        await renderResourceLifetime.run(async () => {
+          if (!hasLoaded || declarationReference?.digest !== reference.digest) {
+            releaseModel();
+            const delivered = await loadViewerRobotProfileFromPayload(payload,
+              (input, init) => fetch(input, {...init, signal:abort.signal}));
+            if (disposed || generation !== loadGeneration) throw new Error("旧scene準備を破棄しました");
+            profile = delivered.profile;
+            declarationReference = delivered.reference;
+            options.onProfileResolved?.(profile);
+            try { await initializeModel(() => !disposed && generation === loadGeneration, abort.signal); }
+            catch (error) { releaseModel(); throw error; }
+          }
+          if (disposed || generation !== loadGeneration) throw new Error("旧scene準備を破棄しました");
+          validateViewerRobotProfileCompatibility(payload, requireProfile());
+          validateViewerRobotProfileFrameReference(payload, declarationReference, requireProfile());
+          frameTiming.dispose(); frameTiming = createViewerFrameTiming();
+          geometryStream = new SceneContactStream(); dynamicsStream = new DynamicsStream();
+          workbenchEpoch = epoch;
+          lastWorkbenchFrame = payload.frame_index;
+          lastWorkbenchTime = payload.time_s;
+          mujocoApi.mj_resetData(model, data);
+          applyOfflinePayload(payload);
+          if (state.qposStatus !== "ready") throw new Error(state.qposError ?? "初期scene状態を適用できません");
+          if (!listening) {
+            listening = true; setCanvasSize();
+            window.addEventListener("resize", setCanvasSize); resizeObserver?.observe(options.canvas);
+            frameHandle = window.requestAnimationFrame(animate);
+          }
+        });
+      });
+      workbenchChain = operation.finally(() => { if (prepareAbort === abort) prepareAbort = null; });
+      // callerと同じpromiseを返し、拒否されたfinally枝を未処理にしない。
+      return workbenchChain;
+    },
+    invalidateWorkbench() { loadGeneration += 1; workbenchEpoch = null; prepareAbort?.abort(); },
+    applyWorkbench(payload, epoch) {
+      if (disposed || !hasLoaded || epoch !== workbenchEpoch || !declarationReference) throw new Error("旧epochまたは未準備sceneです");
+      const runtime = payload.metadata.coordinated_runtime_v1 as {epoch?: string} | undefined;
+      if (runtime?.epoch !== epoch) throw new Error("frameのepochが不一致です");
+      validateViewerRobotProfileCompatibility(payload, requireProfile());
+      validateViewerRobotProfileFrameReference(payload, declarationReference, requireProfile());
+      if (payload.frame_index <= lastWorkbenchFrame) return;
+      if (!Number.isFinite(payload.time_s) || payload.time_s < lastWorkbenchTime) throw new Error("同じepoch内の時刻後退は拒否します");
+      lastWorkbenchFrame = payload.frame_index;
+      lastWorkbenchTime = payload.time_s;
+      applyOfflinePayload(payload);
+    },
+    counters() { return {modelBuilds, modelDeletes, liveVfs, wasmModules: mujocoWasmModuleBuilds(),
+      wasmHeapBytes: exportedHeapBytes(mujocoApi), nativeModels: model ? 1 : 0, nativeData: data ? 1 : 0,
+      geometries: objectByGeomIndex.size, meshCache: meshGeometryCache.size, materials: materialByKey.size,
+      gpuGeometries: renderer.info.memory.geometries, gpuTextures: renderer.info.memory.textures,
+      programs: renderer.info.programs?.length ?? 0, windowResizeListeners: Number(listening && !disposed),
+      resizeObservers: Number(listening && !disposed && resizeObserver !== null), orbitControls: Number(!renderResourcesReleased),
+      raf: frameHandle === null ? 0 : 1, generation: loadGeneration}; },
     async start() {
       if (hasLoaded || disposed) {
         return;
@@ -1038,6 +1166,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
           statusText: formatViewerStatusText(state),
         });
         window.addEventListener("resize", setCanvasSize);
+        listening = true;
         resizeObserver?.observe(options.canvas);
         frameHandle = window.requestAnimationFrame(animate);
       } catch (error) {
@@ -1065,6 +1194,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     dispose() {
       if (disposed) return;
       disposed = true;
+      lifetimeAbort.abort(); prepareAbort?.abort();
+      loadGeneration += 1;
+      workbenchEpoch = null;
       frameTiming.dispose();
       if (frameHandle !== null) {
         window.cancelAnimationFrame(frameHandle);

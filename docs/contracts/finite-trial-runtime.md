@@ -18,7 +18,7 @@ related:
 `TrialRunner`はprofile未選択で生成でき、その時点ではモデルも入力も作らずphysicsを進めない。
 名前付きモデルv2/v3/v4の原型・左・右・双腕、幾何診断・動力学を同じ`ModelExecution`へ接続する。
 モデルproviderが唯一のMuJoCo step/reset所有者、Taskが課題の終端所有者、runnerが試行寿命と記録の所有者である。
-CLIと後続GUIはrunnerを呼ぶ。v1、serial、OSC、未知Source/Mapping、任意plugin codeは新trialの対象外として拒否する。
+CLIと[Workbench GUI](workbench.md)はrunnerを呼ぶ。v1、serial、OSC、未知Source/Mapping、任意plugin codeは新trialの対象外として拒否する。
 旧publisherは同じ実行を使用するが、従来の表示frame予算、入力時刻、payload、旧CLIを維持する。
 
 ## 固定条件と来歴
@@ -37,6 +37,8 @@ Evaluation、表示比較条件、participant、seedによる乱数試験は本�
 `start`はreadyだけ、`retry`は正常に記録されたterminalだけで新trial ID/epochを発行してreadyへ戻す。
 retry自体は開始しない。Task successとrunner停止理由は別fieldで、Taskなしをsuccessと補完しない。
 保存失敗は`recording_failed`、prepare/reset失敗は`faulted`で停止し、同ownerの再実行を禁止する。
+Workbenchの明示prepareによる復旧は旧runnerをcloseして新しいrunnerを作る。失敗trialの自動再開ではない。
+開始前だけ`discard_prepared()`でnative参照とticketを破棄して未選択へ戻せる。
 
 simulation予算は成功したprovider commitによるtick数×control dtだけを消費する。
 dynamicでは実際の`mj_step` substep、kinematicでは明示されたqpos反映とsimulation時刻更新を意味し、

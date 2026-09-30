@@ -14,6 +14,8 @@ ADRはdesign decisionを、その時点のcontextとprovenanceを含めて記録
 
 ## Decision records
 
+- [ADR 0013: Workbenchの単一workerと停止監督](0013-workbench-worker-supervision.md)
+
 - [ADR 0012: アプリ寿命と有限試行の分離](0012-finite-trial-runtime.md)
 
 - `0001-use-mujoco-as-physics-sot.md`: MuJoCoをphysics source of truthとする。
