@@ -41,10 +41,17 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           uv run python scripts/repository/validate_markdown_docs.py --base-ref "$BASE_SHA" --strict-map --strict-links
       - name: Run tests
+        shell: bash
         env:
           PYTHONPYCACHEPREFIX: ${{ runner.temp }}/python-cache
         run: |
           mkdir -p "$RUNNER_TEMP/python-results"
+          if [ "${{ matrix.shard }}" = general ]; then
+            uv run pytest tests --collect-only -q -p python_ci \
+              --ci-reference "$RUNNER_TEMP/python-results/reference.json" \
+              -o cache_dir="$RUNNER_TEMP/reference-cache" \
+              > "$RUNNER_TEMP/python-results/reference.log" 2>&1
+          fi
           uv run pytest tests -q -p python_ci --ci-shard "${{ matrix.shard }}" \
             --ci-report "$RUNNER_TEMP/python-results/report.json" \
             --durations=30 --junitxml="$RUNNER_TEMP/python-results/junit.xml" \
@@ -78,7 +85,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
         with:
-          pattern: python-*-${{ github.run_attempt }}
+          pattern: python-*
           path: ${{ runner.temp }}/python-reports
       - name: Require all jobs and complete disjoint execution
         if: always()

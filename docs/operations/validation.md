@@ -48,16 +48,24 @@ path filter、変更test限定、nightlyへの移動は行わない。matrixは`
 concurrency取消は同一PRの旧runだけに適用し、mainの異なるcommitを間引かない。
 fork PRでもsecretを必要とせず、`pull_request_target`は使わない。
 
-既存required check名`python-validation`は、`if: always()`の集約jobとして維持する。
+GitHubでの既存チェック名`python-validation`は、`if: always()`の集約jobとして維持する。
+`viewer-validation`も保持する。branch protectionの有効化・設定変更は行わない。
 集約は次の両方を要求する。
 
 - `needs.python-tests.result`が`success`。failure、cancelled、skipped、missingは拒否する。
-- 同じSHA・run ID・run attempt・lock digestの2 reportが揃い、全収集node IDsが一致する。
+- 同じSHA・run ID・lock digestに限定し、各shardの最新attemptのreportを選ぶ。
+  未来attempt、同じshard/attemptの重複、identity不一致を拒否する。
+  最新attemptが失敗なら過去successへ戻さない。成功済みshardは前attemptから再利用できる。
+  generalが同じattemptで保存した非分割collection参照と、両shardの収集node IDsが一致する。
   各shardが空でなく、選択集合の和集合が全収集集合と一致し、重複・欠落がない。
   全選択nodeのsetup/call/teardownが完了し、pytest exit statusが0である。
 
 既存のOS条件によるtest skipは記録して維持する。jobのskipとは区別する。
-artifact欠落、stale report、failed phase、途中終了を成功にしない。branch protection設定は変更しない。
+artifact欠落、stale report、failed phase、途中終了を成功にしない。
+callがある場合setupとteardownはpassedを要求し、setup skipはcallなしだけ受理する。
+artifact名にはattemptを含め、取得は同じrun内の全attemptを対象にする。
+これにより`rerun-failed-jobs`で成功済みjobを再実行せず再利用できる。
+pytestとteeのpipelineは明示`bash`（`-eo pipefail`）でpytest非0をjobへ伝える。
 集合・job状態・鮮度・実行完了の故障注入は`tests/support/test_python_ci.py`で検査する。
 
 ## 再現と計測
@@ -68,6 +76,9 @@ Linuxでの各shardの再現例は次のとおり。`CI_OUTPUT`はtask専用temp
 ```bash
 export PYTHONPATH=.github
 export PYTHONPYCACHEPREFIX="$CI_OUTPUT/pycache"
+uv run pytest tests --collect-only -q -p python_ci \
+  --ci-reference "$CI_OUTPUT/general/reference.json" \
+  -o cache_dir="$CI_OUTPUT/reference-cache"
 uv run pytest tests -q -p python_ci --ci-shard runtime \
   --ci-report "$CI_OUTPUT/runtime/report.json" --durations=30 \
   --junitxml="$CI_OUTPUT/runtime/junit.xml" \
@@ -80,14 +91,19 @@ CI_NEEDS='{"python-tests":{"result":"success"}}' \
   uv run python .github/python_ci.py --reports "$CI_OUTPUT"
 ```
 
-local再現ではGitHub identityが`local`になる。revision-sensitiveな比較では`GITHUB_SHA`、
-`GITHUB_RUN_ID`、`GITHUB_RUN_ATTEMPT`を両実行と集約に同じ値で設定する。
+local再現ではSHA/run IDが`local`、attemptが`1`になる。revision-sensitiveな比較では`GITHUB_SHA`、
+`GITHUB_RUN_ID`を参照・実行・集約に同じ値で設定し、`GITHUB_RUN_ATTEMPT`へ実際のattemptを設定する。
+generalの独立参照は`pytest tests --collect-only`の収集IDを正とし、固定件数を正本にしない。
+参照側の`-k`、`-m`、ignore、deselect、last-failed等の縮小optionを拒否する。
+実行側が縮小される場合も参照との集合・完了照合で拒否する。collect-only reportは実行証拠にならない。
 Windowsでは既存`.venv/Scripts/python.exe -m pytest`を利用できる。環境を新設しない。
 
 CIは各shardのJUnit、`--durations=30`付きlog、収集・選択node IDsと各testのphase時間を含む
 `report.json`を14日間保存する。job summaryには件数、collection時間、pytest時間、exit status、
 processのpeak RSSを載せる。2 processのpeak RSSの和は同時刻の実測peakではない。
 setupやartifact・gateを含むcritical pathと合計runner時間はGitHub job/step時間から別に評価する。
+generalで追加する非分割collection一回分のコストは、修正前のWindows性能値には含まれない。
+既存の217.27秒とparallel wall 123.6216秒は再利用するが、新gate構成の最終性能値とは呼ばない。
 
 性能比較では同じrevisionのtest集合、入力、lock、Python、OS、計測optionを固定する。
 旧CIは3322件を収集していたが、`tests/input_sources`、`tests/robots`、`tests/scripts`の92件と
@@ -99,5 +115,5 @@ Windows実測をLinux CIの改善率として扱わない。単一testの時間�
 
 分割が環境固有の順序依存や資源増加を示した場合は、集約とpartitionの変更commitをrevertする。
 単一jobへ戻す際も`pytest tests`による全集合、durations、JUnit、既存Markdown・compile・diff検査を
-維持する。required check名は`python-validation`と`viewer-validation`のままとし、testの削除・skip追加・
+維持する。チェック名は`python-validation`と`viewer-validation`のままとし、testの削除・skip追加・
 閾値緩和・反復縮小で性能やgateを回復させない。
