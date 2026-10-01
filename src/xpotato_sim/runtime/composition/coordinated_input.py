@@ -21,7 +21,7 @@ class CoordinatedInputRuntime:
             raise TypeError("host monotonic clock required")
         self.parameters = dict(mapping_parameters)
         self._mapping_factory = mapping_factory
-        controls = {"gamepad_plane_control", "gamepad_trigger_control"} & set(self.parameters)
+        controls = {"gamepad_trigger_control"} & set(self.parameters)
         if len(controls) != 1:
             raise ValueError("exactly one coordinated Gamepad control Mapping is required")
         self.side_to_arm = MappingProxyType(dict(side_to_arm))
@@ -63,13 +63,6 @@ class CoordinatedInputRuntime:
             self.mapping.reset_coordinated_presentation(
                 self.parameters, reason=result.reason or result.state)
         return result
-
-    @property
-    def latest_plane_presentation(self) -> dict[str, object] | None:
-        value = self.mapping.latest_plane_presentation
-        if value is not None:
-            value["endpoint_bindings"] = dict(self.side_to_arm)
-        return value
 
     @property
     def latest_trigger_presentation(self) -> dict[str, object] | None:

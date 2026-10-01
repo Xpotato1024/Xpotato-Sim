@@ -8,7 +8,7 @@ export function inputKind(source:string|null|undefined):InputKind {
   return "unknown";
 }
 /** 既存pollerの同じ取得結果だけを投影。deviceの選択順序も既存providerと同じ。 */
-export function browserGamepadDisplay(pads:ArrayLike<Gamepad|null>|null,now:number):BrowserGamepadDisplay|null {
+export function browserGamepadDisplay(pads:ArrayLike<Gamepad|null|undefined>|null,now:number):BrowserGamepadDisplay|null {
   if (!pads || !Number.isFinite(now)) return null;
   // 表示用の投影が不正なsampleを受けても、既存の入力取得経路へ例外を漏らさない。
   try {

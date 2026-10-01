@@ -450,7 +450,7 @@ def test_production_runtime_cannot_reintroduce_motion_command_backend_bypass() -
     assert violations == []
 
 
-def test_legacy_motion_command_backend_calls_are_limited_to_diagnostics() -> None:
+def test_retired_motion_command_backend_entry_and_calls_are_absent() -> None:
     source_root = ROOT / "src" / "xpotato_sim"
     call_owners: set[tuple[str, str]] = set()
     for path in source_root.rglob("*.py"):
@@ -479,18 +479,11 @@ def test_legacy_motion_command_backend_calls_are_limited_to_diagnostics() -> Non
                 )
             )
 
-    assert call_owners == {
-        (
-            "src/xpotato_sim/plugins/robots/fast_arm/adapter/diagnostics/"
-            "endpoint_motion_sanity.py",
-            "_run_fast_arm_endpoint_trajectory_case",
-        ),
-        (
-            "src/xpotato_sim/plugins/robots/fast_arm/adapter/diagnostics/"
-            "endpoint_motion_sanity.py",
-            "_run_fast_arm_endpoint_motion_sanity_case_async",
-        ),
-    }
+    assert call_owners == set()
+    simulator = source_root / "mujoco_backend/simulator.py"
+    tree = ast.parse(simulator.read_text(encoding="utf-8"))
+    assert not any(isinstance(node, ast.FunctionDef) and node.name == "apply_command" for node in ast.walk(tree))
+    assert not (source_root / "mujoco_backend/command_adapter.py").exists()
 
 
 def test_endpoint_motion_capability_is_not_a_robot_command_semantic() -> None:

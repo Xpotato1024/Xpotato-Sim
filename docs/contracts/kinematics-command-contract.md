@@ -29,7 +29,7 @@ current runtimeで`JointCommand` / `MotionCommand`
 - `base.py` に concrete implementation を直接書かない。
 - production `kinematics/`は`base.py`のProtocolだけを所有する。fast_armのpure solver/数式は独立package
   `fast_arm_core`が所有し、Selfrionette Protocol/schema変換は`plugins/robots/fast_arm/adapter/kinematics.py`が
-  所有する。旧`plugins/robots/fast_arm/kinematics.py`はthin re-exportだけを提供する。
+  所有する。旧`plugins/robots/fast_arm/kinematics.py`は退役済みであり、内部consumerもadapterを参照する。
 - test doubleは`tests/support/kinematics_solver_doubles.py`だけに置き、production packageへ置かない。
 - `viewer` は rendering-only であり、FK / IK / qpos recompute を行わない。
 - 既存の wasm-scene product viewer path は MuJoCo model を描画に使うが、
@@ -77,7 +77,7 @@ Concrete IK baseline は `docs/contracts/inverse-kinematics.md` に固定する�
 
 `MotionCommand` は command object であり、state snapshot ではない。
 
-- `MotionCommand.joint` は qpos command boundary への入力である。
+- `MotionCommand.joint` はruntimeのtyped projectionへの入力であり、backendの直接受付形式ではない。
 - `MotionCommand.joint` は viewer feedback field ではない。
 - `MotionCommand.target` は target-side command bucket であり、qpos boundary
   ではない。
@@ -107,10 +107,10 @@ Concrete IK baseline は `docs/contracts/inverse-kinematics.md` に固定する�
 MuJoCo `qpos` は backend / runtime SoT 側の joint state / command boundary
 である。
 
-- `MotionCommand.joint` は qpos command boundary への入力である。
-- backend は `MotionCommand.joint` を受け取って MuJoCo `qpos` に反映する。
-- backend が unsupported target commands や unknown joint shapes を受けた場合は
-  明示的に失敗させる。
+- `MotionCommand.joint` はruntimeのtyped projectionへの入力であり、backendの直接受付形式ではない。
+- runtimeの`project_joint_position_command()`が検証済み`JointPositionCommand`を生成し、backendの`apply_joint_position_command()`へ渡す。
+- target-only、empty joint、joint-velocity-onlyはtyped projectionで拒否する。backendも異なるcommand型や不正joint形状を拒否する。
+- `record_motion_command_envelope()`は診断情報だけを保持する。旧`apply_command(MotionCommand)`とその保留・step分岐は存在しない。
 - browser viewer は qpos SoT ではない。
 
 ## Viewer boundary

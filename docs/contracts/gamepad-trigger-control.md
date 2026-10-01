@@ -57,7 +57,8 @@ triggerを押し込んだ最中のbumper操作で速度を瞬時反転させな�
 named-endpoint v2実行では`coordination.side_to_endpoint`が適用先を所有する。
 左右stickの4軸、2 trigger、2 sign buttonは重複させない。
 
-`gamepad_trigger_control`、`gamepad_plane_control`、`gamepad_axis_map`は同時指定しない。
+`gamepad_trigger_control`と`gamepad_axis_map`は同時指定しない。
+旧`gamepad_plane_control`は単独・併用とも拒否する。
 
 ## FastArm operator / TPS frame
 
@@ -117,8 +118,8 @@ backendは`metadata.gamepad_trigger_control_v1`へ次を出す。
 Viewerはこのmetadataを再計算せず、入力欄へコンパクトに表示する。
 現行primary profileではXY/XZ plane表示を使用しない。
 
-`gamepad-plane-control/v1`は既存profile・fixture・過去検証の互換経路として残す。
-新規の標準Gamepad XYZ操作にはtrigger controlを使用する。
+`gamepad-plane-control/v1`の実装とViewer表示は#605で退役した。
+過去の契約は[historical記録](gamepad-plane-control.md)であり、現行XYZ操作はtrigger controlを使用する。
 
 ## 現行profile
 

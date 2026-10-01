@@ -32,7 +32,7 @@ CLIが表示するWebSocket endpointは`ws://127.0.0.1:8766`、browser viewer UR
 CLIは両方を出力する。
 
 `websocketUrl`なしで`/apps/mujoco-viewer/`を開くと、設計どおりdisconnectedのままになる。
-`?ws=ws://127.0.0.1:8766`はcompatibility aliasとして受理する。
+旧`?ws=`は退役エラーとして起動を停止する。`?websocketUrl=ws://127.0.0.1:8766`を使用する。
 
 ## 推奨手順
 

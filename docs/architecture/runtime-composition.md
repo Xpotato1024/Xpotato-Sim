@@ -329,10 +329,10 @@ provider/backend到達前にrejectする。`MotionCommand`はdiagnostics用runti
 Robot command semantic typeには使用しない。このconversionはruntime / controller ownerであり、
 fast_arm backendのnative endpoint-velocity能力ではない。
 
-`HeadlessMuJoCoSimulator.apply_command(MotionCommand)`はRobot command contractではない。既存の
-fast_arm低位diagnosticとbackend単体testに限るlegacy入口として残し、production runtime / runnerからの
-call、`motion_command_to_qpos_command()`使用、`command_type = MotionCommand`再導入をarchitecture guardで
-拒否する。
+`HeadlessMuJoCoSimulator.apply_command(MotionCommand)`と旧pending分岐は退役した。
+fast_arm診断も`project_joint_position_command`からtyped入口へ接続し、診断envelopeは
+`record_motion_command_envelope`で保持する。旧call、`motion_command_to_qpos_command()`使用、
+`command_type = MotionCommand`再導入をarchitecture guardで拒否する。
 
 - unknown profile、incompatible model、invalid joint orderはcomposition前に失敗する。
 - qpos feasibilityはcandidate全体を検証し、invalid candidateを部分適用しない。

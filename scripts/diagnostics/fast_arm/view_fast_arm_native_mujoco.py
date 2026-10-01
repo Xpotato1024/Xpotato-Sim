@@ -13,7 +13,7 @@ if str(SRC_DIR) not in sys.path:
 import mujoco.viewer
 
 from xpotato_sim.mujoco_backend import load_mujoco_model
-from xpotato_sim.plugins.robots.fast_arm.profile import FAST_ARM_ROBOT_PROFILE
+from xpotato_sim.plugins.robots.fast_arm.adapter.profile import FAST_ARM_ROBOT_PROFILE
 
 
 def _positive_index(value: str) -> int:

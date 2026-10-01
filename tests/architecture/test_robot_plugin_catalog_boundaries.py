@@ -123,7 +123,7 @@ def test_catalog_and_bundle_do_not_introduce_defaults_or_dynamic_discovery() -> 
     paths = (
         SRC / "plugins" / "robots" / "catalog.py",
         SRC / "plugins" / "__init__.py",
-        SRC / "plugins" / "robots" / "fast_arm" / "bundle.py",
+        SRC / "plugins" / "robots" / "fast_arm" / "adapter" / "bundle.py",
         SRC / "runtime" / "composition" / "robot_provider_adapters.py",
         SRC / "runtime" / "composition" / "robot_resolution.py",
     )

@@ -93,8 +93,7 @@ class ModelExecution:
                 "tick": self.tick_count, "arm_ids": list(self.instance.provider.endpoint_ids)})
         if self.state in {"faulted", "stopped"}:
             metadata.update(source_active=False, stale_reason=self.reason or self.state)
-        for name, value in (("gamepad_plane_control_v1", runtime.latest_plane_presentation),
-                            ("gamepad_trigger_control_v1", runtime.latest_trigger_presentation)):
+        for name, value in (("gamepad_trigger_control_v1", runtime.latest_trigger_presentation),):
             if value is not None:
                 metadata[name] = value
         return metadata

@@ -22,7 +22,7 @@ MIGRATED_GENERIC_TESTS = (
 FORBIDDEN_DOUBLE_IMPORTS = {
     "xpotato_sim.kinematics.fk",
     "xpotato_sim.kinematics.ik",
-    "xpotato_sim.plugins.robots.fast_arm.kinematics",
+    "xpotato_sim.plugins.robots.fast_arm.adapter.kinematics",
     "xpotato_sim.mujoco_backend",
     "xpotato_sim.runtime",
 }

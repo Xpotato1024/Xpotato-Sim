@@ -33,8 +33,8 @@
     }
   ],
   "mapping_parameters": {
-    "gamepad_plane_control": {
-      "schema": "gamepad-plane-control/v1",
+    "gamepad_trigger_control": {
+      "schema": "gamepad-trigger-control/v1",
       "output_side": "left",
       "neutral_threshold": 0.1,
       "left": {
@@ -46,7 +46,8 @@
           1,
           -1
         ],
-        "mode_button": 4
+        "sign_button": 4,
+        "trigger_button": 6
       },
       "right": {
         "axes": [
@@ -57,7 +58,8 @@
           1,
           -1
         ],
-        "mode_button": 5
+        "sign_button": 5,
+        "trigger_button": 7
       }
     }
   },
@@ -96,6 +98,14 @@
             0
           ],
           "buttons": [
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
             {
               "pressed": false,
               "value": 0
@@ -176,6 +186,14 @@
             {
               "pressed": false,
               "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
             }
           ],
           "stale": false,
@@ -233,6 +251,14 @@
             {
               "pressed": true,
               "value": 1
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
             }
           ],
           "stale": false,
@@ -290,6 +316,14 @@
             {
               "pressed": true,
               "value": 1
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
             }
           ],
           "stale": false,
@@ -347,6 +381,14 @@
             {
               "pressed": true,
               "value": 1
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
             }
           ],
           "stale": false,
@@ -381,6 +423,14 @@
             0
           ],
           "buttons": [
+            {
+              "pressed": false,
+              "value": 0
+            },
+            {
+              "pressed": false,
+              "value": 0
+            },
             {
               "pressed": false,
               "value": 0

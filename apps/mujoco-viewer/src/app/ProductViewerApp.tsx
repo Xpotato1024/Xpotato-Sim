@@ -1,6 +1,5 @@
 import { SceneContactPanel } from "./SceneContactPanel.js";
 import { DynamicsPanel } from "./DynamicsPanel.js";
-import { GamepadPlaneStatus } from "./GamepadPlaneStatus.js";
 import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
@@ -195,13 +194,9 @@ export function ProductViewerApp() {
     const timer = window.setInterval(() => setNumbers(latestDisplayState.current), 250);
     return () => window.clearInterval(timer);
   }, []);
-  const endpointConfig = useMemo(() => {
-    if (typeof window === "undefined") {
-      return { websocketUrl: null as string | null };
-    }
-
-    return readViewerEndpointConfig(window.location);
-  }, []);
+  const endpointConfig = useMemo(() => readViewerEndpointConfig({
+    search: typeof window === "undefined" ? "" : window.location.search,
+  }), []);
   const launchProfileLabel = useMemo(() => typeof window === "undefined" ? null
     : new URLSearchParams(window.location.search).get("launchProfile"), []);
   const requestedProfileId = useMemo(() => {
@@ -221,11 +216,11 @@ export function ProductViewerApp() {
       ? "operator" as const
       : "iso" as const;
   const gamepadControlPresentation =
-    state.inputOverlay?.gamepadTriggerControl ?? state.inputOverlay?.gamepadPlaneControl ?? null;
+    state.inputOverlay?.gamepadTriggerControl ?? null;
   const gamepadNeutralHeartbeat = inputStartup === "scene" || gamepadControlPresentation !== null;
   const coordinatedStopped = gamepadControlPresentation?.outputScope === "coordinated"
     && (state.inputOverlay?.motionStatus === "faulted" || state.inputOverlay?.motionStatus === "stopped");
-  const liveInputEnabled = !inputPaused && !coordinatedStopped && inputSelection.error === null
+  const liveInputEnabled = !inputPaused && !coordinatedStopped && inputSelection.error === null && endpointConfig.error === undefined
     && isProductViewerLiveInputEnabled(state, inputStartup);
 
   useEffect(() => {
@@ -240,6 +235,7 @@ export function ProductViewerApp() {
     let renderer: ReturnType<typeof createMujocoSceneRenderer> | null = null;
     const start = async (): Promise<void> => {
       try {
+        if (endpointConfig.error !== undefined) throw new Error(endpointConfig.error);
         const initialProfile =
           endpointConfig.websocketUrl === null ? await loadDefaultViewerRobotProfile() : null;
         if (
@@ -308,7 +304,7 @@ export function ProductViewerApp() {
       }
       renderer?.dispose();
     };
-  }, [endpointConfig.websocketUrl, requestedProfileId, initialCameraView]);
+  }, [endpointConfig.websocketUrl, endpointConfig.error, requestedProfileId, initialCameraView]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -483,7 +479,6 @@ export function ProductViewerApp() {
             <p className="inspector-primary">{overlay?.sourceKind ?? "入力情報なし"}</p>
             <InputInstruments state={state} numbers={numbers} />
             <GamepadTriggerStatus value={overlay?.gamepadTriggerControl ?? null} live={liveInputEnabled && connection.tone === "positive"} motionStatus={overlay?.motionStatus} />
-            <GamepadPlaneStatus value={overlay?.gamepadPlaneControl ?? null} live={liveInputEnabled && connection.tone === "positive"} motionStatus={overlay?.motionStatus} />
             <div className="inspector-row"><span>取得</span><strong>{inputPaused ? "一時停止" : liveInputEnabled ? "有効" : "停止"}</strong></div>
             <div className="inspector-row"><span>backend状態</span><strong>{overlay === null ? "未取得" : overlay.sourceActive ? "入力あり" : "待機 / 保持"}</strong></div>
             <div className="inspector-row"><span>入力age</span><strong>{overlay?.commandAgeMs === null || overlay?.commandAgeMs === undefined ? "—" : overlay.commandAgeMs + " ms"}</strong></div>

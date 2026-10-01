@@ -4,7 +4,9 @@
 
 typed Robot commandまたはbackend-local diagnostic commandをMuJoCo qpos / ctrlへ反映し、
 `MuJoCoState`を生成する。MuJoCoをphysical SoTとして扱う。production runtimeのRobot command入口は
-selected routeにbindされたproviderであり、`MotionCommand`直接適用は低位diagnosticとbackend testに限定する。
+selected routeにbindされたproviderである。診断も既存のtyped projectionを再利用する。
+`MotionCommand`は`record_motion_command_envelope`で診断情報として保持するだけで、適用入口ではない。
+旧`apply_command(MotionCommand)`と`command_adapter.py`は退役した。
 
 ## 入力
 

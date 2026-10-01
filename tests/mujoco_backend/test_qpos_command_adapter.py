@@ -7,7 +7,6 @@ from xpotato_sim.plugins.robots.fast_arm.adapter.bundle import (
 
 import pytest
 
-from xpotato_sim.mujoco_backend.command_adapter import motion_command_to_qpos_command
 from xpotato_sim.runtime.execution.command_routes import (
     project_joint_position_command,
 )
@@ -28,16 +27,16 @@ def test_motion_command_joint_is_exposed_as_qpos_command_boundary() -> None:
         joint=JointCommand(joint_angles_rad=(0.1, -0.2, 0.3, -0.4)),
     )
 
-    qpos_command = motion_command_to_qpos_command(command)
+    qpos_command = project_joint_position_command(command)
 
-    assert qpos_command == JointCommand(joint_angles_rad=(0.1, -0.2, 0.3, -0.4))
+    assert qpos_command == JointPositionCommand(timestamp_s=1.0, joint_angles_rad=(0.1, -0.2, 0.3, -0.4))
 
 
 def test_motion_command_target_is_rejected_in_qpos_command_boundary() -> None:
     command = MotionCommand(timestamp_s=1.0, target=TargetCommand())
 
-    with pytest.raises(ValueError, match="qpos command boundary"):
-        motion_command_to_qpos_command(command)
+    with pytest.raises(ValueError, match="requires MotionCommand.joint"):
+        project_joint_position_command(command)
 
 
 def test_motion_command_target_position_feedback_is_also_not_qpos_boundary() -> None:
@@ -46,8 +45,8 @@ def test_motion_command_target_position_feedback_is_also_not_qpos_boundary() -> 
         target=TargetCommand(position_m=(0.3, 0.2, 0.1), delta_m=(0.001, 0.0, 0.0)),
     )
 
-    with pytest.raises(ValueError, match="qpos command boundary"):
-        motion_command_to_qpos_command(command)
+    with pytest.raises(ValueError, match="requires MotionCommand.joint"):
+        project_joint_position_command(command)
 
 
 def test_headless_simulator_apply_qpos_command_updates_snapshot() -> None:

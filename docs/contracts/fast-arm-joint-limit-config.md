@@ -46,7 +46,7 @@ canonicalなMuJoCo `home` keyframe qposは、設定されたすべてのrange内
 ## enforcement boundaryとsemantics
 
 generic guard contractは、selected motion policyがcandidate commandを返した後、
-`MuJoCoSimulator.apply_command()` / `step()`の前に実行する。fast_arm production
+`MuJoCoSimulator.apply_joint_position_command()` / `step()`の前に実行する。fast_arm production
 compositionは、そのboundaryへfast_arm adapterをinjectする。generic builderと
 compatibility builderは、このTOMLを暗黙にloadせず、fast_arm validationも適用しない。
 productionのprogrammed、replay、keyboard/gamepad viewer、fixture/loadcell pathは、

@@ -62,15 +62,13 @@ def test_all_current_profiles_keep_saved_configuration_and_bytes(path):
     assert path.read_bytes() == before
 
 
-def test_legacy_schema_keeps_original_configuration_and_digest():
+def test_legacy_schema_is_rejected_without_rewriting_configuration():
     raw = raw_profile()
     raw["schema_version"] = "selfrionette-launch-profile/v1"
     expected = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    profile = decode_launch_profile(expected.encode("utf-8"), source_path=SOURCE)
-    assert profile.document_json == expected
-    assert profile.to_dict()["configuration"] == raw
-    assert profile.configuration_sha256 == sha256(expected.encode("utf-8")).hexdigest()
-    assert profile.model is None
+    with pytest.raises(ValueError, match="schema"):
+        decode_launch_profile(expected.encode("utf-8"), source_path=SOURCE)
+    assert raw["schema_version"] == "selfrionette-launch-profile/v1"
 
 
 @pytest.mark.parametrize("path,value", [

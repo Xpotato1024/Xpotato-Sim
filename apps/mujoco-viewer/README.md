@@ -12,6 +12,10 @@ parameterと物体定義/world配置のフォームを提供し、検証済み�
 dev/buildの明示起動、再接続時のclaim、failureからの復旧、resource counterの範囲は
 [Workbench契約](../../docs/contracts/workbench.md)を参照する。
 
+Gamepadのvisible/hidden取得寿命は従来ViewerとWorkbenchが共有する。
+visibleならfocusに依存せず取得し、hiddenで失効・停止、復帰時は実sampleを取り直す。
+接続queryは`websocketUrl`のみで、旧`?ws=` aliasとXY/XZ平面切替表示は退役した。
+
 ## responsibilityと境界
 
 input overlayは、既存のpayload-v0 endpoint metadataを型付きのrequested、resolved、

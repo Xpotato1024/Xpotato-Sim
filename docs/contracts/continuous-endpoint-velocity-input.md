@@ -145,4 +145,4 @@ keyboard、buttonのZ補助、速度・deadzone・frame resolution、最終指�
 
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`の標準XYZ操作は、stick XY + analog trigger Zへ移行した。
 trigger量・bumper符号ラッチ・取得session・表示の規約は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
-旧XY/XZ切替は互換経路として[Gamepad平面操作契約](gamepad-plane-control.md)に残す。
+旧XY/XZ切替は退役した。[Gamepad平面操作契約](gamepad-plane-control.md)はhistorical記録であり、旧設定は拒否する。

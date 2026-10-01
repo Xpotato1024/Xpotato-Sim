@@ -12,3 +12,15 @@ describe("product viewer entrypoint", () => {
     assert.doesNotMatch(source, /viewerRuntime|browserSceneRenderer|fastArmMeshes|threeSceneObjects/);
   });
 });
+
+describe("retired connection query", () => {
+  it("rejects before static profile loading and disables live input", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/app/ProductViewerApp.tsx"), "utf8");
+    const start = source.indexOf("const start = async");
+    const rejection = source.indexOf("if (endpointConfig.error !== undefined) throw new Error(endpointConfig.error)", start);
+    const staticLoad = source.indexOf("await loadDefaultViewerRobotProfile()", start);
+    const renderer = source.indexOf("renderer = createMujocoSceneRenderer", start);
+    assert.ok(start >= 0 && rejection > start && staticLoad > rejection && renderer > staticLoad);
+    assert.match(source, /const liveInputEnabled[^;]*endpointConfig\.error === undefined/);
+  });
+});

@@ -275,7 +275,7 @@ def test_missing_stop_capability_is_not_silently_enabled(monkeypatch):
 
 def test_runtime_named_command_reaches_both_physical_gates(monkeypatch):
     from tests.runtime.test_coordinated_gamepad import app
-    from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message
+    from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import message
     from xpotato_sim.plugins.robots.fast_arm.adapter.assembly_output import FastArmOutputBinding, build_fast_arm_assembly_requests
     a,c=app()
     # 既存のsynthetic physical envelopeは全jointが[-1,1]。限界を緩和せず、

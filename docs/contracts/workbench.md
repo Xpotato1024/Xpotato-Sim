@@ -131,10 +131,14 @@ worker死亡・強制終了後はアプリを終了して明示再起動する�
 
 ## 入力と資源所有
 
-browserは既存`sampleViewerGamepadSnapshot`と`buildViewerGamepadControlMessage`で40 msごとに新しくpollする。
+browserの取得寿命は従来Viewerと同じ`gamepadLifecycle`が所有する。visible中のrAFを
+Workbenchでは40 ms以上の間隔に制限し、毎回実sampleを取得する。従来Viewerのpublication cadenceは維持する。
 raw axes/buttonsを保持し、試行epochごとにsessionとsequenceを新規にする。初回device未取得はsampleを送らず入力待ち期限に従う。
-取得後のblur/欠落/切断はstale/disconnectedとして送り、
+visibleならfocus=falseでも取得する。取得後のhidden/欠落/切断はstale/disconnectedとして送り、
 中立入力として補完しない。cached sampleのheartbeatで鮮度を延ばさない。backendの0.2秒freshnessは不変。
+hiddenでは即時失効して取得rAFとheartbeatを停止し、visible復帰時は新しく取得する。
+capability、claim、ticket/epoch、busy、phase、fixture gateは送信時点で確認し、dispose後は送らない。
+Keyboardのfocus契約は変更しない。
 async scene準備の成功・失敗・finallyは開始時のsocket/generation/epochに束縛する。旧loadは新epochを失敗扱いにしない。
 CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する。閲覧preview後のclaimでも現ready epochを再ACKする。
 
@@ -147,7 +151,8 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | WASM module | browser loaderのPromise 1件 | ページ寿命。失敗したloadだけ再試行可能 |
 | WASM model/data、mesh/material/texture、shader | rendererの現scene | 同model retry再利用、model切替でdelete/dispose、cacheは現sceneに限定 |
 | async load/compile | rendererの直列chainとabort/generation | invalidateで旧結果を拒否し、disposeは進行中compileのsettle後に一度だけ解放 |
-| WebSocket、40 ms timer、reconnect listener | WorkbenchApp各1 | disconnectで入力停止、unmountでclose/clear/remove |
+| WebSocket、表示鮮度timer、reconnect listener | WorkbenchApp各1 | disconnectで入力停止、unmountでclose/clear/remove |
+| Gamepad取得rAF | 共通gamepadLifecycleの1 owner | hiddenで停止、visibleで新規取得、unmountでdispose |
 | rAF、resize listener/observer、OrbitControls | renderer各1 | renderer disposeで停止・解除 |
 
 `window.__workbenchCounters()`は所有slot、生成/delete数、renderer GPU counts、Python RSS/private bytesを公開する。

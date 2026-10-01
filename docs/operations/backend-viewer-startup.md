@@ -112,7 +112,8 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 起動時はFastArmの`+X`前方と操作方向を合わせた`operator` camera presetを使い、stick上を前進、右を胴体右へ対応させる。
 cameraを手動回転しても入力Mappingはcamera-relativeに変更しない。
 操作と表示は[Gamepad trigger操作契約](../contracts/gamepad-trigger-control.md)を参照する。
-旧XY/XZ切替は[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)の互換経路である。
+旧XY/XZ切替は退役した。[Gamepad平面操作契約](../contracts/gamepad-plane-control.md)はhistorical記録である。
+Viewer接続queryは`websocketUrl`を使う。旧`?ws=` aliasは退役エラーとして起動を停止し、静的Viewerや別接続先へ切り替えない。
 
 ## 単腕・双腕のモデル選択（#574 / #580）
 

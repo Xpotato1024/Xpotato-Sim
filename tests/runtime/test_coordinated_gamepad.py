@@ -8,7 +8,7 @@ from fast_arm_core.models import resolve_fast_arm_model
 from xpotato_sim.plugins.robots.fast_arm.adapter.coordinated import FastArmAssemblyMotionProvider
 from xpotato_sim.runtime.composition.fast_arm_coordinated import FastArmCoordinatedGamepadRuntime
 from xpotato_sim.schemas.coordinated import EndpointVelocity
-from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_planes import message, parameters
+from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import message, parameters
 
 
 
@@ -42,13 +42,13 @@ def step(a,clock,msg):
 @pytest.mark.parametrize("ids", [("left",),("right",),("left","right"),("right","left")])
 @pytest.mark.parametrize("axis,sign",[(0,1),(0,-1),(1,1),(1,-1),(2,1),(2,-1)])
 def test_both_arms_six_directions_match_independent_same_snapshot(ids,axis,sign):
-    a,c=app(ids); held=(4,5) if axis==2 else ()
+    a,c=app(ids); held=(4,5) if axis==2 and sign<0 else ()
     assert step(a,c,message(sequence=0,held=held)).state=="running"
     raw=[0.]*4
     for side in ids:
         offset=0 if side=="left" else 2
-        raw[offset+int(axis!=0)]=sign if axis==0 else -sign
-    row=step(a,c,message(tuple(raw),held,1))
+        if axis != 2: raw[offset+int(axis!=0)]=sign if axis==0 else -sign
+    row=step(a,c,message(tuple(raw),held=held,sequence=1,triggers=tuple(1. if side in ids and axis==2 else 0. for side in ("left","right"))))
     assert row.state=="running",row.reason
     assert row.after.simulation_time_s==pytest.approx(1/60)
     before=dict(zip(row.before.joint_names,row.before.joint_positions_rad))
@@ -62,14 +62,17 @@ def test_both_arms_six_directions_match_independent_same_snapshot(ids,axis,sign)
         assert any(after[n]!=before[n] for n in arm.joint_names)
 
 
-def test_mode_switch_stops_only_switching_side_without_reinterpreting_tilt():
+def test_sign_latch_changes_only_after_trigger_neutral_and_sides_remain_independent():
     a,c=app();step(a,c,message(sequence=0))
-    row=step(a,c,message((.55,0.,0.,-.55),(5,),1))
+    row=step(a,c,message((.55,0.,0.,0.),triggers=(0.,.55),sequence=1))
     assert row.input.endpoints[0].velocity_m_s==pytest.approx((.05,0,0))
-    assert row.input.endpoints[1].velocity_m_s==(0.,0.,0.)
-    step(a,c,message((.55,0.,0.,0.),(5,),2))
-    row=step(a,c,message((.55,0.,0.,-.55),(5,),3))
     assert row.input.endpoints[1].velocity_m_s==pytest.approx((0,0,.05))
+    row=step(a,c,message((.55,0.,0.,0.),triggers=(0.,.55),held=(5,),sequence=2))
+    assert row.input.endpoints[1].velocity_m_s==pytest.approx((0,0,.05))
+    step(a,c,message((.55,0.,0.,0.),held=(5,),sequence=3))
+    row=step(a,c,message((.55,0.,0.,0.),triggers=(0.,.55),held=(5,),sequence=4))
+    assert row.input.endpoints[0].velocity_m_s==pytest.approx((.05,0,0))
+    assert row.input.endpoints[1].velocity_m_s==pytest.approx((0,0,-.05))
 
 
 def test_one_failed_candidate_never_publishes_other_arm(monkeypatch):

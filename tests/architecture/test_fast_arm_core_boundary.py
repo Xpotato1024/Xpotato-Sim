@@ -7,8 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from xpotato_sim.plugins.robots.fast_arm import bundle as compatibility_bundle
-from xpotato_sim.plugins.robots.fast_arm import kinematics as compatibility_kinematics
 from xpotato_sim.plugins.robots.fast_arm.adapter import bundle as adapter_bundle
 from xpotato_sim.plugins.robots.fast_arm.adapter import kinematics as adapter_kinematics
 
@@ -115,16 +113,10 @@ def test_initial_state_modules_describe_core_ownership_and_adapter_projection() 
     assert "simulator-independent initial-state" not in core_source
 
 
-def test_compatibility_modules_preserve_public_object_identity() -> None:
-    assert compatibility_bundle.FAST_ARM_ROBOT_BUNDLE is adapter_bundle.FAST_ARM_ROBOT_BUNDLE
-    assert (
-        compatibility_kinematics.FastArmEndpointForwardKinematicsSolver
-        is adapter_kinematics.FastArmEndpointForwardKinematicsSolver
-    )
-    assert (
-        compatibility_kinematics.FastArmEndpointInverseKinematicsSolver
-        is adapter_kinematics.FastArmEndpointInverseKinematicsSolver
-    )
+def test_adapter_modules_own_public_objects() -> None:
+    assert adapter_bundle.FAST_ARM_ROBOT_BUNDLE is not None
+    assert adapter_bundle.__name__ == "xpotato_sim.plugins.robots.fast_arm.adapter.bundle"
+    assert adapter_kinematics.__name__ == "xpotato_sim.plugins.robots.fast_arm.adapter.kinematics"
 
 
 @pytest.mark.parametrize(
@@ -144,18 +136,14 @@ def test_compatibility_modules_preserve_public_object_identity() -> None:
         "diagnostics.neutral_initial_pose",
     ),
 )
-def test_compatibility_modules_preserve_all_and_export_identities(
+def test_retired_modules_are_absent_and_adapter_owner_imports(
     module_suffix: str,
 ) -> None:
-    compatibility = importlib.import_module(
-        f"xpotato_sim.plugins.robots.fast_arm.{module_suffix}"
-    )
-    adapter = importlib.import_module(
-        f"xpotato_sim.plugins.robots.fast_arm.adapter.{module_suffix}"
-    )
-    assert compatibility.__all__ == adapter.__all__
-    for name in adapter.__all__:
-        assert getattr(compatibility, name) is getattr(adapter, name)
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(f"xpotato_sim.plugins.robots.fast_arm.{module_suffix}")
+    adapter = importlib.import_module(f"xpotato_sim.plugins.robots.fast_arm.adapter.{module_suffix}")
+    assert adapter.__all__
+    assert not (FAST_ARM_ROOT / (module_suffix.replace(".", "/") + ".py")).exists()
 
 
 def test_fast_arm_test_ownership_directories_have_real_tests_and_no_placeholders() -> None:

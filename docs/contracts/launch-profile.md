@@ -23,6 +23,9 @@ related:
 関節範囲、Experiment Manifestの実験条件を複製しない。process、Source開始、model step、
 network、serial、physical permissionは所有しない。
 
+旧`selfrionette-launch-profile/v1`は#605で退役し、schema不一致として拒否する。
+現行v1〜v4へ黙って読み替えず、配布17profileの保存byteとdigestは維持する。
+
 ## ファイルと選択
 
 リポジトリの`profiles/`に`sim-keyboard.json`、`sim-gamepad.json`、`replay-sweep.json`を置く。
@@ -105,7 +108,8 @@ FastArmの胴体`+X=前、+Y=左、+Z=上`へ固定したoperator/TPS mappingを
 stick上=`+X`、右=`-Y`とする。Gamepad viewerは同じ基準に合わせた背後`-X`側の`operator` camera presetで起動する。
 cameraを手動回転してもMapping自体は追従させない。設定・符号ラッチ・表示の詳細は
 [Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
-旧XY/XZ切替は[Gamepad平面操作契約](gamepad-plane-control.md)の互換経路として維持する。
+旧XY/XZ切替と`gamepad_plane_control`設定は退役し、triggerへの自動変換は行わない。
+過去の契約は[historical記録](gamepad-plane-control.md)として保存する。
 
 ## 同列モデル選択を持つv2（#574 / #580）
 

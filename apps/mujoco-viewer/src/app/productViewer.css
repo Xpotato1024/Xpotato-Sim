@@ -200,11 +200,7 @@ button[aria-pressed="true"] { background: #e4eee8; color: var(--accent); border-
 
 .input-instruments[data-stale="true"] .signal-track, .input-instruments[data-stale="true"] .stick-indicator { opacity: .5; }
 
-/* 左右modeはbackendの表示投影。入力処理や関節状態をCSSで変更しない。 */
-.gamepad-plane-status { margin-top: 12px; padding-top: 8px; border-top: 1px solid currentColor; }
-.gamepad-plane-row { display: grid; gap: 4px; margin: 9px 0; overflow-wrap: anywhere; }
-.gamepad-plane-row span { font-size: 0.85rem; }
-.gamepad-plane-row small { opacity: 0.75; }
+/* 左右trigger状態はbackendの表示投影。入力処理や関節状態をCSSで変更しない。 */
 .gamepad-trigger-status { margin-top: 10px; padding-top: 7px; border-top: 1px solid currentColor; }
 .gamepad-trigger-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 6px 0; overflow-wrap: anywhere; }
 .gamepad-trigger-row span { font-size: 0.82rem; text-align: right; }

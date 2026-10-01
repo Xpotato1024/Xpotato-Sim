@@ -325,8 +325,8 @@ ownership proofにせず、aliased Bundle、external simulator、別Robot / 別l
 foreign modelはprovider execute、source start、backend build、simulator stepより前にrejectする。
 arbitrary simulator / guard injectionはtest-only helperの境界とする。
 `ControlMappedRuntimePipeline`はroute / bindingを必須保持し、CLIから到達する全production runnerは
-pipelineのtyped execution APIへ収束する。`MotionCommand -> simulator.apply_command()`はproduction
-runtime入口として使用しない。
+pipelineのtyped execution APIへ収束する。旧`MotionCommand -> simulator.apply_command()`は退役した。
+診断もtyped projectionを共有し、metadataは診断envelopeとして別途保持する。
 
 `TaskPlugin`は次を宣言する。
 
@@ -624,7 +624,7 @@ legacy replay/absolute-targetは従来の明示builder契約を維持する。
 
 optionalな`ControlMappingPlugin.session_strategy_factory`はruntime pipelineごとのstrategyを生成する。
 省略した既存Mappingはstatelessな共有strategyを維持する。実行中の可変modeをcatalogや固定parameterへ保存しない。
-利用例とresetの責任は[Gamepad平面操作契約](gamepad-plane-control.md)を参照する。
+利用例とresetの責任は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
 
 
 ## 物体群の接触診断Plugin（#585）
