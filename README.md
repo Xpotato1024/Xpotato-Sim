@@ -23,7 +23,7 @@ Workbenchは未選択・無入力・無physics stepで待機します。`--open-
 1. preset選択で次条件をcloneします。旧v1などの非対応presetは理由付きで無効です。
 2. 「Advanced設定」でRobotモデル、Environment物体、Input、Mapping、Task、Evaluationと有限予算を確認・編集します。単位・可否はbackendが提供します。物体定義の半寸法・質量・摩擦とworld配置の位置・単位quaternion・fixed/dynamicは別項目です。
 3. 「次条件を検証」でparameter契約を検査し、「検証・準備」でnative modelを構築して初期貫通も検査します。成功した同一MuJoCo worldだけをpreviewします。
-4. 初期sceneとshaderの準備完了後に「開始」。Gamepadの新しい中立入力から有限試行が進みます。
+4. 初期sceneとshaderの準備完了後に「操作画面へ」を選び、明示的に「開始」します。画面切替だけでは開始せず、Gamepadの新しい中立入力から有限試行が進みます。
 5. 終端・保存完了後に「同じ条件で再試行」、または次条件を編集して「検証・準備」。ページの再読込は不要です。適用中の条件とtrial ID/epochは書き換えません。
 
 モデル選択は登録されたendpoint bindingも明示変更します。bindingはフォームに表示されます。非対応軸・組合せは理由を表示し、代替を暗黙選択しません。接触観測Taskは診断であり、正式experimentの保持・持上げ評価や未実装metricを0・成功として報告しません。
@@ -31,6 +31,14 @@ Workbenchは未選択・無入力・無physics stepで待機します。`--open-
 「条件をexport」は検証済みの展開条件`workbench-condition/v1`をダウンロードします。「条件JSONをimport」はローカルで選んだfileの内容をbackendへ渡して再検証します。server path、任意XML、code、import参照は受け付けません。「適用条件との差分」で変更箇所を確認できます。物体集合・identityは選択presetに束縛され、任意物体追加や形状型追加は本editorの対象外です。
 
 試行停止は「停止を要求」。結果が確定するまで次条件を適用しません。記録失敗は成功扱いせず、fileを保持して保存先等の原因を確認してください。その後「検証・準備」で新runner・新trialを明示準備できます。失敗trialのretryや自動開始は行いません。worker死亡時はアプリを再起動します。アプリ全体の終了は起動端末の **Ctrl+C** です。試行終了だけではGUIを閉じません。再接続は状態照会だけで、自動開始しません。
+
+## 操作画面の表示
+
+設定・準備画面と操作画面を分離しています。操作中はプロファイルeditorを隠し、自由視点、左右の関節計器、下部の入力計器、状態・時間・停止要求を表示します。Singleが初期表示、Assistは自由視点＋上面XY＋ロボット正面YZです。補助二面と計器は描画へ重ねません。「操作視点」はカメラを操作者基準へ戻し、「全体」は現在の向きを保って対象を収めます。どちらも入力方向を変更しません。
+
+角度計はqposのdegree表示で、上0°、時計回りの正角を赤、負角を青で塗ります。±180°は表示範囲であって可動域・安全範囲ではありません。範囲外や失効を0°へ置換しません。
+
+入力計器はGamepad／キーボード／Selfrionette／genericの共通表示枠です。**Workbenchの実行Sourceは引き続きGamepadのみ**で、表示対応だけでは別deviceを接続できるようにはなりません。Selfrionetteの7chは未校正rawで、指やNへの対応を推測しません。詳細は[Viewer表示契約](docs/operations/product-viewer-wasm-scene-renderer.md)を参照してください。
 
 ## 条件をheadlessで再現する
 

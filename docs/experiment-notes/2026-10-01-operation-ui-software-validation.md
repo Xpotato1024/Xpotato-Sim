@@ -54,7 +54,41 @@ Gamepad generic index、KeyboardのKeyW押下/KeyS非押下、Selfrionette CH1..
 準備済み静止scene、1440×900、DPR=1、SwiftShaderで各180 sampleのrAF間隔を測定した。
 Singleはp50=66.7 ms/p95=66.8 ms、Assistはp50=133.3 ms/p95=150.0 msだった。
 これはsoftware描画環境のフレーム間隔であり、native GPUの処理時間、live入力遅延、device-to-photonではない。
-この条件のreceive-to-apply counterはnullで、入力から表示までの遅延は未測定である。実運用性能の保証には使用しない。
+この静止条件のreceive-to-apply counterはnullで、入力遅延の測定には使用できない。後述の合成入力試験とは測定対象が異なる。実運用性能の保証には使用しない。
 Quad、研究camera/layout/policy freeze、feedback非公開policyの全表示への適用も今回の完成範囲に含めない。
 
 証拠はtaskの`parent-final-acceptance`にJSONとPNG、型検査・通常npm test・focused test・buildのログとして保持した。
+
+## 最終補修と合成Gamepadから描画提出までの確認
+
+初期PR head `2c454b7c3243584f9ec3e40e0ec5d5ceb42a9b86`に対する最終補修を実施した。
+既存ViewerInputSourceは中立sampleにも`gamepad_inactive`を付けるため、最初の実経路試験で
+正常な中立時の計器が消える反例を得た。表示だけの分類を修正し、接続・stale=false・zero_stateの
+明示情報が揃った中立を表示する。切断、timeout、blurred、根拠不足を例外扱いしない回帰を追加した。
+最初の1366×768では入力帯のclientHeight=94、scrollHeight=100だった。compact帯も104pxとして
+再測定し、凡例・Z量・符号を欠かさず内部scrollとpage縦scrollがないことを確認した。
+失敗した試験と修正後の成功を別のJSON/PNGとして保持した。productionの入力timeout、Mapping、physicsは変更していない。
+
+最終試験はWindows / Chromium 149 / Intel UHD Graphics 630 / ANGLE Direct3D11、1440×900 / DPR=1。
+GPU名は実WebGL contextから取得した。SwiftShaderの以前の試験と同じ測定環境ではない。
+`dynamic-cube-drop`、通常のbrowser入力経路、ticks=6000、input-wait=15s、wall=120sの有限上限を使った。
+実Gamepadではなく、試験専用browserにstandard配置の合成Gamepadを供給した。
+開始前の未取得・明示開始・中立待ち・左右のstick/LT/RT・LB/RB押下中の符号保持・trigger解放時の
+両側-Zへの更新・切断後の表示消去・明示retry・再度の中立待ちからのSTOPを確認した。
+1366×768と1440×900で文字色、選択強調、三面、左右rail、入力帯と停止要求が共存する実画像を取得した。
+
+| 測定 | Single | Assist |
+|---|---:|---:|
+| rAF間隔 p50 / p95（89間隔） | 16.7 / 16.7 ms | 16.7 / 16.8 ms |
+| 合成入力変更→対応frame描画提出 p50 / p95（45件） | 66.6 / 67.0 ms | 66.4 / 67.1 ms |
+
+入力計測は速度を発生させないAボタンを切り替え、既存40ms pollとbackendを経由した
+sequence/frameをecho payloadとrenderer counterで照合した。各条件を順番に1回測った短期測定で、
+誤差比較や性能優位性の検定ではない。CPUの全pane描画提出までで、GPU完了、表示走査、物理deviceの
+遅延は含まない。rAF間隔もGPU frame処理時間ではない。90回のrAFから最初の時刻を除く89間隔を採用した。
+両条件でWASM module/model/data、renderer用資産、OrbitControls、rAF、socket、入力timerの数を維持し、
+renderedPaneCountだけが1から3になることを照合した。長期リーク不在や全GPUの性能は主張しない。
+
+証拠は当該taskの`finish/input-live-v3`、表示修正の対照は`finish/accepted-browser`に保持する。
+`finish/viewer-dist`は検証した固定buildであり、ソース・buildのhashをmanifestへ保存する。
+既存の実device・実200%zoom・研究feedback freeze等の未達範囲は、このsoftware受入で置換しない。

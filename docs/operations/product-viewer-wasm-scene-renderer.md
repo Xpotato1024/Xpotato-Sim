@@ -163,7 +163,8 @@ Workbenchの停止要求を固定操作帯の右端に残す。多関節railだ�
 
 カメラの斜め/正面/側面/上面/全体は、既にMuJoCoが算出したbody位置を使ってviewだけを変える。
 受信qposを編集・再計算せず、body範囲から算出する表示marginを可動域や安全clearanceと扱わない。
-canvas実寸とResizeObserverでaspectを追従し、小画面を固定最小幅へ引き伸ばさない。
+canvas実寸とResizeObserverでaspectを追従する。狭幅では計器workspaceの可読最低幅を保って区域scrollとし、canvasだけを歪めない。
+「全体」は現在の観察方向を保持し、「操作視点」はoperator presetへ戻す。いずれも入力写像を変更しない。
 
 「入力取得を停止」はbrowser providerをdisposeする。これはlocalな取得停止であり、実機非常停止、
 backend session停止、即時physical stopの通知ではない。backend側は既存のneutral/stale契約に従う。
@@ -188,6 +189,10 @@ slideはmeter単位の並進座標、ball/freeは複数座標として角度計�
 
 共通Input stripはsource/availability/frame/ageを判定した後、静的なsource rendererへ投影する。
 source不一致、stale/disconnectedでは以前の計器を消し、neutralへ置換しない。unknown/replay/fixtureはgeneric表示。
+既存sourceは中立にも`gamepad_inactive`/`keyboard_inactive`を付ける。この理由だけで値を隠さず、
+Gamepadはconnected=true・stale=false・zero_state=true、Keyboardはfocused・zero_state=true、
+かつsource_active=falseが揃う場合だけ、取得済みの中立sampleを表示する。timeout、不正、切断、
+blurredや根拠欠測はこの例外に含めない。backendのhealth分類や入力の有効化を変更するものではない。
 GamepadはZ(L)/左stick XY/右stick XY/Z(R)とread-only button状態を横帯に表示する。
 既存pollerが取得した同じbrowser sampleからmapping="standard"とshape/値を確認できた場合だけLT/RT、LB/RB、
 A/B/X/Y、D-pad、Back/Startの物理名称を使う。不明・非standard・malformedはgeneric indexと理由を表示する。
@@ -199,7 +204,7 @@ Selfrionetteは`input_signal_v1`を検証して生の7chを示す。単位・指
 バーは同一sample内の相対比で、表示scaleを併記する。異なる時刻の絶対振幅比較は生値で行う。
 Keyboardはbackendが記録した押下キーとfocus状態を示す。staleの表示は既存backend診断から導出する。
 key state未取得を未押下へ補完しない。SelfrionetteはCH1..CH7のraw unit・未校正、同一sample内の相対比を明記し、
-指名・力N・左右bindingを推測しない。Input stripの高さ予算は全sourceで共通104px（compact 96px）とする。
+指名・力N・左右bindingを推測しない。Input stripの高さ予算は全sourceで共通104pxとする。1366×768の実表示で96pxでは凡例が溢れたため、compactも104pxを確保する。
 raw signalのsource、sample schema、source時刻、値は詳細診断へ残す。wire仕様の正本は
 [transport payload契約](../contracts/transport-payload.md)である。
 
@@ -249,3 +254,10 @@ terminalに保持するsnapshotは「終了時」と区別する。
 
 Quad、研究layout/camera/policy freeze、feedback非公開の全pane/rail/stripへの適用は今回未実装。
 研究条件受入や実Gamepad/Selfrionette/Keyboard device受入はsoftware表示検証からは保証しない。
+
+## 描画提出の計測
+
+既存`counters()`の`renderedFrameIndex`・`renderedInputSequence`・`renderedAtMs`・`renderedPaneCount`は、
+全paneの描画提出を終えた時点を観測する。browserのmonotonic時刻であり、GPU完了・画面走査・実device時刻ではない。
+software入力変更から、対応するbackend sequence/frameを描画提出するまでの経路は相関を確認して測る。
+既存receive-to-applyがnullのWorkbench経路を0msと補完しない。計測用にphysics、poller、送信周期を増やさない。

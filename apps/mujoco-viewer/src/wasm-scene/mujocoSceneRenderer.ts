@@ -730,6 +730,11 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     fitAssist();
   };
 
+  // 描画提出の観測値。GPU完了・表示走査や実device遅延ではない。
+  let renderedFrameIndex: number | null = null;
+  let renderedInputSequence: number | null = null;
+  let renderedAtMs: number | null = null;
+  let renderedPaneCount = 0;
   let rendererPixelRatio=window.devicePixelRatio || 1;
   const setCanvasSize = (): void => {
     const width = Math.max(1, options.canvas.clientWidth || DEFAULT_WIDTH);
@@ -781,6 +786,10 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       }
       renderer.setScissorTest(false);
       renderer.autoClear=true;
+      renderedFrameIndex = state.currentFrameIndex;
+      renderedInputSequence = state.inputOverlay?.sequence ?? null;
+      renderedAtMs = performance.now();
+      renderedPaneCount = panes.filter(p=>p.width>0&&p.height>0).length;
     }
     frameHandle = window.requestAnimationFrame(animate);
   };
@@ -1204,6 +1213,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       raf: frameHandle === null ? 0 : 1, generation: loadGeneration,
       cameraX:camera.position.x,cameraY:camera.position.y,cameraZ:camera.position.z,
       targetX:controls.target.x,targetY:controls.target.y,targetZ:controls.target.z,
+      renderedFrameIndex, renderedInputSequence, renderedAtMs, renderedPaneCount,
       sceneAppliedFrames:frameTiming.snapshot().sceneAppliedFrameCount,
       receiveToApplyP50Ms:frameTiming.snapshot().receiveToApplyAgeMsP50,
       receiveToApplyP95Ms:frameTiming.snapshot().receiveToApplyAgeMsP95}; },

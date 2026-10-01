@@ -58,7 +58,7 @@
 .product-operation[data-screen=operate] .product-operation-body { display:block;flex:1;min-height:0; }
 .product-operation[data-screen=operate] .scene-toolbar,.product-operation[data-screen=operate] .scene-timeline { display:none; }
 .product-operation .workbench-header { padding:0 4px;min-height:40px;gap:8px; }
-@media(max-height:800px) { .operation-workspace { grid-template-columns:72px minmax(0,1fr) 72px;grid-template-rows:minmax(0,1fr) 96px; }.operation-workspace[data-right=false] { grid-template-columns:72px minmax(0,1fr) 0; }.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 72px; }.joint-rail .angle-indicator { width:56px;height:56px; }.joint-rail .joint-instrument { padding:0; } }
+@media(max-height:800px) { .operation-workspace { grid-template-columns:72px minmax(0,1fr) 72px;grid-template-rows:minmax(0,1fr) 104px; }.operation-workspace[data-right=false] { grid-template-columns:72px minmax(0,1fr) 0; }.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 72px; }.joint-rail .angle-indicator { width:56px;height:56px; }.joint-rail .joint-instrument { padding:0; } }
 @media(max-width:950px) { .operation-shell[data-screen=operate] .workbench-body,.product-operation[data-screen=operate] .product-operation-body { overflow:auto; }.operation-workspace { min-width:880px;min-height:430px; }.operation-controls { overflow-x:auto; }.operation-controls span { display:none; }.operation-shell > header p { display:none; }.operation-shell::after { content:'狭い表示では区域をスクロールしてください。停止は操作帯の右端です。';font-size:10px; }.product-operation .workbench-header { flex-wrap:wrap; }.workbench.operation-shell[data-screen=setup] .workbench-body { display:block; } }
 
 /* 旧Workbenchのフォーム色だけを共通chromeへ合わせる。状態色は継承規則で上書きしない。 */

@@ -77,3 +77,17 @@ const throwingPad=Object.defineProperty({...raw,connected:true},'axes',{get(){th
 assert.equal(browserGamepadDisplay([throwingPad as unknown as Gamepad],10),null);
 assert.equal(inputAvailability({...input,commandAgeMs:9999,staleReason:null}),null);
 console.log('display-only malformed sample guard and backend-owned freshness PASS');
+
+// 実sourceが使うinactiveと通信失効を区別する。中立表示は値の補完ではない。
+const neutralGamepad={...input,sourceActive:false,staleReason:'gamepad_inactive',gamepadConnected:true,gamepadStale:false,gamepadZeroState:true};
+assert.equal(inputAvailability(neutralGamepad),null);
+assert.match(renderToStaticMarkup(<InputStrip state={{...state,inputOverlay:neutralGamepad}} raw={raw}/>),/左stick XY/);
+for(const patch of [{gamepadConnected:false},{gamepadConnected:null},{gamepadStale:true},{gamepadStale:null},{gamepadZeroState:null},{gamepadZeroState:false},{staleReason:'command_age_ms_exceeded_timeout_250'}]) {
+  assert.ok(inputAvailability({...neutralGamepad,...patch}));
+}
+const neutralKeyboard={...input,sourceKind:'viewer_keyboard',sourceActive:false,staleReason:'keyboard_inactive',keyboardFocusState:'focused',keyboardZeroState:true};
+assert.equal(inputAvailability(neutralKeyboard),null);
+assert.ok(inputAvailability({...neutralKeyboard,keyboardFocusState:'blurred'}));
+assert.ok(inputAvailability({...neutralKeyboard,keyboardZeroState:null}));
+assert.ok(inputAvailability({...neutralKeyboard,staleReason:'invalid_viewer_control_message'}));
+console.log('neutral source samples remain visible; disconnected, blurred and timed-out samples stay invalid');

@@ -34,7 +34,14 @@ export function inputAvailability(input:ProductViewerInputOverlayState|null,sele
   if (input.sourceKind==="n/a") return "入力取得待ち";
   const kind=inputKind(input.sourceKind);
   if (selected && kind!==selected) return "選択sourceと受信sourceが不一致";
-  if (input.staleReason) return input.staleReason;
+  // backendは中立sampleにも*_inactiveを付ける。明示した接続/焦点/zero情報が
+  // 揃った場合だけ生入力を表示し、timeout・切断・不正を中立へ読み替えない。
+  const neutral = !input.sourceActive && (
+    kind === "gamepad" && input.staleReason === "gamepad_inactive" &&
+      input.gamepadConnected === true && input.gamepadStale === false && input.gamepadZeroState === true ||
+    kind === "keyboard" && input.staleReason === "keyboard_inactive" &&
+      input.keyboardFocusState === "focused" && input.keyboardZeroState === true);
+  if (input.staleReason && !neutral) return input.staleReason;
   if (kind==="gamepad" && (input.gamepadStale===true || input.gamepadConnected===false)) return "stale / disconnected";
   return null;
 }

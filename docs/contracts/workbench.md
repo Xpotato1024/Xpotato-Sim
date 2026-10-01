@@ -16,13 +16,14 @@ related:
 
 初期画面はSetup（設定・準備）。profile、condition editor、import/export/diff、適用条件と次条件、
 hash/epoch/tick、結果とraw診断はSetupに置く。ready後の「操作画面へ」はローカル表示遷移のみで、
-Startを送らない。「開始」は従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
+Startを送らない。「開始」はOperateでのみ有効とし、従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
 waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
 
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
 主cameraのposition/targetは切替で変更せず、補助のcenter/scaleは初期または明示fitで決める。
+「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象を収める。Workbenchの初期cameraはoperatorとする。
 停止要求は開始とは別の操作帯右端に置き、確認modalを使わない。停止要求中、停止確認・保存済み、保存中、記録失敗を区別する。
 停止はsimulationの操作であり実機非常停止ではない。障害・記録失敗の明示復旧契約は以下の従来手順を維持する。
 
@@ -30,6 +31,7 @@ Input stripは共通のsource/availability/age/frameとsource-specific投影を�
 Workbenchの入力consumerはGamepad-onlyのままで、選択Gamepadと受信sourceが一致しなければ計器を消す。
 Selfrionette/Keyboard/unknownの共通表示は従来Viewerまたはsoftware fixture consumerの表示能力であり、
 WorkbenchへのSource追加・physical接続・校正ではない。鮮度、切断、別epochでは旧active値を表示しない。
+正常終端後は入力を現在値として表示せず、関節は「終了時」として保持する。Setupから終端の操作画面への再表示は開始を伴わない。
 関節表示・source表示・補助cameraの詳細は [viewer操作契約](../operations/product-viewer-wasm-scene-renderer.md) に従う。
 
 Quad、研究条件のfreeze、全表示へのfeedback非公開policyは未実装であり、研究条件受入の完了を意味しない。
