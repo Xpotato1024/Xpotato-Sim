@@ -123,3 +123,11 @@ KeyW押下/KeyS非押下、CH1..CH7=[1,2,3,-2,0,4,5]の実値を再確認した�
 これは合成入力によるsoftware受入であり、実device/参加者の操作性、全障害状態、実200%zoomの受入ではない。
 v1.0の遅延測定値をv1.1の測定値として再掲しない。カメラはfit時の境界を保持し、移動して範囲外へ出た物体は自動追従しない。
 Quad・研究表示freeze・非公開feedback policyの未達範囲は維持する。
+
+## v1.1最終修正: Assistをoperator基準へ整列
+
+利用者の実操作確認で、Main/operatorではscreen-right=-Yなのに対し、Assist上面/正面がscreen-right=+Yとなり、
+右手で右腕を操作する視覚対応が反転して見えることを確認した。入力mappingやcontrol frameは変更せず、
+Assist cameraだけをoperator基準へ合わせた。上面は+Zから-Z、screen-right=-Y、screen-up=+X、
+正面は-Xから+X、screen-right=-Y、screen-up=+Zとする。これによりMain/Top/Frontで左右を統一する。
+pure testではcamera position/upを固定値で検証し、ブラウザ受入では軸凡例と左右の見え方を確認する。

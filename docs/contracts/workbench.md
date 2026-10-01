@@ -22,6 +22,7 @@ waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効�
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
+Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正面はscreen-right=-Y / screen-up=+Zとする。視点変更で入力mappingは変更しない。
 主cameraのposition/targetは切替で変更せず、補助のcenterと対象境界は初期または明示fitで決める。
 v1.1は主視点:補助列を2:1に拡げ、1pxの境界と入力帯まで続く左右railへ整理する。
 Gamepad操作帯は中央の左Z/左XY/右XY/右Zのみ。Zは確定符号付き入力量の縦バー、ボタン詳細はSetupに置く。

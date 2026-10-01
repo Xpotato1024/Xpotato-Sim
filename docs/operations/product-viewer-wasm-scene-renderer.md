@@ -250,8 +250,9 @@ MjvGeomのprimitive名を取得できない場合でも、材質cacheはnative R
 初回Single、明示Assistを同じapp sessionで保持する。Assistは自由視点と上下2段の補助正投影を表示する。
 v1.1では自由視点:Assist列を2:1（補助幅の下限280px、従来の320px上限なし）とし、補助二面を等高にする。
 領域の区切りは1pxへ統一し、左右railは入力帯の底まで連続させる。計器をsceneへ重ねない。
-上面はXY、+Zから-Z、screen-right=+Y、screen-down=+X（up=-X）。正面はYZ、+Xから-X、
-screen-right=+Y、screen-up=+Z。旧front=XZ/side=YZ/topのpresetは互換のまま、assist cameraは別identityとする。
+上面はXY、+Zから-Z、screen-right=-Y、screen-up=+X（up=+X）。正面はYZ、-Xから+X、
+screen-right=-Y、screen-up=+Z。Main/operatorのscreen-right=-Yと左右を統一し、視点変更で入力mappingは変えない。
+旧front=XZ/side=YZ/topのpresetは互換のまま、assist cameraは別identityとする。
 一つのrenderer/canvas/sceneでviewport/scissorを使い、headerをscene矩形から除外する。
 一回の描画iterationで同じscene stateを全paneへ使い、pane数でstate sync/physics/input送信を増やさない。
 OrbitControlsはmain interaction DOMだけに結び、mainで開始したdragのpointer captureを維持する。

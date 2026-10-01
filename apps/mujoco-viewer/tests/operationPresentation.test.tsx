@@ -34,7 +34,7 @@ assert.match(renderToStaticMarkup(<JointInstruments state={state} terminal/>),/ç
 assert.deepEqual(relativePane({x:8,y:9,width:900,height:400},{x:96,y:31,width:640,height:378}),{x:88,y:22,width:640,height:378});
 assert.equal(scissorRect({x:0,y:22,width:800,height:200},500).y,278);
 const top=assistPose([1,2,3],1,'assist-top'),front=assistPose([1,2,3],1,'assist-front');
-assert.deepEqual(top.up,[-1,0,0]);assert.deepEqual(front.up,[0,0,1]);assert.equal(top.position[1],front.position[1]);
+assert.deepEqual(top.up,[1,0,0]);assert.deepEqual(front.up,[0,0,1]);assert.deepEqual(top.position,[1,2,6]);assert.deepEqual(front.position,[-2,2,3]);
 const raw={mapping:'standard',id:'pad',index:0,sessionId:'session-a',sampledAtMs:10,axes:[.2,-.3,.4,.5],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
 assert.ok(standardGamepad(raw));for(const other of [{...raw,mapping:''},{...raw,buttons:[]},null])assert.equal(standardGamepad(other),false);
 assert.equal(browserGamepadDisplay([{...raw,connected:true,axes:[NaN]} as unknown as Gamepad],0),null);
