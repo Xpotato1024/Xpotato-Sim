@@ -52,7 +52,8 @@ export function createWorkbenchGamepadLifecycle<T extends ViewerGamepadLike>(opt
   nowSeconds(): number;
 }) {
   const sample = createWorkbenchGamepadMessages();
-  return createViewerGamepadLifecycle({...options, publish: undefined, pollIntervalMs: 40, onSample(pads) {
+  return createViewerGamepadLifecycle({...options, publish: undefined, pollIntervalMs: 40,
+    getGamepads: () => options.context()?.enabled ? options.getGamepads() : null, onSample(pads) {
     const context = options.context();
     if (!context?.enabled) return;
     const message = sample(context.epoch, pads, options.nowSeconds());

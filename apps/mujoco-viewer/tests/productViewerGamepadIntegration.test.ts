@@ -253,8 +253,10 @@ function testWorkbenchUsesSharedVisibilityLifetimeAndFreshEpochSamples(): void {
   assert.equal(messages.length, 1, "visibleならfocusに依存せず取得");
   assert.equal(messages[0].timestamp_s, .04);
   const session = messages[0].metadata.viewer_provider_session_id;
+  const readsBeforeDisabled = browser.getGamepadsCalls;
   enabled = false; now = 80; browser.runAnimationFrame();
   assert.equal(messages.length, 1, "STOP・fixture・claim gateで送信停止");
+  assert.equal(browser.getGamepadsCalls, readsBeforeDisabled, "無効contextでは実デバイスの取得も行わない");
   enabled = true; epoch = "trial-b"; now = 120; browser.runAnimationFrame();
   assert.equal(messages[1].sequence, 0);
   assert.notEqual(messages[1].metadata.viewer_provider_session_id, session);
