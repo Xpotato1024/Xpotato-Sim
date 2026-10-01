@@ -151,9 +151,10 @@ git diff --check
 
 ## 操作画面と状態表示
 
-画面は3D中心のworkbenchである。上部に接続/受信age/描画/入力取得、右に入力・手先・タスクの概要、
-下部にqposを置く。モデルpath、内部統計、生の診断、contact log/payloadの読込みは詳細診断を開いて確認する。
-狭い画面では状態→3D→qpos→概要の順とし、内部モデル情報を3Dより先に並べない。
+画面は設定・診断（Setup）と操作（Operate）を分離する。同じapp/rendererを保ち、ローカル表示だけ切り替える。
+Operateは状態、少数操作、関節rail、scene群、横長Input stripを表示する。モデルpath、内部統計、
+全結果、raw診断、contact log/payloadの読込みはSetupに保持する。狭幅では区域scrollを使い、
+Workbenchの停止要求を固定操作帯の右端に残す。多関節railだけ独立scrollできる。
 
 `ready`は描画準備であり、接続や実機安全性の証拠ではない。接続は未指定/接続中/受信待ち/受信中/
 更新停止/配信終了/エラーを区別する。受信ageはbrowserのmonotonic receipt時刻から表示し、
@@ -176,16 +177,29 @@ blur/非表示/disposeの既存契約を維持し、dispose後に追加publish�
 ## 関節・入力計器と診断固定
 
 関節欄はloaded MuJoCo modelのjoint name/type/`jnt_qposadr`を検証し、hingeを角度指標へ投影する。
-針は0を上、正方向を時計回りとして円周方向を示す。短いdegree数値は累積角度を保持し、
-360度で数値をwrapしない。slideはmeter単位の並進座標、ball/freeは複数座標として角度計非対応を示す。
+針は0を12時、+90を右、-90を左、±180を下とする。0から針まで中心を含む扇形を面塗りし、
+正は時計回り赤、負は反時計回り青。色は正負であり安全帯ではない。目盛りは30度刻み、0/±90/±180を強調する。
+q1..qNと符号付き整数degreeを表示し、非ゼロの絶対値1未満は+<1°/-<1°、0/-0は0°。
+針・扇形・数値は同一sampleの丸め前qposを使う。±180超は元数値と「表示範囲外」を残し、通常針・塗りを消す。
+modulo/clamp、home引算、右腕符号反転、予測・平滑化・角度アニメーションを行わない。
+slideはmeter単位の並進座標、ball/freeは複数座標として角度計非対応を示す。
 欠測・次元不一致・非finite値は針を消し、`—`を表示する。raw qposは詳細診断で確認できる。
 この指標は可動域meterではなく、モデルlimitや実機safe zoneを捏造しない。表示値の出所も併記する。
 
-Gamepadは取得されたnormalized axesの順序を保つXY表示と符号付きバー、押下button番号を示す。
+共通Input stripはsource/availability/frame/ageを判定した後、静的なsource rendererへ投影する。
+source不一致、stale/disconnectedでは以前の計器を消し、neutralへ置換しない。unknown/replay/fixtureはgeneric表示。
+GamepadはZ(L)/左stick XY/右stick XY/Z(R)とread-only button状態を横帯に表示する。
+既存pollerが取得した同じbrowser sampleからmapping="standard"とshape/値を確認できた場合だけLT/RT、LB/RB、
+A/B/X/Y、D-pad、Back/Startの物理名称を使う。不明・非standard・malformedはgeneric indexと理由を表示する。
+browser rawとbackend applied frameは別sampleとして時刻・frameを表示する。既存poller以外の取得・heartbeatは追加しない。
+backendのtrigger control metadataからendpoint binding・z_sign・arming状態を読み、bumper現在押下からラッチを再計算しない。
+Gamepadは取得されたaxesの順序を保ち、
 不正な軸をfilterして番号を詰め直さず、配列全体を計器表示から除外する。不正buttonを未押下へ変換しない。
 Selfrionetteは`input_signal_v1`を検証して生の7chを示す。単位・指との対応・力への換算は未校正と明記する。
 バーは同一sample内の相対比で、表示scaleを併記する。異なる時刻の絶対振幅比較は生値で行う。
 Keyboardはbackendが記録した押下キーとfocus状態を示す。staleの表示は既存backend診断から導出する。
+key state未取得を未押下へ補完しない。SelfrionetteはCH1..CH7のraw unit・未校正、同一sample内の相対比を明記し、
+指名・力N・左右bindingを推測しない。Input stripの高さ予算は全sourceで共通104px（compact 96px）とする。
 raw signalのsource、sample schema、source時刻、値は詳細診断へ残す。wire仕様の正本は
 [transport payload契約](../contracts/transport-payload.md)である。
 
@@ -216,3 +230,22 @@ p50/p95の定義、状態/不正frameの即時反映は変更しない。関節�
 
 MjvGeomのprimitive名を取得できない場合でも、材質cacheはnative RGBAを含める。
 異なる色・透明度を持つcubeと台に、最初のprimitiveの材質を誤って共有しない。
+
+## Single/Assistと関節rail
+
+初回Single、明示Assistを同じapp sessionで保持する。Assistは自由視点と上下2段の補助正投影を表示する。
+上面はXY、+Zから-Z、screen-right=+Y、screen-down=+X（up=-X）。正面はYZ、+Xから-X、
+screen-right=+Y、screen-up=+Z。旧front=XZ/side=YZ/topのpresetは互換のまま、assist cameraは別identityとする。
+一つのrenderer/canvas/sceneでviewport/scissorを使い、headerをscene矩形から除外する。
+一回の描画iterationで同じscene stateを全paneへ使い、pane数でstate sync/physics/input送信を増やさない。
+OrbitControlsはmain interaction DOMだけに結び、mainで開始したdragのpointer captureを維持する。
+補助、rail、header、formは主cameraを操作しない。Single/Assist往復で主cameraをresetしない。
+
+railは検証済みRobot joint subsetとcompiled addressを使う。FastArm assembly v3の明示namespace規約
+`arm_id__local_name`とcanonical core順を照合してleft/rightを固定し、cameraで交換しない。
+左右が確認できないRobotは「関節」の汎用rail。object freejointはRobot subsetへ入れない。
+片腕の不要railを閉じ、空きを別情報で埋めない。未取得/invalid/stale/別epochは針・塗りを消す。
+terminalに保持するsnapshotは「終了時」と区別する。
+
+Quad、研究layout/camera/policy freeze、feedback非公開の全pane/rail/stripへの適用は今回未実装。
+研究条件受入や実Gamepad/Selfrionette/Keyboard device受入はsoftware表示検証からは保証しない。

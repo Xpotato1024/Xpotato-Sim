@@ -1,0 +1,76 @@
+/* 計測workbenchの共通chrome。正負色はdialだけに使う。 */
+:is(.workbench,.viewer-shell).operation-shell { --dial-positive:#eeb0ad; --dial-negative:#a6c9ed; color:#283338; background:#f4f5f4; font-family:system-ui,sans-serif; padding:8px; gap:4px; box-sizing:border-box; }
+.operation-shell [hidden] { display:none !important; }
+:is(.workbench,.viewer-shell).operation-shell button { background:#f9faf9; color:#283338; border:1px solid #b9c2c5; border-radius:3px; padding:5px 9px; margin:0; font-size:12px; white-space:nowrap; }
+:is(.workbench,.viewer-shell).operation-shell button:disabled { opacity:.45; }
+:is(.workbench,.viewer-shell).operation-shell button:focus-visible,.main-interaction:focus-visible { outline:2px solid #326c87; outline-offset:1px; }
+:is(.workbench,.viewer-shell).operation-shell button[aria-pressed=true],:is(.workbench,.viewer-shell).operation-shell .primary-control { background:#d9e7ed; border-color:#638b9d; }
+:is(.workbench,.viewer-shell).operation-shell .stop-control { margin-left:auto; border-width:2px; position:sticky; right:0; background:#f6ead5; z-index:5; }
+.operation-controls { display:grid;grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px; min-height:40px; position:sticky; top:28px; background:#f4f5f4; z-index:10; flex-shrink:0; }
+.operation-controls__actions { display:flex;align-items:center;gap:4px;overflow-x:auto;min-width:0; }
+.operation-controls span { font-size:12px; }
+.workbench.operation-shell > header { height:28px; min-height:28px; gap:12px; flex-wrap:nowrap; font-size:12px; }
+.workbench.operation-shell > header h1 { font-size:13px; margin:0; }
+.workbench.operation-shell > header p { margin:0; }
+.workbench.operation-shell[data-screen=operate] { height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+.workbench.operation-shell[data-screen=operate] .workbench-body { display:block; flex:1; min-height:0; }
+.workbench.operation-shell[data-screen=setup] .operation-workspace { height:520px; }
+.operation-workspace { display:grid; grid-template-columns:88px minmax(0,1fr) 88px; grid-template-rows:minmax(0,1fr) 104px; gap:4px; min-height:0; height:100%; }
+.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 88px; }
+.operation-workspace[data-right=false] { grid-template-columns:88px minmax(0,1fr) 0; }
+.operation-workspace[data-left=false][data-right=false] { grid-template-columns:0 minmax(0,1fr) 0; }
+.joint-rail { overflow-y:auto; min-height:0; border:1px solid #cbd1d3; background:#f9faf9; max-height:none !important; }
+.joint-rail--left { grid-column:1;grid-row:1; }.joint-rail--right { grid-column:3;grid-row:1; }
+.joint-rail h2 { font-size:12px;text-align:center;margin:4px; }
+.joint-rail .joint-instruments { display:flex;flex-direction:column; }
+.joint-rail .joint-instrument { padding:2px 0; border:0; text-align:center; display:flex;flex-direction:column;align-items:center; }
+.joint-instrument__label { font:11px ui-monospace,monospace; }
+.joint-rail .angle-indicator { width:64px;height:64px; }
+.joint-degree { font:12px ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.joint-instrument small { font-size:9px; min-height:11px; }
+.dial-positive { fill:var(--dial-positive,#eeb0ad); }.dial-negative { fill:var(--dial-negative,#a6c9ed); }
+.dial-needle { stroke:#334348; }.dial-hub { fill:#334348; }.dial-tick { stroke:#63757c; }.dial-zero { fill:#40555e; font-size:7px; }
+.operation-views { position:relative; grid-column:2;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr);min-height:0; height:100%; overflow:hidden; }
+.operation-views[data-layout=assist] { grid-template-columns:minmax(0,1fr) clamp(240px,26%,320px);gap:4px; }
+.operation-views > canvas,.workbench .operation-views > canvas { position:absolute; inset:0; width:100%;height:100%;border-radius:0;z-index:0; }
+.operation-pane { display:grid;grid-template-rows:22px minmax(0,1fr);min-height:0;min-width:0;position:relative; }
+.operation-pane header { display:flex;align-items:center;gap:6px; padding:0 4px;overflow:hidden;white-space:nowrap;font-size:10px;height:22px;min-height:22px;background:#eef1f2;border-bottom:1px solid #bdc8cc;z-index:1; }
+.operation-pane header strong { font-size:11px; }.operation-pane header button { margin-left:auto;padding:1px 7px;font-size:10px; }
+.main-interaction { touch-action:none; cursor:grab; }.main-interaction:active { cursor:grabbing; }
+.assist-column { display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:4px;min-height:0; }
+.input-strip { grid-column:2;grid-row:2;border:1px solid #c5cdd0;background:#f9faf9;padding:3px 6px;box-sizing:border-box;overflow:auto;min-width:0; }
+.input-strip header { display:flex;gap:12px;height:18px;align-items:center;font-size:10px; }.input-strip header span { color:#596c75; }
+.input-strip small { font-size:9px;display:block;white-space:nowrap; }.input-strip p { font-size:12px;margin:9px; }
+.gamepad-primary { display:grid;grid-template-columns:minmax(135px,1fr) 90px 90px minmax(135px,1fr) minmax(190px,1.4fr);gap:6px;height:64px;align-items:center; }
+.strip-z { display:flex;flex-direction:column;gap:0;font:9px ui-monospace,monospace; }.strip-z strong { font-size:10px; }.strip-z meter { width:100%;height:8px; }.strip-z meter[data-unknown=true] { visibility:hidden; }
+.strip-stick { display:flex;align-items:center;gap:3px; }.strip-stick > span { font-size:9px;width:24px; }.strip-stick svg { width:56px;height:56px; }
+.strip-buttons { display:flex;flex-wrap:wrap;gap:3px;align-items:center;font:9px ui-monospace,monospace; }
+.strip-buttons span,.strip-buttons kbd { padding:2px 3px;border:1px solid #cbd3d6;border-radius:2px; }.strip-buttons [data-active=true] { background:#526b78;color:white; }
+.strip-channels { display:grid;grid-template-columns:repeat(7,minmax(55px,1fr));gap:12px;height:58px;align-items:center; }
+.strip-channels > div { display:flex;flex-direction:column;font:11px ui-monospace,monospace;gap:4px; }.strip-channels meter { width:100%;height:9px; }
+.operation-warning { margin:0;padding:4px;background:#f7e9d6;font-size:12px;flex-shrink:0; }
+.workbench.operation-shell .workbench-controls,.workbench.operation-shell .condition-editor { background:#e9eff1;color:#283338;border-radius:3px; }
+.workbench.operation-shell .setup-inspector { max-height:none;overflow:visible; }.workbench.operation-shell pre { white-space:pre-wrap;overflow-wrap:anywhere; }
+.product-operation .product-operation-body { display:grid;grid-template-columns:minmax(0,1fr) 280px;height:65dvh;grid-template-areas:none; }
+.product-operation .operation-workspace .workbench-scene { grid-column:2;grid-row:1;height:100%;min-height:0;display:flex;flex-direction:column; }
+.product-operation .workbench-scene .operation-views { flex:1;min-height:0; }
+.product-operation[data-screen=operate] { height:100dvh;display:flex;flex-direction:column;overflow:hidden; }
+.product-operation[data-screen=operate] .product-operation-body { display:block;flex:1;min-height:0; }
+.product-operation[data-screen=operate] .scene-toolbar,.product-operation[data-screen=operate] .scene-timeline { display:none; }
+.product-operation .workbench-header { padding:0 4px;min-height:40px;gap:8px; }
+@media(max-height:800px) { .operation-workspace { grid-template-columns:72px minmax(0,1fr) 72px;grid-template-rows:minmax(0,1fr) 96px; }.operation-workspace[data-right=false] { grid-template-columns:72px minmax(0,1fr) 0; }.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 72px; }.joint-rail .angle-indicator { width:56px;height:56px; }.joint-rail .joint-instrument { padding:0; } }
+@media(max-width:950px) { .operation-shell[data-screen=operate] .workbench-body,.product-operation[data-screen=operate] .product-operation-body { overflow:auto; }.operation-workspace { min-width:880px;min-height:430px; }.operation-controls { overflow-x:auto; }.operation-controls span { display:none; }.operation-shell > header p { display:none; }.operation-shell::after { content:'狭い表示では区域をスクロールしてください。停止は操作帯の右端です。';font-size:10px; }.product-operation .workbench-header { flex-wrap:wrap; }.workbench.operation-shell[data-screen=setup] .workbench-body { display:block; } }
+
+/* 旧Workbenchのフォーム色だけを共通chromeへ合わせる。状態色は継承規則で上書きしない。 */
+.workbench.operation-shell select, .workbench.operation-shell .condition-fields input { color:#283338; background:#f9faf9; border-color:#b9c2c5; }
+
+/* 小さい操作枠でもボタンとview凡例を区画内で判読できる大きさに保つ。 */
+.operation-pane { grid-template-rows:28px minmax(0,1fr); }
+.operation-pane header { height:28px; min-height:28px; font-size:11px; }
+.operation-pane header strong { font-size:12px; }
+.operation-pane header span { overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.operation-pane header button { min-height:24px; margin-left:0; flex-shrink:0; }
+.strip-z { font-size:11px; line-height:14px; }
+.strip-z strong { font-size:11px; }
+.workbench.operation-shell .condition-fields small { color:#50626b; }
+.product-operation[data-screen=operate] .workbench-identity { display:none; }
