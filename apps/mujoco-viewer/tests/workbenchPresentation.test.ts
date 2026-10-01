@@ -12,9 +12,12 @@ state.qposStatus = "ready";
 assert.equal(describeWorkbenchConnection(state, 0).label, "オフライン表示");
 state.connectionStatus = "closed";
 assert.equal(describeWorkbenchConnection(state, 0).label, "配信終了");
+state.viewerTiming = { ...createViewerFrameTiming(() => 0).snapshot(), latestReceivedAtMs: 100 };
+assert.equal(describeWorkbenchConnection(state, 200).label, "配信終了",
+  "current closed state must not be overwritten by a previously received frame");
+assert.doesNotMatch(describeWorkbenchConnection(state, 200).detail, /open/);
 state.connectionStatus = "open";
 assert.equal(describeWorkbenchConnection(state, 0).label, "接続済み・受信待ち");
-state.viewerTiming = { ...createViewerFrameTiming(() => 0).snapshot(), latestReceivedAtMs: 100 };
 assert.equal(describeWorkbenchConnection(state, 200).label, "受信中");
 assert.equal(describeWorkbenchConnection(state, 1100).label, "受信中");
 assert.equal(describeWorkbenchConnection(state, 1101).label, "更新停止");

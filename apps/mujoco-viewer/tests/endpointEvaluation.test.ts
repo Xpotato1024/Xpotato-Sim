@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { parseTransportPayloadV0Message } from "../src/transport/parseTransportPayloadV0Message.js";
 import {
+  desiredToSiteErrorPresentation,
+  endpointDifferencePresentation,
   formatEndpointEvaluationAngles,
   formatEndpointEvaluationScalar,
+  formatEndpointEvaluationSummary,
   formatEndpointEvaluationVector,
 } from "../src/wasm-scene/endpointEvaluationFormat.js";
 
@@ -90,5 +93,20 @@ testEndpointEvaluationParseKeepsValidPayload();
 testEndpointEvaluationParseOmittedFieldStaysOptional();
 testEndpointEvaluationParseTreatsMalformedFieldAsUnavailable();
 testEndpointEvaluationFormattingRoundsCompactly();
+testEndpointComparisonRequiresMatchingFrames();
+
+function testEndpointComparisonRequiresMatchingFrames(): void {
+  const mismatch = desiredToSiteErrorPresentation(VALID_ENDPOINT_EVALUATION);
+  assert.equal(mismatch.comparable, false);
+  assert.equal(mismatch.valueM, null);
+  assert.match(mismatch.reason ?? "", /比較不能/);
+  assert.doesNotMatch(formatEndpointEvaluationSummary(VALID_ENDPOINT_EVALUATION), /desired -> site error: \[0\.02/);
+
+  const comparable = endpointDifferencePresentation([0.01, 0, 0], 0.01, "mujoco_world", "mujoco_world", null);
+  assert.equal(comparable.comparable, true);
+  assert.equal(comparable.valueM, 0.01);
+  assert.deepEqual(comparable.vectorM, [0.01, 0, 0]);
+  assert.equal(endpointDifferencePresentation([0.01, 0, 0], 0.01, null, "mujoco_world", null).valueM, null);
+}
 
 console.log("endpoint evaluation tests passed");
