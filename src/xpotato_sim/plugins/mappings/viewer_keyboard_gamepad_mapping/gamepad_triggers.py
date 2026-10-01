@@ -7,17 +7,11 @@ from math import isfinite
 from types import MappingProxyType
 
 from xpotato_sim.schemas.viewer_input import ViewerCanonicalInputSample
+from ._binding_validation import integer_pair as _integer_pair
 
 SCHEMA = "gamepad-trigger-control/v1"
 SIDES = ("left", "right")
 ZERO = (0.0, 0.0, 0.0)
-
-
-def _pair(value: object, label: str) -> tuple[int, int]:
-    if (not isinstance(value, Sequence) or isinstance(value, (str, bytes))
-            or len(value) != 2 or any(type(v) is not int for v in value)):
-        raise ValueError(f"{label} requires two integers")
-    return (value[0], value[1])
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +21,7 @@ class TriggerBinding:
     trigger_button: int
     sign_button: int
     def __post_init__(self) -> None:
-        axes, signs = _pair(self.axes, "axes"), _pair(self.signs, "signs")
+        axes, signs = _integer_pair(self.axes, "axes"), _integer_pair(self.signs, "signs")
         if min(axes) < 0 or axes[0] == axes[1] or any(v not in (-1, 1) for v in signs):
             raise ValueError("invalid stick axis indices or signs")
         for name, value in (("trigger_button", self.trigger_button), ("sign_button", self.sign_button)):

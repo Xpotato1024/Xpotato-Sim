@@ -60,7 +60,6 @@ import {
 import { loadMujocoWasm, mujocoWasmModuleBuilds } from "./mujocoWasmLoader.js";
 import { matrixFromMujocoGeom } from "./mujocoSceneTransforms.js";
 import {
-  formatQpos,
   resolveNamedInitialKeyframe,
   resolveTransportQpos,
 } from "./mujocoQposSync.js";

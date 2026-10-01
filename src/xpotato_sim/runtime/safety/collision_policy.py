@@ -251,14 +251,6 @@ def _collision_observation_snapshot(value: CollisionObservation) -> tuple[object
     return (value.pair_id, value.distance_m, value.source_id, value.contact)
 
 
-def _pair_id_parts(value: object) -> tuple[str, str]:
-    """canonicalなpair identityを検証し、二つのgeom nameへ分解する。"""
-
-    pair_id = _pair_id("pair_id", value)
-    first, second = pair_id.split("|")
-    return first, second
-
-
 @dataclass(frozen=True, slots=True, weakref_slot=True)
 class CollisionContext:
     """collision resultを同じrobot/model・policy・inventoryへbindするidentity。"""

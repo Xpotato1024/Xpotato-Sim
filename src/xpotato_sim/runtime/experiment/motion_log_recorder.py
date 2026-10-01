@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from math import dist, isclose, isfinite

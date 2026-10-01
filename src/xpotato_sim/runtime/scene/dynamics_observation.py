@@ -1,5 +1,4 @@
 """全worldのdynamic観測。native state/actuator/constraintを同一時刻から読む。"""
-from math import isfinite
 import mujoco
 import numpy as np
 from xpotato_sim.mujoco_backend.contact_geometry import read_contact_geometry
