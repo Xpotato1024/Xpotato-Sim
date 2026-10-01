@@ -51,6 +51,12 @@ renderer、tests、fixture、operator pathはproduct viewer側に一本化する
 - keyboardのblur / hidden safety、gamepadのfocus / visibility safety、cadence、deadzoneはこの
   connection lifecycleによって変更しない。
 
+## Endpoint診断の座標系gate
+
+Viewerはbackendが提供するendpoint評価値を再計算しない。desired / FK / MuJoCo siteの差分を「位置誤差」として表示するのは、比較する2点のcoordinate-frame identityが同じ文字列で明示されている場合だけとする。
+frame identityが欠落または不一致の場合、Mainのmm readoutと詳細診断のerror vector/normは数値を表示せず、比較不能理由とproducerの`frame_mismatch_note`を示す。個々のendpoint座標、frame名、noteはraw diagnosticとして保持する。
+connection summaryはcurrent `connectionStatus`を唯一の状態源とし、過去frameの受信時刻が残っていても`closed`を`open`へ見せない。
+
 ## 接触task logとpayloadのoffline表示
 
 - `contact-task-log/v1` JSONLをlocal fileとして読み込める。readerはschema、canonical JSONL、manifest / signal digest、scene / object / presentation、trial、profile bindingを厳密に検証し、contact point / normal、cube pose、raw world force、derived signal、Task state、raw-evidence outcomeを表示する。

@@ -16,6 +16,8 @@ import {
 import type { ViewerGamepadLike } from "../input/gamepadInput.js";
 import { createViewerInputLifecycle, readViewerInputSelection, readViewerInputStartup } from "./viewerInputLifecycle.js";
 import {
+  desiredToSiteErrorPresentation,
+  endpointDifferencePresentation,
   formatEndpointEvaluationAngles,
   formatEndpointEvaluationScalar,
   formatEndpointEvaluationVector,
@@ -82,6 +84,14 @@ function EndpointEvaluationPanel({ state }: { state: ProductViewerState }) {
     return <div className="viewer-endpoint-evaluation__empty">Endpoint evaluation: unavailable</div>;
   }
 
+  const unit = endpointEvaluation.unit ?? "n/a";
+  const differenceText = (vector: unknown, norm: unknown, fromFrame: unknown, toFrame: unknown): string => {
+    const value = endpointDifferencePresentation(vector, norm, fromFrame, toFrame, endpointEvaluation.frame_mismatch_note);
+    return value.comparable && value.valueM !== null && value.vectorM !== null
+      ? formatEndpointEvaluationVector(value.vectorM) + " |norm| " + formatEndpointEvaluationScalar(value.valueM) + " " + unit
+      : value.reason ?? "unavailable";
+  };
+
   return (
     <dl className="viewer-endpoint-evaluation__kv">
       <div>
@@ -103,19 +113,22 @@ function EndpointEvaluationPanel({ state }: { state: ProductViewerState }) {
       <div>
         <dt>Desired -&gt; FK error</dt>
         <dd>
-          {`${formatEndpointEvaluationVector(endpointEvaluation.desired_to_fk_error_vector_m ?? null)} |norm| ${formatEndpointEvaluationScalar(endpointEvaluation.desired_to_fk_error_norm_m ?? null)} ${endpointEvaluation.unit ?? "n/a"}`}
+          {differenceText(endpointEvaluation.desired_to_fk_error_vector_m, endpointEvaluation.desired_to_fk_error_norm_m,
+            endpointEvaluation.desired_endpoint_coordinate_frame, endpointEvaluation.fk_endpoint_coordinate_frame)}
         </dd>
       </div>
       <div>
         <dt>Desired -&gt; site error</dt>
         <dd>
-          {`${formatEndpointEvaluationVector(endpointEvaluation.desired_to_site_error_vector_m ?? null)} |norm| ${formatEndpointEvaluationScalar(endpointEvaluation.desired_to_site_error_norm_m ?? null)} ${endpointEvaluation.unit ?? "n/a"}`}
+          {differenceText(endpointEvaluation.desired_to_site_error_vector_m, endpointEvaluation.desired_to_site_error_norm_m,
+            endpointEvaluation.desired_endpoint_coordinate_frame, endpointEvaluation.site_endpoint_coordinate_frame)}
         </dd>
       </div>
       <div>
         <dt>FK -&gt; site error</dt>
         <dd>
-          {`${formatEndpointEvaluationVector(endpointEvaluation.fk_to_site_error_vector_m ?? null)} |norm| ${formatEndpointEvaluationScalar(endpointEvaluation.fk_to_site_error_norm_m ?? null)} ${endpointEvaluation.unit ?? "n/a"}`}
+          {differenceText(endpointEvaluation.fk_to_site_error_vector_m, endpointEvaluation.fk_to_site_error_norm_m,
+            endpointEvaluation.fk_endpoint_coordinate_frame, endpointEvaluation.site_endpoint_coordinate_frame)}
         </dd>
       </div>
       <div>
@@ -400,7 +413,7 @@ export function ProductViewerApp() {
   const connection = describeWorkbenchConnection(state, Math.max(nowMs, performance.now()));
   const overlay = state.inputOverlay;
   const inputLabel = inputSelection.providerIds.length === 0 ? "入力なし" : inputSelection.providerIds.join(" / ");
-  const endpointError = state.endpointEvaluation === null ? null : numbers.endpointEvaluation?.desired_to_site_error_norm_m;
+  const endpointError = desiredToSiteErrorPresentation(numbers.endpointEvaluation);
   const diagnosticState = diagnosticSnapshot?.state ?? state;
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
@@ -479,8 +492,8 @@ export function ProductViewerApp() {
           </section>
           <section className="inspector-section">
             <div className="inspector-heading"><h2>手先</h2><span className="section-kicker">ENDPOINT</span></div>
-            <div className="endpoint-readout"><strong>{typeof endpointError === "number" && Number.isFinite(endpointError) ? (endpointError * 1000).toFixed(1) : "—"}</strong><span>mm</span></div>
-            <p className="inspector-note">目標 → MuJoCo site の位置誤差</p>
+            <div className="endpoint-readout"><strong>{endpointError.valueM === null ? "—" : (endpointError.valueM * 1000).toFixed(1)}</strong><span>mm</span></div>
+            <p className="inspector-note">{endpointError.reason ?? "目標 → MuJoCo site の位置誤差"}</p>
             <div className="inspector-row"><span>motion</span><strong>{overlay?.motionStatus ?? "未取得"}</strong></div>
             {overlay?.motionRejectionReason && <p className="inspector-note tone-warning">{overlay.motionRejectionReason}</p>}
           </section>
