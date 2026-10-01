@@ -2,7 +2,6 @@ import {
   createViewerGamepadPublicationController,
   sampleViewerGamepadSnapshot,
   type ViewerGamepadLike,
-  type ViewerGamepadPublicationController,
   type ViewerGamepadSnapshot,
 } from "../input/gamepadInput.js";
 

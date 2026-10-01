@@ -1,5 +1,4 @@
 """box群とworldのMJCF合成。geometry/物体数ごとの実行loopは作らない。"""
-from dataclasses import dataclass
 import xml.etree.ElementTree as ET
 from .contracts import ComposedObjectScene, ObjectSceneBuildRequest, ToolColliderBinding
 from .objects import ObjectSceneManifest

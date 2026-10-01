@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+from hashlib import sha256
 import json
 from pathlib import Path
 import socket
@@ -47,6 +48,29 @@ def test_profiles_resolve_without_execution(name):
     assert profile.to_dict()["resolved"]["physical_output"] == "disabled"
     assert profile.steps * profile.dt_s > 0
     assert decode_launch_profile(profile.document_json.encode(), source_path=profile.source_path) == profile
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "profiles").glob("*.json")), ids=lambda path: path.stem)
+def test_all_current_profiles_keep_saved_configuration_and_bytes(path):
+    before = path.read_bytes()
+    raw = json.loads(before)
+    expected = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    profile = load_launch_profile(path)
+    assert profile.document_json == expected
+    assert profile.configuration_sha256 == sha256(expected.encode("utf-8")).hexdigest()
+    assert profile.to_dict()["resolved"]["physical_output"] == "disabled"
+    assert path.read_bytes() == before
+
+
+def test_legacy_schema_keeps_original_configuration_and_digest():
+    raw = raw_profile()
+    raw["schema_version"] = "selfrionette-launch-profile/v1"
+    expected = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    profile = decode_launch_profile(expected.encode("utf-8"), source_path=SOURCE)
+    assert profile.document_json == expected
+    assert profile.to_dict()["configuration"] == raw
+    assert profile.configuration_sha256 == sha256(expected.encode("utf-8")).hexdigest()
+    assert profile.model is None
 
 
 @pytest.mark.parametrize("path,value", [

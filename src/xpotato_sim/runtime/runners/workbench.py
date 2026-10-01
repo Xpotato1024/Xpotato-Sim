@@ -15,7 +15,7 @@ import secrets
 import shutil
 import sys
 import tempfile
-from time import monotonic, sleep
+from time import monotonic
 import webbrowser
 from urllib.request import ProxyHandler, build_opener
 

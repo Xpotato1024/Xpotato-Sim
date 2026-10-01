@@ -1,7 +1,7 @@
 """旧profileの保存byteを保持し、実行fieldから別の有限試行条件を固定する。"""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from math import isfinite

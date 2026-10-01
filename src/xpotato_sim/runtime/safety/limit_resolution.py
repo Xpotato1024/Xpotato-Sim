@@ -1089,29 +1089,6 @@ def project_limit_to_joint_space(
     )
 
 
-def _unknown_projected_limit(
-    limit: PhysicalLimit,
-    *,
-    name: str,
-    reason: str,
-) -> PhysicalLimit:
-    """conversion不能時も元source provenanceを失わずunknownへ閉じる。"""
-
-    return PhysicalLimit(
-        name=name,
-        quantity=limit.quantity,
-        lower=None,
-        upper=None,
-        unit=limit.unit,
-        space=LimitSpace.JOINT,
-        frame=canonical_fast_arm_joint_space_frame(),
-        status=EvidenceStatus.UNKNOWN,
-        source=limit.source,
-        conversion=LimitConversionProvenance.identity(LimitSpace.JOINT),
-        reason=reason,
-    )
-
-
 def _status_for_limit(limit: PhysicalLimit) -> tuple[ParityStatus, str | None]:
     status = effective_limit_status(limit)
     if status is EvidenceStatus.INVALID:

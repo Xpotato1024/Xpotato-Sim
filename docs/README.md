@@ -8,9 +8,9 @@ related:
   - docs/architecture/documentation-sot-policy.md
 ---
 
-# Selfrionette-mujoco文書
+# Xpotato-Sim文書
 
-`docs/`はSelfrionette-mujocoの唯一のdocumentation rootである。`doc/`は新設・使用しない。
+`docs/`はXpotato-Simの唯一のdocumentation rootである。`doc/`は新設・使用しない。
 
 この文書のSource of Truth Mapには、現在の仕様、contract、反復利用する運用入口だけを載せる。
 completion audit、implementation report、inventory、handoff、historical recordは掲載せず、

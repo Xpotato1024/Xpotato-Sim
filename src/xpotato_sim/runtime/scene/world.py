@@ -1,6 +1,6 @@
 """Sceneが所有するworld物理条件。積分器やRobot名はここに含めない。"""
 from dataclasses import dataclass
-from .objects import fields, identifier, number, vector
+from .objects import fields, identifier, vector
 
 
 @dataclass(frozen=True, slots=True)
