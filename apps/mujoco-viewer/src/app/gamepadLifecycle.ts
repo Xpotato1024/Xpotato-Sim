@@ -51,8 +51,31 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
   let started = false;
   let lifecycleActive = options.document.visibilityState === "visible";
   let animationFrameId = 0;
+  let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastPollMs = -Infinity;
   const nowMs = options.nowMs ?? (() => performance.now());
+  const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+  const clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+  const timedPoll = (options.pollIntervalMs ?? 0) > 0;
+
+  const cancelPoll = (): void => {
+    options.window.cancelAnimationFrame(animationFrameId);
+    animationFrameId = 0;
+    if (pollTimeoutId !== null) clearTimeoutFn(pollTimeoutId);
+    pollTimeoutId = null;
+  };
+
+  // 取得間隔を指定したconsumerは描画を待たない。従来ViewerはrAFを維持する。
+  const queuePoll = (): void => {
+    if (disposed || !started || !lifecycleActive) return;
+    cancelPoll();
+    if (timedPoll) {
+      pollTimeoutId = setTimeoutFn(() => {
+        pollTimeoutId = null;
+        schedulePoll();
+      }, Math.max(0, options.pollIntervalMs! - (nowMs() - lastPollMs)));
+    } else animationFrameId = options.window.requestAnimationFrame(schedulePoll);
+  };
 
   const publishGamepadState = (): void => {
     if (disposed || !lifecycleActive) {
@@ -72,7 +95,7 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
 
     lifecycleActive = nextActive;
     if (!nextActive) {
-      options.window.cancelAnimationFrame(animationFrameId);
+      cancelPoll();
       if (options.onSample) options.onSample(null);
       else publication.update(sampleViewerGamepadSnapshot(null));
       publication.suspend();
@@ -81,7 +104,7 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
 
     publication.resume();
     publishGamepadState();
-    if (started) animationFrameId = options.window.requestAnimationFrame(schedulePoll);
+    queuePoll();
   };
 
   const schedulePoll = (): void => {
@@ -89,15 +112,17 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
       return;
     }
 
-    if (nowMs() - lastPollMs >= (options.pollIntervalMs ?? 0)) publishGamepadState();
-    animationFrameId = options.window.requestAnimationFrame(schedulePoll);
+    publishGamepadState();
+    queuePoll();
   };
 
   const onGamepadConnected = (): void => {
     publishGamepadState();
+    queuePoll();
   };
   const onGamepadDisconnected = (): void => {
     publishGamepadState();
+    queuePoll();
   };
   const onVisibilityChange = (): void => {
     setLifecycleActive(options.document.visibilityState === "visible");
@@ -115,7 +140,7 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
       publication.update(sampleViewerGamepadSnapshot(null));
       publication.suspend();
     }
-    if (lifecycleActive) animationFrameId = options.window.requestAnimationFrame(schedulePoll);
+    queuePoll();
     options.window.addEventListener("gamepadconnected", onGamepadConnected);
     options.window.addEventListener("gamepaddisconnected", onGamepadDisconnected);
     options.document.addEventListener("visibilitychange", onVisibilityChange);
@@ -132,7 +157,7 @@ export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(option
       return;
     }
 
-    options.window.cancelAnimationFrame(animationFrameId);
+    cancelPoll();
     publication.dispose();
     options.window.removeEventListener("gamepadconnected", onGamepadConnected);
     options.window.removeEventListener("gamepaddisconnected", onGamepadDisconnected);

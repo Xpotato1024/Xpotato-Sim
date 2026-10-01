@@ -237,6 +237,7 @@ testRepeatedVisibilityEventsAndDisposeCannotRevivePublication();
 
 function testWorkbenchUsesSharedVisibilityLifetimeAndFreshEpochSamples(): void {
   const browser = new FakeBrowser();
+  const timer = new FakeTimer();
   let now = 0;
   let enabled = true;
   let epoch = "trial-a";
@@ -244,20 +245,24 @@ function testWorkbenchUsesSharedVisibilityLifetimeAndFreshEpochSamples(): void {
   const lifecycle = createWorkbenchGamepadLifecycle({
     window: browser.window, document: browser.document, getGamepads: browser.getGamepads,
     nowMs: () => now, nowSeconds: () => now / 1000,
+    setTimeoutFn: timer.setTimeoutFn, clearTimeoutFn: timer.clearTimeoutFn,
     context: () => ({epoch, enabled}), publish: message => messages.push(message),
   });
   lifecycle.start();
   assert.equal(messages.length, 0, "初回未取得は入力待ち");
+  lifecycle.start();
+  assert.equal(timer.pendingCount, 1, "取得schedulerは一つ");
+  assert.equal(browser.pendingAnimationFrameCount, 0, "Workbench取得はrAFを使わない");
   browser.currentGamepads = [activePad(.5)];
-  now = 40; browser.dispatchWindow("blur"); browser.runAnimationFrame();
+  now = 40; browser.dispatchWindow("blur"); timer.runNext();
   assert.equal(messages.length, 1, "visibleならfocusに依存せず取得");
   assert.equal(messages[0].timestamp_s, .04);
   const session = messages[0].metadata.viewer_provider_session_id;
   const readsBeforeDisabled = browser.getGamepadsCalls;
-  enabled = false; now = 80; browser.runAnimationFrame();
+  enabled = false; now = 80; timer.runNext();
   assert.equal(messages.length, 1, "STOP・fixture・claim gateで送信停止");
   assert.equal(browser.getGamepadsCalls, readsBeforeDisabled, "無効contextでは実デバイスの取得も行わない");
-  enabled = true; epoch = "trial-b"; now = 120; browser.runAnimationFrame();
+  enabled = true; epoch = "trial-b"; now = 120; timer.runNext();
   assert.equal(messages[1].sequence, 0);
   assert.notEqual(messages[1].metadata.viewer_provider_session_id, session);
   browser.visibilityState = "hidden"; browser.dispatchVisibilityChange();
@@ -271,14 +276,41 @@ function testWorkbenchUsesSharedVisibilityLifetimeAndFreshEpochSamples(): void {
   browser.visibilityState = "visible"; now = 400; browser.dispatchVisibilityChange();
   assert.equal(messages.at(-1).gamepad.connected, false, "復帰で旧sampleを再送しない");
   assert.equal(messages.at(-1).timestamp_s, .4);
-  browser.currentGamepads = [activePad(0)]; now = 440; browser.runAnimationFrame();
+  browser.currentGamepads = [activePad(0)]; now = 440; timer.runNext();
   assert.equal(messages.at(-1).gamepad.zero_state, true);
+  browser.currentGamepads = [];
+  browser.dispatchWindow("gamepaddisconnected");
+  assert.equal(messages.at(-1).gamepad.stale, true);
+  assert.equal(timer.pendingCount, 1, "disconnectはschedulerを重複させない");
+  browser.currentGamepads = [activePad(.2)];
+  now = 1000; timer.runNext();
+  assert.equal(messages.at(-1).timestamp_s, 1, "停止したevent loopからの復帰も実取得時刻を使う");
   lifecycle.dispose();
   const finalCount = messages.length;
   browser.dispatchWindow("gamepaddisconnected"); browser.dispatchVisibilityChange();
   assert.equal(messages.length, finalCount);
   assert.equal(browser.pendingAnimationFrameCount, 0);
+  assert.equal(timer.pendingCount, 0);
 }
 testWorkbenchUsesSharedVisibilityLifetimeAndFreshEpochSamples();
+
+function testWorkbenchInitiallyHiddenAndDisabled():void {
+  const browser=new FakeBrowser(), timer=new FakeTimer();
+  browser.visibilityState="hidden";
+  browser.currentGamepads=[activePad(.5)];
+  let enabled=false, count=0;
+  const lifecycle=createWorkbenchGamepadLifecycle({window:browser.window,document:browser.document,
+    getGamepads:browser.getGamepads,context:()=>({epoch:"hidden",enabled}),
+    nowSeconds:()=>0,setTimeoutFn:timer.setTimeoutFn,clearTimeoutFn:timer.clearTimeoutFn,publish(){count++;}});
+  lifecycle.start();
+  assert.equal(browser.getGamepadsCalls,0);assert.equal(timer.pendingCount,0);
+  browser.dispatchWindow("focus");browser.dispatchWindow("gamepadconnected");
+  assert.equal(browser.getGamepadsCalls,0);
+  browser.visibilityState="visible";browser.dispatchVisibilityChange();
+  assert.equal(browser.getGamepadsCalls,0);assert.equal(timer.pendingCount,1);
+  enabled=true;timer.runNext();assert.equal(count,1);assert.equal(browser.getGamepadsCalls,1);
+  lifecycle.dispose();lifecycle.dispose();assert.equal(timer.pendingCount,0);
+}
+testWorkbenchInitiallyHiddenAndDisabled();
 
 console.log("product viewer gamepad lifecycle integration tests passed");

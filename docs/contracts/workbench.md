@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-01
+last_verified: 2026-10-02
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -116,6 +116,12 @@ command ID・期待revision・trial ticket・generationを検査する。dedup�
 private worker/frame輸送は1 MiB、外部commandは64 KiBとして分離する。大きすぎるprivate frameも無制限にはしない。
 phase変化と実行中最大0.5秒間隔のstatusでtick・simulation時間を更新し、描画sampleの時間と区別する。
 
+終端と画面へのstatus到着の間に残った同ticket入力は、control/worker境界で有効なGamepad messageであることを
+確認して棄却し、現状態を返す。STOP監督中も同じ扱いで指令をforwardしない。ready、旧ticket、権限なし、
+fixture、不正messageは引き続き拒否し、`TrialRunner.ingest`のactive-trial条件を緩めない。
+要求の拒否はrunnerの保存結果・停止理由へ上書きせず、画面は元の停止理由と別の要求・接続診断を区別する。
+正常なTask終端・simulation予算上限・operator停止・入力失効を後続のactive-trial受付エラーへ置き換えない。
+
 STOPは専用1slot・固有ID・2秒期限を持ち、pendingが満杯でも先に処理する。未dispatch要求は取り消し、
 旧generationのstatus/frame/assetを無効にする。通常statusやprepare完了ではSTOP監督を解除しない。
 同じID・generationのSTOP完了で、inactiveな状態とerrorなしを確認して解除する。
@@ -131,12 +137,13 @@ worker死亡・強制終了後はアプリを終了して明示再起動する�
 
 ## 入力と資源所有
 
-browserの取得寿命は従来Viewerと同じ`gamepadLifecycle`が所有する。visible中のrAFを
-Workbenchでは40 ms以上の間隔に制限し、毎回実sampleを取得する。従来Viewerのpublication cadenceは維持する。
+browserの取得寿命は従来Viewerと同じ`gamepadLifecycle`が所有する。Workbenchは描画rAFから独立した
+40 ms timerで毎回実sampleを取得する。描画fpsによる間引きやcached heartbeatの再送を行わない。
+従来ViewerのrAF/publication cadenceは維持する。完全なJavaScript停止で取得が遅れた場合のfreshness判定は緩めない。
 raw axes/buttonsを保持し、試行epochごとにsessionとsequenceを新規にする。初回device未取得はsampleを送らず入力待ち期限に従う。
 visibleならfocus=falseでも取得する。取得後のhidden/欠落/切断はstale/disconnectedとして送り、
 中立入力として補完しない。cached sampleのheartbeatで鮮度を延ばさない。backendの0.2秒freshnessは不変。
-hiddenでは即時失効して取得rAFとheartbeatを停止し、visible復帰時は新しく取得する。
+hiddenでは即時失効して取得schedulerとheartbeatを停止し、visible復帰時は新しく取得する。
 capability、claim、ticket/epoch、busy、phase、fixture gateは送信時点で確認し、dispose後は送らない。
 Keyboardのfocus契約は変更しない。
 async scene準備の成功・失敗・finallyは開始時のsocket/generation/epochに束縛する。旧loadは新epochを失敗扱いにしない。
@@ -152,7 +159,7 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | WASM model/data、mesh/material/texture、shader | rendererの現scene | 同model retry再利用、model切替でdelete/dispose、cacheは現sceneに限定 |
 | async load/compile | rendererの直列chainとabort/generation | invalidateで旧結果を拒否し、disposeは進行中compileのsettle後に一度だけ解放 |
 | WebSocket、表示鮮度timer、reconnect listener | WorkbenchApp各1 | disconnectで入力停止、unmountでclose/clear/remove |
-| Gamepad取得rAF | 共通gamepadLifecycleの1 owner | hiddenで停止、visibleで新規取得、unmountでdispose |
+| Gamepad実sample取得timer | 共通gamepadLifecycleの1 owner、40 ms | hiddenで停止、visibleで新規取得、unmountでdispose |
 | rAF、resize listener/observer、OrbitControls | renderer各1 | renderer disposeで停止・解除 |
 
 `window.__workbenchCounters()`は所有slot、生成/delete数、renderer GPU counts、Python RSS/private bytesを公開する。

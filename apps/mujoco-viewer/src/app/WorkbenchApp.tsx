@@ -14,12 +14,13 @@ import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
 import "./workbench.css";
 import "../ui/operation.css";
-import {canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, type Preparation} from "./workbenchLifecycle.js";
+import {canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
 type Status = {phase: string; revision: number; generation: number; busy: string|null; busy_operation?:string|null;
   ticket: Ticket|null; profile_id: string|null; ticks: number; simulation_time_s:number; error: string|null;
+  result?:{runner_stop_reason:string; error?:string|null}|null;
   profiles: {id:string; available:boolean; reason:string|null}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
@@ -121,6 +122,7 @@ export function WorkbenchApp() {
           }
           if(message.type==="condition_diff" && editorReply) {setChanges(message.changes);clearEditor();}
           if(message.type==="status") {
+            if(message.ticket?.epoch!==current.current?.ticket?.epoch) setError("");
             if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) setRaw(null);
             if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
               || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
@@ -192,6 +194,7 @@ export function WorkbenchApp() {
       socket.current?.close();socket.current=null;r.dispose();delete (window as any).__workbenchCounters;};
   },[]);
   const active=!!status && ["waiting_input","running","finalizing"].includes(status.phase);
+  const notice=workbenchNotice(status,error);
   const busy=!!status?.busy;
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
@@ -214,7 +217,8 @@ export function WorkbenchApp() {
       </div>
       <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
     </nav>
-    {(error||status?.error) && <p className="operation-warning" role="alert">{error||status?.error}</p>}
+    {notice && <p className="operation-warning" role="alert">{notice}</p>}
+    {error && error!==notice && <p role="alert">要求・接続の診断: {error}</p>}
     <section className="workbench-controls" hidden={screen!=="setup"}>
       <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
         <option value="">profileを選択してください</option>
@@ -225,7 +229,7 @@ export function WorkbenchApp() {
       <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
-      {(error||status?.error) && <p role="alert">{error||status?.error}</p>}
+      {notice && <p role="alert">{notice}</p>}
     </section>
     <div className="workbench-body"><div className="operation-workspace" data-left={!!left} data-right={!!right}>
       {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalidJoint} terminal={status?.phase==="terminal"}/></aside>}

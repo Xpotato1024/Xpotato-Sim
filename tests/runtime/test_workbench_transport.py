@@ -55,6 +55,53 @@ async def until(ws, predicate):
                 return event
 
 
+def test_terminal_input_and_worker_rejection_preserve_authoritative_reason(tmp_path):
+    from test_workbench_late_input import neutral
+
+    async def scenario():
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        worker = Worker()
+        worker.url = f"ws://127.0.0.1:{port}/control"
+        service = asyncio.create_task(serve_workbench({"port": port, "web_port": port + 1,
+            "prepare_s": 10, "result_root": str(tmp_path), "asset_root": str(tmp_path)},
+            worker, tmp_path, capability="test-capability"))
+        try:
+            await asyncio.wait_for(worker.connected.wait(), 5)
+            async with connect(worker.url, proxy=None) as owner:
+                await owner.send('{"op":"claim","capability":"test-capability"}')
+                await until(owner, lambda e: e["type"] == "claimed")
+                ticket = {"trial_id": "one", "epoch": "one", "condition_sha256": "digest"}
+                result = {"trial_id": "one", "runner_stop_reason": "technical_invalid", "error": "original stale"}
+                state = {"phase": "terminal", "ticket": ticket, "error": None, "result": result}
+                await worker.status(0, "terminal", state=state)
+                await until(owner, lambda e: e.get("phase") == "terminal")
+                await owner.send(json.dumps({"op": "input", "capability": "test-capability",
+                                            "ticket": ticket, "message": neutral()}))
+                status = await until(owner, lambda e: e["type"] == "status")
+                assert status["result"] == result and worker.commands.empty()
+                # 親に既にdispatchされた旧要求のerrorはrunnerの原因を上書きしない。
+                await worker.status(0, "terminal", state=state, error="旧ticket", operation="input")
+                assert (await until(owner, lambda e: e["type"] == "rejected"))["error"] == "旧ticket"
+                status = await until(owner, lambda e: e["type"] == "status")
+                assert status["error"] is None and status["result"] == result
+                assert status["results"] == [result]
+                await owner.send(json.dumps({"op": "input", "capability": "test-capability",
+                    "ticket": {**ticket, "epoch": "old"}, "message": neutral()}))
+                await until(owner, lambda e: e["type"] == "rejected")
+                assert worker.commands.empty()
+        finally:
+            worker.returncode = 1
+            service.cancel()
+            await asyncio.gather(service, return_exceptions=True)
+            if hasattr(worker, "task"):
+                worker.task.cancel()
+                await asyncio.gather(worker.task, return_exceptions=True)
+
+    asyncio.run(scenario())
+
+
 def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usable(tmp_path,monkeypatch):
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
     now=[10.]
