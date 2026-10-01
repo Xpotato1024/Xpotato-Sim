@@ -51,6 +51,8 @@ export interface ViewerKeyboardEventLike {
 }
 
 export interface ViewerInputProviderOptions {
+  /** 既存senderのsample identityをread-only表示へ通知する。追加取得・送信はしない。 */
+  onGamepadSession?: (sessionId:string|null) => void;
   gamepadNeutralHeartbeat?: boolean;
   window: ViewerInputProviderWindowLike;
   document: ViewerInputProviderDocumentLike;
@@ -214,6 +216,8 @@ function createGamepadProvider(options: ViewerInputProviderOptions): ViewerInput
         neutralHeartbeat: options.gamepadNeutralHeartbeat,
         publish(snapshot) {
           sender?.publish(snapshot);
+          const value=sender?.getLatestMessage()?.metadata?.viewer_provider_session_id;
+          options.onGamepadSession?.(snapshot.connected&&!snapshot.stale&&typeof value==="string"?value:null);
         },
         setTimeoutFn: options.gamepadSetTimeoutFn,
         clearTimeoutFn: options.gamepadClearTimeoutFn,
@@ -225,6 +229,7 @@ function createGamepadProvider(options: ViewerInputProviderOptions): ViewerInput
       lifecycle = null;
       sender?.dispose();
       sender = null;
+      options.onGamepadSession?.(null);
     },
   };
 }

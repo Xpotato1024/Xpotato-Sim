@@ -44,6 +44,7 @@ export interface ProductViewerInputOverlayState {
   staleReason: string | null;
   viewerSourceKind: string | null;
   sequence: number | null;
+  providerSessionId?: string | null;
   axisValues: number[];
   localEndpointSpeedMS: number | null;
   localEndpointMaxDeltaM: number | null;
@@ -351,6 +352,8 @@ function parseInputOverlayState(
     staleReason: parseOptionalString(metadata.stale_reason),
     viewerSourceKind: controlMessage === null ? null : parseOptionalString(controlMessage.viewer_source_kind),
     sequence: controlMessage === null ? null : parseOptionalInteger(controlMessage.sequence),
+    ...(controlMessage !== null && isRecord(controlMessage.metadata) && typeof controlMessage.metadata.viewer_provider_session_id === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(controlMessage.metadata.viewer_provider_session_id)
+      ? {providerSessionId:controlMessage.metadata.viewer_provider_session_id} : {}),
     axisValues,
     localEndpointSpeedMS: parseOptionalFiniteNumber(metadata.local_endpoint_speed_m_s),
     localEndpointMaxDeltaM: parseOptionalFiniteNumber(metadata.local_endpoint_max_delta_m),

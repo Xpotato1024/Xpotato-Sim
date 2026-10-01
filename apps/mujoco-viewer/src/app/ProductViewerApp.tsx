@@ -35,7 +35,13 @@ import { describeWorkbenchConnection, formatWorkbenchAge } from "./workbenchPres
 import { createPresentationCadence, presentationCriticalKey } from "./presentationCadence.js";
 import { JointInstruments } from "../ui/JointInstruments.js";
 import { InputInstruments } from "../ui/InputInstruments.js";
+import {InputStrip,GamepadDiagnosticDetails} from "../ui/InputStrip.js";
+import {browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
+import {SceneViewport,scenePanes} from "../ui/SceneViewport.js";
+import {jointRailGroups} from "../wasm-scene/jointPresentation.js";
+import type {ViewLayout} from "../wasm-scene/viewportPresentation.js";
 import "./productViewer.css";
+import "../ui/operation.css";
 
 function formatNumber(value: number | null): string {
   if (value === null) {
@@ -137,6 +143,12 @@ function InputOverlayPanel({ state }: { state: ProductViewerState }) {
 
 export function ProductViewerApp() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const interactionRef=useRef<HTMLDivElement|null>(null);
+  const [screen,setScreen]=useState<"setup"|"operate">("setup");
+  const [layout,setLayout]=useState<ViewLayout>("single");
+  const [raw,setRaw]=useState<BrowserGamepadDisplay|null>(null);
+  const rawDisplayAt=useRef(0);
+  const providerSession=useRef<string|null>(null);
   const diagnosticsRef = useRef<HTMLDetailsElement | null>(null);
   const [inputPaused, setInputPaused] = useState(false);
   const [nowMs, setNowMs] = useState(() => performance.now());
@@ -232,6 +244,8 @@ export function ProductViewerApp() {
         }
         renderer = createMujocoSceneRenderer({
           canvas,
+          interactionElement:interactionRef.current!,
+          getScenePanes:()=>scenePanes(canvas),
           profile: initialProfile,
           expectedProfileId: requestedProfileId,
           websocketUrl: endpointConfig.websocketUrl,
@@ -295,16 +309,20 @@ export function ProductViewerApp() {
       document,
       url: endpointConfig.websocketUrl,
       keyboardCapture: keyboardCaptureRef.current,
+      onGamepadSession:session=>{providerSession.current=session;if(session===null)setRaw(null);},
       getGamepads: () => {
         if (typeof navigator === "undefined" || typeof navigator.getGamepads !== "function") {
           return null;
         }
 
-        return navigator.getGamepads() as unknown as ArrayLike<ViewerGamepadLike | null | undefined>;
+        const pads=navigator.getGamepads();
+        const now=performance.now();
+        if(now-rawDisplayAt.current>=50){rawDisplayAt.current=now;const observed=browserGamepadDisplay(pads,now);setRaw(observed?{...observed,sessionId:providerSession.current}:null);}
+        return pads as unknown as ArrayLike<ViewerGamepadLike | null | undefined>;
       },
     });
     inputLifecycle.setLiveInputEnabled(liveInputEnabled);
-    return () => inputLifecycle.dispose();
+    return () => {inputLifecycle.dispose();setRaw(null);};
   }, [endpointConfig.websocketUrl, liveInputEnabled, inputSelection, gamepadNeutralHeartbeat]);
 
   const onContactTaskLogChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -384,7 +402,10 @@ export function ProductViewerApp() {
   const inputLabel = inputSelection.providerIds.length === 0 ? "入力なし" : inputSelection.providerIds.join(" / ");
   const endpointError = state.endpointEvaluation === null ? null : numbers.endpointEvaluation?.desired_to_site_error_norm_m;
   const diagnosticState = diagnosticSnapshot?.state ?? state;
+  const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
+  const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
   const openDiagnostics = (): void => {
+    setScreen("setup");
     const element = diagnosticsRef.current;
     if (element !== null) {
       element.open = !element.open;
@@ -393,9 +414,9 @@ export function ProductViewerApp() {
   };
 
   return (
-    <main className="viewer-shell">
+    <main className="viewer-shell operation-shell product-operation" data-screen={screen}>
       <header className="workbench-header">
-        <div className="workbench-brand"><span className="brand-mark" aria-hidden="true">S</span><h1>Selfrionette</h1><span className="brand-section">WORKBENCH</span></div>
+        <div className="workbench-brand"><span className="brand-mark" aria-hidden="true">X</span><h1>Xpotato-Sim</h1><span className="brand-section">WORKBENCH</span></div>
         <div className="workbench-identity">{state.robotProfileId ?? "model loading"}<span title="起動URLの表示名。backendのidentityは受信データで検証します。">{launchProfileLabel ?? "MuJoCo viewer"}</span></div>
         <nav className="workbench-actions" aria-label="表示と入力">
           <button type="button" onClick={() => setInputPaused((paused) => !paused)}
@@ -404,6 +425,10 @@ export function ProductViewerApp() {
             {inputPaused ? "入力取得を再開" : "入力取得を停止"}
           </button>
           <button type="button" onClick={openDiagnostics}>詳細診断</button>
+          <button onClick={()=>setScreen("setup")} aria-pressed={screen==="setup"}>設定・診断</button>
+          <button onClick={()=>setScreen("operate")} disabled={!rendererReady} aria-pressed={screen==="operate"}>操作画面へ</button>
+          <button onClick={()=>setLayout("single")} aria-pressed={layout==="single"}>Single</button>
+          <button onClick={()=>setLayout("assist")} aria-pressed={layout==="assist"}>Assist</button>
         </nav>
       </header>
       <div className="workbench-statusbar">
@@ -419,7 +444,9 @@ export function ProductViewerApp() {
       </div>
       {inputSelection.error === null ? null : <p className="workbench-alert" role="alert">{inputSelection.error}</p>}
       {state.qposError === null ? null : <p className="workbench-alert" role="alert">{state.qposError}</p>}
-      <div className="workbench-main">
+      <div className="workbench-main product-operation-body">
+        <div className="operation-workspace" data-left={!!left} data-right={!!right}>
+          {left&&<aside className="joint-rail joint-rail--left"><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={connection.tone==="warning"||connection.tone==="danger"?connection.label:undefined}/></aside>}
         <section className="workbench-scene" aria-label="3Dロボット表示">
           <div className="scene-toolbar">
             <span className="section-kicker">SCENE</span>
@@ -431,18 +458,13 @@ export function ProductViewerApp() {
               ))}
             </div>
           </div>
-          <div className="scene-viewport">
-            <canvas ref={canvasRef} className="viewer-canvas" tabIndex={0} aria-label="MuJoCo姿勢の3D描画" />
-            <div className="scene-caption"><span>X</span><span>Y</span><span>Z</span><span>ドラッグ: 回転 / ホイール: 拡大</span></div>
-            {(connection.tone === "warning" || connection.tone === "danger") && <div className="scene-state-note">{connection.detail}</div>}
-          </div>
+          <SceneViewport canvas={canvasRef} interaction={interactionRef} renderer={rendererRef} layout={layout}/>
           <div className="scene-timeline"><span>SIMULATION TIME</span><strong>{state.currentTimestampS === null ? "—" : state.currentTimestampS.toFixed(2) + " s"}</strong><span>FRAME</span><strong>{state.currentFrameIndex ?? "—"}</strong><span className="timeline-note">表示値は実機計測ではありません</span></div>
         </section>
-      <section className="joint-strip" aria-label="現在のqpos">
-        <div className="strip-heading"><h2>関節</h2><span className="section-kicker">JOINT POSITION · {state.sourceLabel}</span><span className="instrument-heading-note">角度指標 · 可動域は未表示</span></div>
-        <JointInstruments state={state} numbers={numbers} />
-      </section>
-        <aside className="workbench-inspector" aria-label="状態の概要">
+          {right&&<aside className="joint-rail joint-rail--right"><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={connection.tone==="warning"||connection.tone==="danger"?connection.label:undefined}/></aside>}
+          <InputStrip state={state} raw={raw} live={state.connectionStatus==="disabled"||connection.tone==="positive"}/>
+        </div>
+        <aside className="workbench-inspector" aria-label="状態の概要" hidden={screen!=="setup"}>
           <section className="inspector-section">
             <div className="inspector-heading"><h2>入力</h2><span className="section-kicker">INPUT</span></div>
             <p className="inspector-primary">{overlay?.sourceKind ?? "入力情報なし"}</p>
@@ -472,9 +494,9 @@ export function ProductViewerApp() {
           <div className="inspector-footer">{connection.detail}</div>
         </aside>
       </div>
-      <details className="workbench-diagnostics" ref={diagnosticsRef}>
+      <details className="workbench-diagnostics" ref={diagnosticsRef} hidden={screen!=="setup"}>
         <summary>詳細診断<span>model / payload / contact / input</span></summary>
-        <div className="diagnostics-body">
+        <div className="diagnostics-body"><GamepadDiagnosticDetails state={state} raw={raw} live={state.connectionStatus==="disabled"||connection.tone==="positive"}/>
           <div className="diagnostic-snapshot-bar">
             <button type="button" data-testid="diagnostic-snapshot" aria-pressed={diagnosticSnapshot !== null}
               onClick={() => setDiagnosticSnapshot(diagnosticSnapshot === null

@@ -60,7 +60,13 @@ declare module "three" {
   export const NearestFilter: number;
   export const RepeatWrapping: number;
 
+  export class Box3 {
+    min: Vector3; max: Vector3;
+    isEmpty(): boolean; copy(box: Box3): this; union(box: Box3): this; applyMatrix4(matrix: Matrix4): this;
+  }
+
   export class BufferGeometry {
+    boundingBox: Box3 | null;
     setAttribute(name: string, attribute: BufferAttribute): this;
     setIndex(attribute: BufferAttribute): this;
     computeVertexNormals(): this;
@@ -213,7 +219,14 @@ declare module "three" {
   export class PerspectiveCamera extends Object3D {
     constructor(fov?: number, aspect?: number, near?: number, far?: number);
     aspect: number;
+    fov: number;
     updateProjectionMatrix(): void;
+  }
+  export class OrthographicCamera extends Object3D {
+    constructor(left:number,right:number,top:number,bottom:number,near:number,far:number);
+    left:number;right:number;top:number;bottom:number;
+    lookAt(x:number,y:number,z:number):void;
+    updateProjectionMatrix():void;
   }
 
   export class AmbientLight extends Object3D {
@@ -244,8 +257,13 @@ declare module "three" {
     info: {memory: {geometries: number; textures: number}; programs?: unknown[]};
     setPixelRatio(pixelRatio: number): void;
     setSize(width: number, height: number, updateStyle?: boolean): void;
+    autoClear:boolean;
+    clear():void;
+    setViewport(x:number,y:number,width:number,height:number):void;
+    setScissor(x:number,y:number,width:number,height:number):void;
+    setScissorTest(enabled:boolean):void;
     setClearColor(color: unknown, alpha?: number): void;
-    render(scene: Scene, camera: PerspectiveCamera): void;
+    render(scene: Scene, camera: PerspectiveCamera | OrthographicCamera): void;
     compileAsync(scene: Object3D, camera: PerspectiveCamera, targetScene?: Scene): Promise<unknown>;
     dispose(): void;
   }
@@ -274,7 +292,7 @@ declare module "three/examples/jsm/controls/OrbitControls.js" {
   import type { PerspectiveCamera } from "three";
 
   export class OrbitControls {
-    constructor(camera: PerspectiveCamera, domElement: HTMLCanvasElement);
+    constructor(camera: PerspectiveCamera, domElement: HTMLElement);
     target: {
       x: number;
       y: number;
