@@ -137,8 +137,8 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
   `endpoint_velocity_command/v1 ↔ EndpointVelocityCommand`を固定する。selected route strategy、
   execution binding、Robot providerのcommand typeはこのcontractとexact一致しなければならない。
   application-facing production runnerは`MotionCommand`をbackendへ直接渡さず、route-bound pipelineと
-  typed providerを経由する。legacy `apply_command(MotionCommand)`はfast_arm低位diagnosticとbackend
-  単体testだけに限定し、generic runtimeへ逆流させない。
+  typed providerを経由する。診断も`project_joint_position_command`を再利用し、旧
+  `apply_command(MotionCommand)`とbackendの旧pending分岐は退役した。
 - generic Robot Profile contractは`xpotato_sim.runtime.composition.robot_profile`、viewer向けrobot declaration
   contractは`xpotato_sim.runtime.composition.viewer_robot_declaration`が所有する。旧flat moduleは退役済みである。
 - Selfrionetteの7-channel protocol、intrinsic normalization、typed health、serial / injected backendは
@@ -156,8 +156,8 @@ Mappingのaxis-local private shared ownerは、algorithm primitiveの
   `ROBOT_PLUGIN`を唯一のproduction discovery入口とし、coreまたはadapterに第二のentryを作らない。
   `xpotato_sim.plugins.robots.fast_arm.core`をshared import APIにせず、runtimeで`sys.path`を書き換えない。
 - `plugins/robots/fast_arm/adapter/`はSelfrionette schema、runtime、MuJoCo backend、viewer、diagnosticsへの
-  projectionだけを所有する。旧module pathはadapter ownerからobjectをre-exportするthin compatibility moduleに
-  限定し、数式、定数、resource resolver、factory、registrationを再実装しない。
+  projectionだけを所有する。#605で旧root/diagnosticsの12転送moduleを退役し、内部consumerは正式な
+  adapter ownerをimportする。数式、定数、resource resolver、factory、registrationを再実装しない。
 - generic `kinematics`はsolver Protocolだけ、generic `mujoco_backend`はnamed reference / site extraction、
   model load / reset、simulation primitiveだけを公開する。fast_arm固有solver、name contract、endpoint wrapper、
   diagnosticはplugin packageから公開する。

@@ -20,12 +20,15 @@ export interface ViewerGamepadLifecycleDocumentLike {
   removeEventListener(type: "visibilitychange", listener: () => void): void;
 }
 
-export interface ViewerGamepadLifecycleOptions {
+export interface ViewerGamepadLifecycleOptions<T extends ViewerGamepadLike = ViewerGamepadLike> {
   neutralHeartbeat?: boolean;
   window: ViewerGamepadLifecycleWindowLike;
   document: ViewerGamepadLifecycleDocumentLike;
-  getGamepads(): ArrayLike<ViewerGamepadLike | null | undefined> | null;
-  publish(snapshot: ViewerGamepadSnapshot): void;
+  getGamepads(): ArrayLike<T | null | undefined> | null;
+  publish?(snapshot: ViewerGamepadSnapshot): void;
+  onSample?(pads: ArrayLike<T | null | undefined> | null): void;
+  pollIntervalMs?: number;
+  nowMs?: () => number;
   heartbeatIntervalMs?: number;
   setTimeoutFn?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearTimeoutFn?: (timeoutId: ReturnType<typeof setTimeout>) => void;
@@ -36,9 +39,9 @@ export interface ViewerGamepadLifecycle {
   dispose(): void;
 }
 
-export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOptions): ViewerGamepadLifecycle {
+export function createViewerGamepadLifecycle<T extends ViewerGamepadLike>(options: ViewerGamepadLifecycleOptions<T>): ViewerGamepadLifecycle {
   const publication = createViewerGamepadPublicationController({
-    publish: options.publish,
+    publish: options.publish ?? (() => {}),
     neutralHeartbeat: options.neutralHeartbeat,
     heartbeatIntervalMs: options.heartbeatIntervalMs,
     setTimeoutFn: options.setTimeoutFn,
@@ -48,14 +51,18 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
   let started = false;
   let lifecycleActive = options.document.visibilityState === "visible";
   let animationFrameId = 0;
+  let lastPollMs = -Infinity;
+  const nowMs = options.nowMs ?? (() => performance.now());
 
   const publishGamepadState = (): void => {
-    const gamepads = options.getGamepads();
-    if (!lifecycleActive) {
+    if (disposed || !lifecycleActive) {
       return;
     }
 
-    publication.update(sampleViewerGamepadSnapshot(gamepads, { deadzone: 0.1 }));
+    const gamepads = options.getGamepads();
+    lastPollMs = nowMs();
+    if (options.onSample) options.onSample(gamepads);
+    else publication.update(sampleViewerGamepadSnapshot(gamepads, { deadzone: 0.1 }));
   };
 
   const setLifecycleActive = (nextActive: boolean): void => {
@@ -65,21 +72,24 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
 
     lifecycleActive = nextActive;
     if (!nextActive) {
-      publication.update(sampleViewerGamepadSnapshot(null));
+      options.window.cancelAnimationFrame(animationFrameId);
+      if (options.onSample) options.onSample(null);
+      else publication.update(sampleViewerGamepadSnapshot(null));
       publication.suspend();
       return;
     }
 
     publication.resume();
     publishGamepadState();
+    if (started) animationFrameId = options.window.requestAnimationFrame(schedulePoll);
   };
 
   const schedulePoll = (): void => {
-    if (disposed) {
+    if (disposed || !lifecycleActive) {
       return;
     }
 
-    publishGamepadState();
+    if (nowMs() - lastPollMs >= (options.pollIntervalMs ?? 0)) publishGamepadState();
     animationFrameId = options.window.requestAnimationFrame(schedulePoll);
   };
 
@@ -105,7 +115,7 @@ export function createViewerGamepadLifecycle(options: ViewerGamepadLifecycleOpti
       publication.update(sampleViewerGamepadSnapshot(null));
       publication.suspend();
     }
-    animationFrameId = options.window.requestAnimationFrame(schedulePoll);
+    if (lifecycleActive) animationFrameId = options.window.requestAnimationFrame(schedulePoll);
     options.window.addEventListener("gamepadconnected", onGamepadConnected);
     options.window.addEventListener("gamepaddisconnected", onGamepadDisconnected);
     options.document.addEventListener("visibilitychange", onVisibilityChange);

@@ -1,20 +1,9 @@
-export type ViewerEndpointConfigSource = "query" | "disabled";
+export type ViewerEndpointConfigSource = "query" | "disabled" | "rejected";
 
 export interface ViewerEndpointConfig {
   websocketUrl: string | null;
   source: ViewerEndpointConfigSource;
-}
-
-function readQueryParam(search: string, names: string[]): string | null {
-  const searchParams = new URLSearchParams(search);
-  for (const name of names) {
-    const value = searchParams.get(name);
-    if (value !== null) {
-      return value;
-    }
-  }
-
-  return null;
+  error?: string;
 }
 
 function normalizeWebSocketUrl(value: string): string | null {
@@ -28,34 +17,31 @@ function normalizeWebSocketUrl(value: string): string | null {
     if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
       return null;
     }
-
     return trimmed;
   } catch {
     return null;
   }
 }
 
+/** 退役queryは未指定と区別し、静的Viewerへの暗黙fallbackを許可しない。 */
 export function readViewerEndpointConfig(
   locationLike: Pick<Location, "search">,
 ): ViewerEndpointConfig {
-  const queryValue = readQueryParam(locationLike.search, ["websocketUrl", "ws"]);
-  if (queryValue === null) {
+  const query = new URLSearchParams(locationLike.search);
+  if (query.has("ws")) {
     return {
       websocketUrl: null,
-      source: "disabled",
+      source: "rejected",
+      error: "旧接続指定 ws は廃止されました。websocketUrl を指定してください。",
     };
   }
-
+  const queryValue = query.get("websocketUrl");
+  if (queryValue === null) {
+    return { websocketUrl: null, source: "disabled" };
+  }
   const websocketUrl = normalizeWebSocketUrl(queryValue);
   if (websocketUrl === null) {
-    return {
-      websocketUrl: null,
-      source: "disabled",
-    };
+    return { websocketUrl: null, source: "disabled" };
   }
-
-  return {
-    websocketUrl,
-    source: "query",
-  };
+  return { websocketUrl, source: "query" };
 }

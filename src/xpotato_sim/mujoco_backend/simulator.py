@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from xpotato_sim.mujoco_backend.command_adapter import motion_command_to_qpos_command
 from xpotato_sim.mujoco_backend.model_info import inspect_mujoco_model
 from xpotato_sim.mujoco_backend.model_loader import (
     ModelResourceBundle,
@@ -24,7 +23,6 @@ class HeadlessMuJoCoSimulator:
     _frame_index: int = 0
     _last_dt_s: float | None = None
     _last_command: MotionCommand | None = None
-    _pending_command: MotionCommand | None = None
     _last_joint_position_command: JointPositionCommand | None = None
     _pending_joint_position_command: JointPositionCommand | None = None
     initial_keyframe_name: str | None = None
@@ -70,14 +68,6 @@ class HeadlessMuJoCoSimulator:
             initial_keyframe_name=initial_keyframe_name,
         )
 
-    def apply_command(self, command: MotionCommand) -> None:
-        """Legacy low-level entry retained for diagnostic and backend tests only."""
-
-        self._last_command = command
-        self._pending_command = command
-        self._last_joint_position_command = None
-        self._pending_joint_position_command = None
-
     def apply_joint_position_command(
         self, command: JointPositionCommand
     ) -> None:
@@ -86,7 +76,6 @@ class HeadlessMuJoCoSimulator:
                 "joint-position backend requires JointPositionCommand"
             )
         self._last_command = None
-        self._pending_command = None
         self._last_joint_position_command = command
         self._pending_joint_position_command = command
 
@@ -114,7 +103,6 @@ class HeadlessMuJoCoSimulator:
         self._frame_index = 0
         self._last_dt_s = None
         self._last_command = None
-        self._pending_command = None
         self._last_joint_position_command = None
         self._pending_joint_position_command = None
 
@@ -156,7 +144,7 @@ class HeadlessMuJoCoSimulator:
         group = (tuple(qpos), tuple(dofs))
         if self._command_group is not None and self._command_group != group:
             raise ValueError("joint command group cannot change after binding")
-        if self._frame_index or self._pending_command is not None or self._pending_joint_position_command is not None:
+        if self._frame_index or self._pending_joint_position_command is not None:
             raise ValueError("joint command group must be bound before execution")
         self._command_group = group
         return group
@@ -224,10 +212,6 @@ class HeadlessMuJoCoSimulator:
                     )
                 )
             )
-        elif self._pending_command is not None:
-            joint_command = motion_command_to_qpos_command(self._pending_command)
-            if joint_command is not None:
-                self._apply_joint_command(joint_command)
 
         self.model.opt.timestep = dt_s
         mujoco.mj_step(self.model, self.data)
@@ -240,9 +224,6 @@ class HeadlessMuJoCoSimulator:
                     )
                 )
             )
-        elif self._pending_command is not None and self._pending_command.joint is not None:
-            # Keep the backend snapshot aligned with the commanded qpos path.
-            self._apply_joint_command(self._pending_command.joint)
 
         self._last_dt_s = dt_s
         self._frame_index += 1

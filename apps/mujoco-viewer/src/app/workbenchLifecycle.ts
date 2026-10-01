@@ -1,3 +1,4 @@
+import {createViewerGamepadLifecycle, type ViewerGamepadLifecycleOptions} from "./gamepadLifecycle.js";
 import {buildViewerGamepadControlMessage, sampleViewerGamepadSnapshot, type ViewerGamepadLike} from "../input/gamepadInput.js";
 
 /** socket/sceneの同一性を非同期処理の開始時に固定する。 */
@@ -42,4 +43,20 @@ export function createWorkbenchGamepadMessages(newSession:()=>string=()=>crypto.
     return buildViewerGamepadControlMessage(snapshot,timestamp,
       {sequence:sequence++,metadata:{viewer_provider_session_id:session}});
   };
+}
+
+/** Workbenchもvisible寿命を共有し、送信時点のclaim/ticket/phaseを毎回検査する。 */
+export function createWorkbenchGamepadLifecycle<T extends ViewerGamepadLike>(options: Omit<ViewerGamepadLifecycleOptions<T>, "publish" | "onSample"> & {
+  context(): {epoch: string; enabled: boolean} | null;
+  publish(message: NonNullable<ReturnType<ReturnType<typeof createWorkbenchGamepadMessages>>>, pads: ArrayLike<T|null|undefined>|null): void;
+  nowSeconds(): number;
+}) {
+  const sample = createWorkbenchGamepadMessages();
+  return createViewerGamepadLifecycle({...options, publish: undefined, pollIntervalMs: 40,
+    getGamepads: () => options.context()?.enabled ? options.getGamepads() : null, onSample(pads) {
+    const context = options.context();
+    if (!context?.enabled) return;
+    const message = sample(context.epoch, pads, options.nowSeconds());
+    if (message !== null) options.publish(message, pads);
+  }});
 }

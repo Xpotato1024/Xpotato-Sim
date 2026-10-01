@@ -39,7 +39,7 @@ related:
 3. `npm run dev -- --host 127.0.0.1 --port 5173`
 4. browser で `http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766` を開く
 
-`?ws=ws://127.0.0.1:8766` は互換 alias である。
+旧`?ws=`は退役エラーとして起動を停止する。`?websocketUrl=ws://127.0.0.1:8766`を使用する。
 viewer page URL と WebSocket endpoint URL は別であり、`websocketUrl` を primary とする。
 この手順は人間が実行する manual demo 用であり、Codex / CI は dev server や browser を起動しない。
 

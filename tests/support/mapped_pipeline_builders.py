@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from xpotato_sim.runtime.execution.command_routes import project_joint_position_command
+
 from collections.abc import Mapping
 from pathlib import Path
 from dataclasses import dataclass
@@ -76,7 +78,11 @@ class _TestMotionCommandExecutionBinding:
             current_state=pre_step_state,
             qpos_feasibility_guard=pipeline.qpos_feasibility_guard,
         )
-        pipeline.simulator.apply_command(result.motion_command)
+        # 空のtest-only envelopeは指令を作らず、診断保持とphysics stepだけを行う。
+        joint = result.motion_command.joint
+        if joint is not None and (joint.joint_angles_rad or joint.joint_velocities_rad_s):
+            pipeline.simulator.apply_joint_position_command(project_joint_position_command(result.motion_command))
+        pipeline.simulator.record_motion_command_envelope(result.motion_command)
         return result
 
 

@@ -24,7 +24,7 @@ def test_generic_runtime_files_do_not_import_fast_arm_implementation() -> None:
     simulator_source = (
         ROOT / "src" / "xpotato_sim" / "mujoco_backend" / "simulator.py"
     ).read_text(encoding="utf-8")
-    assert "xpotato_sim.plugins.robots.fast_arm.profile" not in simulator_source
+    assert "xpotato_sim.plugins.robots.fast_arm.adapter.profile" not in simulator_source
     assert "default_fast_arm_scene_path" not in simulator_source
     assert "FAST_ARM_ROBOT_PROFILE.initial_keyframe_name" not in simulator_source
 

@@ -11,7 +11,6 @@ import {
 } from "../contact/contactTaskLog.js";
 import type { DynamicsPresentation } from "./dynamicsPresentation.js";
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
-import { parseGamepadPlanePresentation, type GamepadPlanePresentation } from "../app/gamepadPlanePresentation.js";
 import { parseGamepadTriggerPresentation, type GamepadTriggerPresentation } from "../app/gamepadTriggerPresentation.js";
 import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
 import type { JointDisplayLayout } from "./jointPresentation.js";
@@ -67,7 +66,6 @@ export interface ProductViewerInputOverlayState {
   keyboardFocusState: string | null;
   keyboardZeroState: boolean | null;
   keyboardKeyState: Record<string, boolean>;
-  gamepadPlaneControl?: GamepadPlanePresentation | null;
   gamepadTriggerControl?: GamepadTriggerPresentation | null;
   gamepadConnected: boolean | null;
   gamepadIndex: number | null;
@@ -384,7 +382,6 @@ function parseInputOverlayState(
     keyboardFocusState: keyboard === null ? null : parseOptionalString(keyboard.focus_state),
     keyboardZeroState: keyboard === null ? null : parseOptionalBoolean(keyboard.zero_state),
     keyboardKeyState: keyboard === null ? {} : parseBooleanRecord(keyboard.key_state),
-    ...("gamepad_plane_control_v1" in metadata ? { gamepadPlaneControl: parseGamepadPlanePresentation(metadata.gamepad_plane_control_v1) } : {}),
     ...("gamepad_trigger_control_v1" in metadata ? { gamepadTriggerControl: parseGamepadTriggerPresentation(metadata.gamepad_trigger_control_v1) } : {}),
     gamepadConnected: gamepad === null ? null : parseOptionalBoolean(gamepad.connected),
     gamepadIndex: gamepad === null ? null : parseOptionalInteger(gamepad.index),

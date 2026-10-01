@@ -54,7 +54,7 @@ marker, arm skeleton, fast_arm mesh scene, error vector skeleton である。
 apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 ```
 
-`?ws=ws://127.0.0.1:8766` は互換 alias として受け付ける。
+旧`?ws=`は退役エラーとして起動を停止する。`?websocketUrl=ws://127.0.0.1:8766`を使用する。
 host / port / public host contract は
 `docs/operations/websocket-host-port-contract.md` に固定する。
 

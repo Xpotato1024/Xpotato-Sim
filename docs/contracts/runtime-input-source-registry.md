@@ -393,4 +393,4 @@ representation変換だけを行い、Mapping operational parameterを所有し�
 
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`のXYZ操作はstick XY + analog trigger Zを使用する。
 取得session、trigger符号、表示は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
-旧XY/XZ切替は[Gamepad平面操作契約](gamepad-plane-control.md)の互換経路として残す。
+旧XY/XZ切替は退役した。[Gamepad平面操作契約](gamepad-plane-control.md)はhistorical記録であり、旧設定は拒否する。

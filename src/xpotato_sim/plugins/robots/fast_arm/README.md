@@ -30,6 +30,9 @@ loadし、simulatorを構築する。serial、OSC、robot hardwareはopenしな�
 
 ## compatibilityとcomposition
 
+#605で旧rootの9転送moduleと`diagnostics/`の3転送moduleを退役した。
+内部consumerは`adapter/`を直接importする。core、adapterの処理・resource・discoveryは維持する。
+
 Profile、Runtime Plugin、Bundle、registration identityとmodel / joint / resource contractを
 fail-closedで照合する。viewer declarationはrendering resourceを宣言するだけで、physical state、
 FK / IK、safety decisionを所有しない。

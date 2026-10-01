@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import xpotato_sim
 from xpotato_sim.runtime.composition.launch_profile import (
-    LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
+    LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA, decode_launch_profile,
 )
 from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
 
@@ -36,7 +36,7 @@ def test_shipped_profile_schema_and_legacy_configuration_digest(path):
     if raw["schema_version"] in (MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         # v2/v3を旧schemaへ単純置換し、モデル/scene選択を黙って落とす移行は拒否する。
         assert current.model is not None
-        old_schemas = (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA)
+        old_schemas = (LAUNCH_PROFILE_SCHEMA,)
         if raw["schema_version"] in (SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
             old_schemas += (MODEL_LAUNCH_PROFILE_SCHEMA,)
         if raw["schema_version"] == DYNAMIC_LAUNCH_PROFILE_SCHEMA:
@@ -45,14 +45,9 @@ def test_shipped_profile_schema_and_legacy_configuration_digest(path):
             old = {**raw, "schema_version": old_schema}
             with pytest.raises(ValueError, match="unknown fields"):
                 decode_launch_profile(json.dumps(old).encode(), source_path=path)
-    else:
-        raw["schema_version"] = LEGACY_LAUNCH_PROFILE_SCHEMA
-        legacy = decode_launch_profile(json.dumps(raw).encode(), source_path=path)
-        canonical = json.dumps(raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        assert legacy.document_json == canonical
-        assert legacy.configuration_sha256 == sha256(canonical.encode()).hexdigest()
-        assert legacy.to_dict()["resolved"] == current.to_dict()["resolved"]
-        assert legacy.to_dict()["resolved"]["physical_output"] == "disabled"
+    raw["schema_version"] = "selfrionette-launch-profile/v1"
+    with pytest.raises(ValueError, match="schema_version"):
+        decode_launch_profile(json.dumps(raw).encode(), source_path=path)
     raw["schema_version"] = "xpotato-sim-launch-profile/v999"
     with pytest.raises(ValueError, match="schema_version"):
         decode_launch_profile(json.dumps(raw).encode(), source_path=path)

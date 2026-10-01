@@ -1,50 +1,32 @@
+import assert from "node:assert/strict";
 import { readViewerEndpointConfig } from "../src/config/websocketEndpoint.js";
 
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) {
-    throw new Error(message);
-  }
+const canonical = readViewerEndpointConfig({ search: "?websocketUrl=ws://127.0.0.1:8766" });
+assert.equal(canonical.websocketUrl, "ws://127.0.0.1:8766");
+assert.equal(canonical.source, "query");
+assert.equal(canonical.error, undefined);
+
+for (const search of [
+  "?ws=ws://127.0.0.1:8766", "?ws=", "?ws", "?%77s=ws://127.0.0.1:8766",
+  "?websocketUrl=ws://127.0.0.1:8766&ws=ws://127.0.0.1:8767",
+  "?ws=&websocketUrl=ws://127.0.0.1:8766", "?ws=&ws=ws://127.0.0.1:8766",
+]) {
+  const rejected = readViewerEndpointConfig({ search });
+  assert.equal(rejected.websocketUrl, null, "旧指定では接続しない");
+  assert.equal(rejected.source, "rejected", "旧指定を未指定へ読み替えない");
+  assert.match(rejected.error ?? "", /廃止.*websocketUrl/, "退役理由と移行先を示す");
 }
 
-function testReadViewerEndpointConfigReadsWebsocketUrl(): void {
-  const config = readViewerEndpointConfig({
-    search: "?websocketUrl=ws://127.0.0.1:8766",
-  });
+const missing = readViewerEndpointConfig({ search: "" });
+assert.equal(missing.websocketUrl, null);
+assert.equal(missing.source, "disabled");
+assert.equal(missing.error, undefined, "本当に未指定なら静的Viewerを許可する");
 
-  assert(config.websocketUrl === "ws://127.0.0.1:8766", "websocketUrl should be read from query");
-  assert(config.source === "query", "source should be query when websocketUrl is present");
-}
+const malformed = readViewerEndpointConfig({ search: "?websocketUrl=not-a-websocket-url" });
+assert.equal(malformed.websocketUrl, null);
+assert.equal(malformed.source, "disabled");
 
-function testReadViewerEndpointConfigReadsWsAlias(): void {
-  const config = readViewerEndpointConfig({
-    search: "?ws=ws://127.0.0.1:8766",
-  });
-
-  assert(config.websocketUrl === "ws://127.0.0.1:8766", "ws alias should be supported");
-  assert(config.source === "query", "source should be query when ws alias is present");
-}
-
-function testReadViewerEndpointConfigDisablesWhenMissingQuery(): void {
-  const config = readViewerEndpointConfig({
-    search: "",
-  });
-
-  assert(config.websocketUrl === null, "missing query should disable connection");
-  assert(config.source === "disabled", "missing query should report disabled");
-}
-
-function testReadViewerEndpointConfigDisablesMalformedUrl(): void {
-  const config = readViewerEndpointConfig({
-    search: "?websocketUrl=not-a-websocket-url",
-  });
-
-  assert(config.websocketUrl === null, "malformed URL should be treated as disabled");
-  assert(config.source === "disabled", "malformed URL should be reported as disabled");
-}
-
-testReadViewerEndpointConfigReadsWebsocketUrl();
-testReadViewerEndpointConfigReadsWsAlias();
-testReadViewerEndpointConfigDisablesWhenMissingQuery();
-testReadViewerEndpointConfigDisablesMalformedUrl();
-
-console.log("websocket endpoint tests passed");
+const secure = readViewerEndpointConfig({ search: "?websocketUrl=wss://example.test/viewer" });
+assert.equal(secure.websocketUrl, "wss://example.test/viewer");
+assert.equal(secure.error, undefined);
+console.log("websocket endpoint and retired-query rejection tests passed");

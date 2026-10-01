@@ -13,7 +13,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
-from xpotato_sim.plugins.robots.fast_arm.endpoint import extract_fast_arm_tip_site_endpoint_from_state
+from xpotato_sim.plugins.robots.fast_arm.adapter.endpoint import extract_fast_arm_tip_site_endpoint_from_state
 from xpotato_sim.runtime.execution.input_step_loop import (
     build_runtime_input_source_step_loop_plan,
     run_runtime_input_source_step_loop,

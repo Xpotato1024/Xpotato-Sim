@@ -82,7 +82,7 @@ browser viewerはautomatic defaultではなく明示query parameterで接続す�
 ?websocketUrl=ws://127.0.0.1:8766
 ```
 
-`?ws=ws://127.0.0.1:8766`はaliasとして受理する。endpoint queryがない場合、viewerはdisconnectedのまま
+旧`?ws=`は退役エラーとなり、接続も静的Viewerの起動も行わない。`websocketUrl`を指定する。endpoint query自体がない場合、viewerはdisconnectedのまま
 `WebSocket: disabled`を表示する。viewer側のendpoint configurationとconnection status displayはpublisher runnerから分離する。
 
 viewerはHTTP server経由で開く。`file:///.../index.html`を直接開かない。browser module loadingは`file:` URLを

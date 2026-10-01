@@ -14,7 +14,7 @@ import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
 import "./workbench.css";
 import "../ui/operation.css";
-import {canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadMessages, preparationIsCurrent, type Preparation} from "./workbenchLifecycle.js";
+import {canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
@@ -82,7 +82,6 @@ export function WorkbenchApp() {
   useEffect(()=>{
     history.replaceState(null,"",location.pathname+location.search);
     let disposed=false;
-    const sampleInput=createWorkbenchGamepadMessages();
     const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:setState,onError:e=>setError(e.message)});
     renderer.current=r;
     // 明示再接続は状態照会だけ。claimもStartも自動送信しない。
@@ -170,22 +169,26 @@ export function WorkbenchApp() {
     const timer=window.setInterval(()=>{
       const s=current.current;
       setFrameStale(!!s && ["waiting_input","running"].includes(s.phase) && receivedAt.current!==null && performance.now()-receivedAt.current>1000);
-      if(!s || s.busy || !claimed.current || s.fixture_mode || !["waiting_input","running"].includes(s.phase) || !s.ticket) return;
-      const pads=document.hasFocus()?navigator.getGamepads():null;
-      const message=sampleInput(s.ticket.epoch,pads,performance.now()/1000);
-      const observed=browserGamepadDisplay(pads,performance.now());
-      const session=message?.metadata?.viewer_provider_session_id;
-      setRaw(observed&&typeof session==="string"?{...observed,sessionId:session}:null);
-      if(message===null) return;
-      send({op:"input",capability:capability.current,ticket:s.ticket,message:JSON.stringify(message)});
-    },40);
+    },100);
+    const gamepad=createWorkbenchGamepadLifecycle({window,document,getGamepads:()=>navigator.getGamepads(),
+      nowSeconds:()=>performance.now()/1000,
+      context:()=>{const s=current.current;return s?.ticket?{epoch:s.ticket.epoch,
+        enabled:!disposed&&!s.busy&&claimed.current&&!s.fixture_mode&&["waiting_input","running"].includes(s.phase)}:null;},
+      publish:(message,pads)=>{
+        const s=current.current;if(!s?.ticket) return;
+        const observed=browserGamepadDisplay(pads,performance.now());
+        const session=message.metadata?.viewer_provider_session_id;
+        setRaw(observed&&typeof session==="string"?{...observed,sessionId:session}:null);
+        send({op:"input",capability:capability.current,ticket:s.ticket,message:JSON.stringify(message)});
+      }});
+    gamepad.start();
     const reconnect=()=>connect();
     window.addEventListener("workbench-reconnect",reconnect);
     // 測定用projectionはsecretを含めず、renderer内部counterだけを公開する。
     (window as any).__workbenchCounters=()=>({...r.counters(),sockets:socket.current?.readyState===1?1:0,timers:1,
       pythonHeap:current.current?.python_heap,pythonRss:current.current?.rss_bytes,pythonPrivate:current.current?.private_bytes,
       nativeBuilds:current.current?.native_builds});
-    return ()=>{disposed=true;window.clearInterval(timer);window.removeEventListener("workbench-reconnect",reconnect);
+    return ()=>{disposed=true;gamepad.dispose();window.clearInterval(timer);window.removeEventListener("workbench-reconnect",reconnect);
       socket.current?.close();socket.current=null;r.dispose();delete (window as any).__workbenchCounters;};
   },[]);
   const active=!!status && ["waiting_input","running","finalizing"].includes(status.phase);

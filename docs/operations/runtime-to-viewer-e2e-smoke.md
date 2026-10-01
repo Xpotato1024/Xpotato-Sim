@@ -59,7 +59,7 @@ browser URL:
 http://127.0.0.1:5173/index.html?websocketUrl=ws://127.0.0.1:8766
 ```
 
-`?ws=ws://127.0.0.1:8766` は互換 alias である。`websocketUrl` と `ws` を混同しない。
+旧`?ws=`は退役エラーとして起動を停止する。`?websocketUrl=ws://127.0.0.1:8766`を使用する。
 viewer page URL と WebSocket endpoint URL は別である。host / port の詳細は
 `docs/operations/websocket-host-port-contract.md` を参照する。
 

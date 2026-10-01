@@ -11,6 +11,9 @@ related:
 
 現在仕様または反復運用の責務を終えた文書を、provenanceを維持して保存する。archive内の文書は
 historical / retired evidenceであり、current architecture、contract、operationのsource of truthとして扱わない。
+
+[Gamepad平面操作契約](historical/gamepad-plane-control.md)は#605で退役したhistorical記録である。
+過去リンクの所在を保持し、現行SoT Mapからは除外した。
 既存本文を現在仕様に合わせて改稿せず、必要な場合だけstatus、current SoTへの参照、retired注記を追加する。
 
 - `drafts/`: 未確定のまま終了したdraft

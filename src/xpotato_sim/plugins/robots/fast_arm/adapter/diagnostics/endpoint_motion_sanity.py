@@ -7,6 +7,8 @@ hardware I/Oを行わず、unavailable/rejected evidenceを推測値で補完し
 
 from __future__ import annotations
 
+from xpotato_sim.runtime.execution.command_routes import project_joint_position_command
+
 import asyncio
 import csv
 import json
@@ -1923,7 +1925,8 @@ def _run_fast_arm_endpoint_trajectory_case(
                 },
             )
         )
-        simulator.apply_command(command)
+        simulator.apply_joint_position_command(project_joint_position_command(command))
+        simulator.record_motion_command_envelope(command)
         error_message: str | None = None
         try:
             simulator.step(config.dt_s)
@@ -2186,7 +2189,8 @@ async def _run_fast_arm_endpoint_motion_sanity_case_async(
                 },
             )
 
-    pipeline.simulator.apply_command(command)
+    pipeline.simulator.apply_joint_position_command(project_joint_position_command(command))
+    pipeline.simulator.record_motion_command_envelope(command)
     final_state: MuJoCoState | None = None
     try:
         pipeline.simulator.step(config.dt_s)

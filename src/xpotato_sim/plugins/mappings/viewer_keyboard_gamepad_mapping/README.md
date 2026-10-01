@@ -68,22 +68,22 @@ activeなsampleで明示選択した軸が欠落すればrejectする。inactive
 
 ## 左右独立の1スティックXYZ操作
 
-平面切替とtriggerのbinding構造検証はplugin-local `_binding_validation.py`で共有する。
-軸の順序・符号・button制約とneutral待ち・session状態機械は各既存ownerで維持する。
+triggerのbinding構造検証はplugin-local `_binding_validation.py`が所有する。
+軸の順序・符号・button制約とneutral待ち・session状態機械はtrigger ownerで維持する。
 
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`とFastArmの標準Gamepad profileはstick XY + analog trigger Zを使用する。
 trigger量・bumper符号ラッチ・session・表示は[Gamepad trigger操作契約](../../../../../docs/contracts/gamepad-trigger-control.md)を参照する。
-旧XY/XZ切替は[Gamepad平面操作契約](../../../../../docs/contracts/gamepad-plane-control.md)の互換経路として残す。
+旧XY/XZ切替は退役し、`gamepad_plane_control`は明示拒否する。
 
 ## 複数手先へのtyped projection
 
 `map_coordinated_input` は明示side-to-endpoint bindingに従って左右の速度を型付き要求へ返す。
-旧single-endpoint入口と平面状態機械・正規化・ゲインを共有し、表示用metadataをcommandへ逆変換しない。
+single-endpoint入口とtrigger状態機械・正規化・ゲインを共有し、表示用metadataをcommandへ逆変換しない。
 [共同実行契約](../../../../../docs/contracts/coordinated-arm-runtime.md) を参照する。
 
 ## 双腕Viewer表示
 
-`latest_plane_presentation`はMapping sessionが計算した表示情報のcopyを返す。
+`latest_trigger_presentation`はMapping sessionが計算した表示情報のcopyを返す。
 `reset_coordinated_presentation`は未取得・fault時に中立待ち／速度ゼロの表示へ戻すだけで、
 新たな入力観測や運動指令を生成しない。共同入口のscopeは`coordinated`、single-endpoint入口は従来どおり。
 
@@ -91,5 +91,5 @@ trigger量・bumper符号ラッチ・session・表示は[Gamepad trigger操作�
 ## モデルと入力bindingの分離
 
 共通LaunchProfile/v2では、選択モデルの1〜2手先を`side_to_endpoint`で明示的に結ぶ。
-Mappingは肩姿勢・原型/鏡映・腕数ごとのIKを所有せず、共通の平面操作から名前付き要求を作る。
+Mappingは肩姿勢・原型/鏡映・腕数ごとのIKを所有せず、共通のtrigger操作から名前付き要求を作る。
 runtimeが表示へ`endpoint_bindings`を付け、未割当stickを稼働中の腕として表示しない。

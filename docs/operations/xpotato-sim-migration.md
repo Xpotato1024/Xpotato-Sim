@@ -41,7 +41,7 @@ Pythonのimportとモジュール指定には `xpotato_sim` を使用する。�
 ## 設定と記録の互換性
 
 新規の起動設定は `xpotato-sim-launch-profile/v1` を使用する。
-既存の `selfrionette-launch-profile/v1` も同じ厳密検証で読み込める。
+旧 `selfrionette-launch-profile/v1` は退役し、schema不一致として拒否する。現行の `xpotato-sim-launch-profile/v1`〜`v4`を使用し、読み込み時の暗黙変換は行わない。
 読込み時に元のschema値や設定を自動書換えしないため、旧設定のcanonical JSONとdigestは維持する。
 名称変更後に新規生成する成果物のrepository identityは新名とし、過去の成果物は書換えない。
 

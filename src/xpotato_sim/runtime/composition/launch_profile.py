@@ -33,7 +33,6 @@ LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v1"
 MODEL_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v2"
 SCENE_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v3"
 DYNAMIC_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v4"
-LEGACY_LAUNCH_PROFILE_SCHEMA = "selfrionette-launch-profile/v1"
 MAX_PROFILE_BYTES = 262144
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
 
@@ -216,7 +215,7 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if type(raw) is not dict:
         raise ValueError("profile must be a JSON object")
     schema = raw.get("schema_version")
-    if schema not in (LAUNCH_PROFILE_SCHEMA, LEGACY_LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
+    if schema not in (LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         raise ValueError("unsupported launch profile schema_version")
     model_fields = {"model", "coordination"} if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA) else set()
     if schema in (SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
@@ -293,7 +292,7 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         if factory is None:
             raise ValueError("named-endpoint execution requires a session Mapping")
         strategy = factory()
-        controls = {"gamepad_plane_control", "gamepad_trigger_control"} & set(mapping["parameters"])
+        controls = {"gamepad_trigger_control"} & set(mapping["parameters"])
         if not callable(getattr(strategy, "map_coordinated_input", None)) or len(controls) != 1:
             raise ValueError("Mapping does not support exactly one explicit named-endpoint Gamepad control")
         route = VersionedIdentity("coordinated_endpoint_velocity_to_joint_position", 1)

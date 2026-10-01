@@ -815,10 +815,6 @@ def test_runtime_step_order_publishes_annotated_state_before_viewer_rebase(monke
                 events.append("post_snapshot")
             return self.simulator.snapshot()
 
-        def apply_command(self, command):
-            events.append("apply")
-            return self.simulator.apply_command(command)
-
         def apply_joint_position_command(self, command):
             events.append("apply")
             return self.simulator.apply_joint_position_command(command)
