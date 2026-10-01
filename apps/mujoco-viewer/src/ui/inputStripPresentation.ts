@@ -45,3 +45,20 @@ export function inputAvailability(input:ProductViewerInputOverlayState|null,sele
   if (kind==="gamepad" && (input.gamepadStale===true || input.gamepadConnected===false)) return "stale / disconnected";
   return null;
 }
+
+/** backendが同一sampleで確定した符号とtrigger量。速度・力ではなく符号付き入力量。 */
+export function signedTriggerInput(input: ProductViewerInputOverlayState, side: "left" | "right"): number | null {
+  const control = input.gamepadTriggerControl;
+  if (!control || control.reason !== null || inputAvailability(input) !== null ||
+      input.motionStatus === "faulted" || input.motionStatus === "stopped") return null;
+  const assigned = control.outputScope === "coordinated" ? control.endpointBindings[side] : control.outputSide === side;
+  const item = control.sides[side];
+  if (!assigned || item.status !== "armed" || !Number.isFinite(item.triggerValue) ||
+      item.triggerValue < 0 || item.triggerValue > 1 || (item.zSign !== 1 && item.zSign !== -1)) return null;
+  return item.triggerValue === 0 ? 0 : item.triggerValue * item.zSign;
+}
+
+export function matchedGamepad(input: ProductViewerInputOverlayState | null, raw: BrowserGamepadDisplay | null): BrowserGamepadDisplay | null {
+  return input && raw && raw.id === input.gamepadId && raw.index === input.gamepadIndex &&
+    !!raw.sessionId && raw.sessionId === input.providerSessionId ? raw : null;
+}

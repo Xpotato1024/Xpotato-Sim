@@ -60,7 +60,13 @@ declare module "three" {
   export const NearestFilter: number;
   export const RepeatWrapping: number;
 
+  export class Box3 {
+    min: Vector3; max: Vector3;
+    isEmpty(): boolean; copy(box: Box3): this; union(box: Box3): this; applyMatrix4(matrix: Matrix4): this;
+  }
+
   export class BufferGeometry {
+    boundingBox: Box3 | null;
     setAttribute(name: string, attribute: BufferAttribute): this;
     setIndex(attribute: BufferAttribute): this;
     computeVertexNormals(): this;
@@ -213,6 +219,7 @@ declare module "three" {
   export class PerspectiveCamera extends Object3D {
     constructor(fov?: number, aspect?: number, near?: number, far?: number);
     aspect: number;
+    fov: number;
     updateProjectionMatrix(): void;
   }
   export class OrthographicCamera extends Object3D {

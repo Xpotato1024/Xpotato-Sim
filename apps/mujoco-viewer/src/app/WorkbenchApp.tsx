@@ -4,7 +4,7 @@ import {createInitialProductViewerState} from "../wasm-scene/productViewerState.
 import {SceneContactPanel} from "./SceneContactPanel.js";
 import {DynamicsPanel} from "./DynamicsPanel.js";
 import {JointInstruments} from "../ui/JointInstruments.js";
-import {InputStrip} from "../ui/InputStrip.js";
+import {InputStrip,GamepadDiagnosticDetails} from "../ui/InputStrip.js";
 import {browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
 import {SceneViewport,scenePanes} from "../ui/SceneViewport.js";
 import {jointRailGroups} from "../wasm-scene/jointPresentation.js";
@@ -247,7 +247,7 @@ export function WorkbenchApp() {
         onDiff={()=>editRequest("diff",{condition:edited})}/>
         {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
         <SceneContactPanel value={state.sceneContactPresentation} live={connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
-        <details><summary>入力・qpos診断</summary><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre></details>
+        <details><summary>入力・qpos診断</summary><GamepadDiagnosticDetails state={state} raw={raw} live={connected&&!!ready&&!frameStale&&status?.phase!=="terminal"}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre></details>
         <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
         </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>

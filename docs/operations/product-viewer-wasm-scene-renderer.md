@@ -161,10 +161,14 @@ Workbenchの停止要求を固定操作帯の右端に残す。多関節railだ�
 1000 ms超を表示上の更新停止とする。この閾値はbackendの入力staleやphysical safety gateではない。
 閉じた接続では最終受信値を表示中と明記する。invalid payloadをfresh/安全へ変換しない。
 
-カメラの斜め/正面/側面/上面/全体は、既にMuJoCoが算出したbody位置を使ってviewだけを変える。
-受信qposを編集・再計算せず、body範囲から算出する表示marginを可動域や安全clearanceと扱わない。
+カメラのpresetは既存の方向を維持する。初期表示と「フォーカス」は、native変換済みmeshの境界を
+画角とpane実寸に収める。受信qposを編集・再計算せず、表示marginを可動域や安全clearanceと扱わない。
 canvas実寸とResizeObserverでaspectを追従する。狭幅では計器workspaceの可読最低幅を保って区域scrollとし、canvasだけを歪めない。
-「全体」は現在の観察方向を保持し、「操作視点」はoperator presetへ戻す。いずれも入力写像を変更しない。
+「フォーカス」はbodyに属するRobot/物体へ寄せ、「全体」はworld直下の有限な支持台等も含める。
+無限平面・座標軸・接触矢印はframing境界へ入れない。両操作は現在の観察方向を保持し、
+「操作視点」はoperator方向へ戻してフォーカスする。カメラの初期化・明示操作以外で移動物体へ自動追従しない。
+対象が移動して外へ出た場合は明示的にフォーカスし直す。補助二面はfit時の境界を保持し、resize時に
+XY/YZの縦横比を満たす共通のY縮尺で表示する。床や支持台を描画から消す操作ではない。
 
 「入力取得を停止」はbrowser providerをdisposeする。これはlocalな取得停止であり、実機非常停止、
 backend session停止、即時physical stopの通知ではない。backend側は既存のneutral/stale契約に従う。
@@ -193,18 +197,23 @@ source不一致、stale/disconnectedでは以前の計器を消し、neutralへ�
 Gamepadはconnected=true・stale=false・zero_state=true、Keyboardはfocused・zero_state=true、
 かつsource_active=falseが揃う場合だけ、取得済みの中立sampleを表示する。timeout、不正、切断、
 blurredや根拠欠測はこの例外に含めない。backendのhealth分類や入力の有効化を変更するものではない。
-GamepadはZ(L)/左stick XY/右stick XY/Z(R)とread-only button状態を横帯に表示する。
-既存pollerが取得した同じbrowser sampleからmapping="standard"とshape/値を確認できた場合だけLT/RT、LB/RB、
-A/B/X/Y、D-pad、Back/Startの物理名称を使う。不明・非standard・malformedはgeneric indexと理由を表示する。
-browser rawとbackend applied frameは別sampleとして時刻・frameを表示する。既存poller以外の取得・heartbeatは追加しない。
-backendのtrigger control metadataからendpoint binding・z_sign・arming状態を読み、bumper現在押下からラッチを再計算しない。
+Gamepadの操作帯v1.1は **左Z / 左XY / 右XY / 右Z** の4計器だけを中央揃えする。
+XYは取得座標の2D表示、Zは中央0・正が上・負が下の縦バー（表示範囲-1..1）である。
+Zは同一backend sampleの`trigger_value × z_sign`を表示する。これは確定符号付き入力量であり、
+deadzone後の速度や接触力ではない。browserの最新triggerと古いbackend符号を掛け合わせず、
+bumper押下から符号を再計算しない。reasonなし・armed・対象sideへの割当が確認できる場合だけ表示し、
+未割当・確定待ち・不正・失効では0を補完せず`—`とする。中立の取得値0は中央として示す。
+ボタン押下、LT/RT・LB/RBのraw値、index、session/sequence、endpoint割当の詳細はSetupの診断へ退避する。
+既存pollerのbrowser sampleからmapping="standard"・shape・値・provider sessionを確認した場合のみ
+左右stickの物理名称を使う。不明・非standardは元のA0/A1等のindexを示し、Zを推測しない。
+生入力とbackend確定値の出所は区別し、表示部品に新しい取得・heartbeat・送信・Mappingは追加しない。
 Gamepadは取得されたaxesの順序を保ち、
 不正な軸をfilterして番号を詰め直さず、配列全体を計器表示から除外する。不正buttonを未押下へ変換しない。
 Selfrionetteは`input_signal_v1`を検証して生の7chを示す。単位・指との対応・力への換算は未校正と明記する。
 バーは同一sample内の相対比で、表示scaleを併記する。異なる時刻の絶対振幅比較は生値で行う。
 Keyboardはbackendが記録した押下キーとfocus状態を示す。staleの表示は既存backend診断から導出する。
 key state未取得を未押下へ補完しない。SelfrionetteはCH1..CH7のraw unit・未校正、同一sample内の相対比を明記し、
-指名・力N・左右bindingを推測しない。Input stripの高さ予算は全sourceで共通104pxとする。1366×768の実表示で96pxでは凡例が溢れたため、compactも104pxを確保する。
+指名・力N・左右bindingを推測しない。Input stripはv1.1でボタン列と常設の詳細凡例を退避し、全source共通100pxを使う。
 raw signalのsource、sample schema、source時刻、値は詳細診断へ残す。wire仕様の正本は
 [transport payload契約](../contracts/transport-payload.md)である。
 
@@ -239,6 +248,8 @@ MjvGeomのprimitive名を取得できない場合でも、材質cacheはnative R
 ## Single/Assistと関節rail
 
 初回Single、明示Assistを同じapp sessionで保持する。Assistは自由視点と上下2段の補助正投影を表示する。
+v1.1では自由視点:Assist列を2:1（補助幅の下限280px、従来の320px上限なし）とし、補助二面を等高にする。
+領域の区切りは1pxへ統一し、左右railは入力帯の底まで連続させる。計器をsceneへ重ねない。
 上面はXY、+Zから-Z、screen-right=+Y、screen-down=+X（up=-X）。正面はYZ、+Xから-X、
 screen-right=+Y、screen-up=+Z。旧front=XZ/side=YZ/topのpresetは互換のまま、assist cameraは別identityとする。
 一つのrenderer/canvas/sceneでviewport/scissorを使い、headerをscene矩形から除外する。

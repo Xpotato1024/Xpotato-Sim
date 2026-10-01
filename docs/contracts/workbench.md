@@ -22,7 +22,10 @@ waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効�
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
-主cameraのposition/targetは切替で変更せず、補助のcenter/scaleは初期または明示fitで決める。
+主cameraのposition/targetは切替で変更せず、補助のcenterと対象境界は初期または明示fitで決める。
+v1.1は主視点:補助列を2:1に拡げ、1pxの境界と入力帯まで続く左右railへ整理する。
+Gamepad操作帯は中央の左Z/左XY/右XY/右Zのみ。Zは確定符号付き入力量の縦バー、ボタン詳細はSetupに置く。
+初期画角とフォーカスはnative変換済みgeometryへ合わせる。表示のためにmodelやphysicsを複製しない。
 「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象を収める。Workbenchの初期cameraはoperatorとする。
 停止要求は開始とは別の操作帯右端に置き、確認modalを使わない。停止要求中、停止確認・保存済み、保存中、記録失敗を区別する。
 停止はsimulationの操作であり実機非常停止ではない。障害・記録失敗の明示復旧契約は以下の従来手順を維持する。

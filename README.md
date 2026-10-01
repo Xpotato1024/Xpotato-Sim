@@ -40,6 +40,15 @@ Workbenchは未選択・無入力・無physics stepで待機します。`--open-
 
 入力計器はGamepad／キーボード／Selfrionette／genericの共通表示枠です。**Workbenchの実行Sourceは引き続きGamepadのみ**で、表示対応だけでは別deviceを接続できるようにはなりません。Selfrionetteの7chは未校正rawで、指やNへの対応を推測しません。詳細は[Viewer表示契約](docs/operations/product-viewer-wasm-scene-renderer.md)を参照してください。
 
+### 操作画面の見方
+
+Assistは自由視点と上面・正面を2:1で配分します。「フォーカス」は観察方向を保ってRobotと物体へ寄せ、
+「全体」は有限の支持台なども含めます。「操作視点」は固定operator方向へ戻ります。移動中の自動追従はしません。
+Gamepad入力帯は中央の **左Z・左XY・右XY・右Z** のみです。Zは中央0から上が正、下が負の縦バーで、
+backendが同じsampleで確定した符号付きtrigger量を表します。速度・力の表示ではありません。
+ボタン押下やraw indexは設定画面の入力診断に残します。Selfrionette・Keyboardの既存表示も維持しますが、
+これらをWorkbenchの実行入力へ追加したわけではありません。
+
 ## 条件をheadlessで再現する
 
 exportしたfileを、次のコマンドが使用する`$env:LOCALAPPDATA/Xpotato-Sim/condition.json`へ保存します。fixtureは同梱の短いsoftware検証入力です。GUIでも`--fixture`に同じfileを指定すれば、同じ展開条件・有限予算から実効condition/model/scene/dynamics identityを再現できます。これは参加者や実Gamepadの結果ではありません。

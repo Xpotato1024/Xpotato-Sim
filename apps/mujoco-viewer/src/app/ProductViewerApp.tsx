@@ -35,7 +35,7 @@ import { describeWorkbenchConnection, formatWorkbenchAge } from "./workbenchPres
 import { createPresentationCadence, presentationCriticalKey } from "./presentationCadence.js";
 import { JointInstruments } from "../ui/JointInstruments.js";
 import { InputInstruments } from "../ui/InputInstruments.js";
-import {InputStrip} from "../ui/InputStrip.js";
+import {InputStrip,GamepadDiagnosticDetails} from "../ui/InputStrip.js";
 import {browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
 import {SceneViewport,scenePanes} from "../ui/SceneViewport.js";
 import {jointRailGroups} from "../wasm-scene/jointPresentation.js";
@@ -496,7 +496,7 @@ export function ProductViewerApp() {
       </div>
       <details className="workbench-diagnostics" ref={diagnosticsRef} hidden={screen!=="setup"}>
         <summary>詳細診断<span>model / payload / contact / input</span></summary>
-        <div className="diagnostics-body">
+        <div className="diagnostics-body"><GamepadDiagnosticDetails state={state} raw={raw} live={state.connectionStatus==="disabled"||connection.tone==="positive"}/>
           <div className="diagnostic-snapshot-bar">
             <button type="button" data-testid="diagnostic-snapshot" aria-pressed={diagnosticSnapshot !== null}
               onClick={() => setDiagnosticSnapshot(diagnosticSnapshot === null

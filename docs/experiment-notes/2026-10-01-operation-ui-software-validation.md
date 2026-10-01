@@ -92,3 +92,34 @@ renderedPaneCountだけが1から3になることを照合した。長期リー�
 証拠は当該taskの`finish/input-live-v3`、表示修正の対照は`finish/accepted-browser`に保持する。
 `finish/viewer-dist`は検証した固定buildであり、ソース・buildのhashをmanifestへ保存する。
 既存の実device・実200%zoom・研究feedback freeze等の未達範囲は、このsoftware受入で置換しない。
+
+## v1.1: Assist拡大・集中した入力帯・geometry framing
+
+利用者の実操作スクリーンショットと追加指示に基づき、初期head `1ca3bb9613309ec2d23aed6a8b9bc1d796961fc5`
+から表示だけを修正した。通常のnpm test全30 entry、型検査、production buildが成功した。
+Z符号は同一backend sampleのtrigger量と確定符号を使用し、元のボタン押下表示の検証は診断componentへ移した。
+そのうえで、主入力帯にボタンが存在しないこと、正負のZ縦バー、未割当・waiting・失効の欠測を追加検査した。
+geometry framingは実mesh境界・画角・aspectを使い、並進、正負方向、狭いaspect、非finite/不正境界をpure testで確認した。
+
+同じ固定buildをWindows / Chromium 149 / Intel UHD Graphics 630（ANGLE D3D11）で検証した。
+1440×900、1366×768、1920×1080で、主:補助幅2:1、補助二面の同高（1px以内）、
+境界1px、railと入力帯の下端一致、入力4計器の中央位置（中心差1px未満）、page/入力帯scrollなしをDOMでassertした。
+画像で補助viewとRobotの拡大、関節/入力計器がsceneを覆わないことも確認した。
+「全体」より「フォーカス」でカメラ距離が短くなり、どちらも観察方向を保持すること、
+主paneのdrag、補助paneの非干渉、Single/Assist往復のcamera保持を実pointerで確認した。
+
+合成standard Gamepadを既存40ms poll→backend→MuJoCo→rendererへ通した。
+中立0、両側+0.2、trigger保持中のLB/RB押下後も+0.2、trigger解放時0、再押下時-0.2を、
+Z計器の同一表示値で検査した。現bumperを直接Z符号へ読み替えていない。ボタン列は主入力帯にない。
+切断時はXY点/Z塗りを消し、同条件の明示retryと中立待ちからのSTOPも成功した。
+WASM module/model/data、描画資産、OrbitControls、rAF、socket、入力timerの所有数は表示変更で増えていない。
+
+別の同build検証で、従来Viewerの既存payload consumerへGamepad generic、Keyboard、Selfrionette、unknown、staleを投入し、
+KeyW押下/KeyS非押下、CH1..CH7=[1,2,3,-2,0,4,5]の実値を再確認した。Gamepad未標準時に物理名やZ値を補完しない。
+さらに左単腕、右単腕、双腕、dynamic-cube-pushのprofileを同じWorkbenchで準備し、関節rail数1/1/2/2、
+角度計数4/4/8/8、scene準備、焦点合わせを確認した。モデルごとの別rendererは追加していない。
+
+証拠は当該taskの`v11/browser`と`v11/sources`のJSON/PNG、`v11/unit-build.log`、source/build manifestである。
+これは合成入力によるsoftware受入であり、実device/参加者の操作性、全障害状態、実200%zoomの受入ではない。
+v1.0の遅延測定値をv1.1の測定値として再掲しない。カメラはfit時の境界を保持し、移動して範囲外へ出た物体は自動追従しない。
+Quad・研究表示freeze・非公開feedback policyの未達範囲は維持する。

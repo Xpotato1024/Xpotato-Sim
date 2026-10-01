@@ -8,6 +8,7 @@ import {
   ArrowHelper,
   AxesHelper,
   BoxGeometry,
+  Box3,
   BufferGeometry,
   Color,
   CylinderGeometry,
@@ -82,6 +83,7 @@ import { createAsyncResourceLifetime } from "./asyncResourceLifetime.js";
 
 import { validateCompiledSceneLayout } from "../robot-profiles/sceneStateLayout.js";
 import { decodeJointDisplayLayout } from "./jointPresentation.js";
+import { boundsCenter, perspectiveBoundsFit, orthographicHalfWidth, type DisplayBounds } from "./sceneFraming.js";
 import { cameraPresentation, type CameraView } from "./cameraPresentation.js";
 import { assistPose, scissorRect, type ScenePane } from "./viewportPresentation.js";
 
@@ -105,7 +107,7 @@ export interface MujocoSceneRenderer {
   invalidateWorkbench(): void;
   counters(): Record<string, number|null>;
   applyOfflinePayload(payload: TransportPayloadV0): void;
-  setCameraView(view: CameraView | "fit"): void;
+  setCameraView(view: CameraView | "fit" | "focus"): void;
   start(): Promise<void>;
   setContactTaskPresentation(
     presentation: ContactTaskPresentationV1,
@@ -227,13 +229,14 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   const topCamera = new OrthographicCamera(-1,1,1,-1,0.01,100);
   const frontCamera = new OrthographicCamera(-1,1,1,-1,0.01,100);
   let assistExtent = 1;
+  let assistBounds: DisplayBounds | null = null;
   const fitAssist = (): void => {
-    if (!data) return;
-    const framing=cameraPresentation(data.xpos,"iso");
-    if (!framing) return;
-    assistExtent=Math.max(.45, Math.hypot(...framing.position.map((v,i)=>v-framing.target[i]))/2);
+    assistBounds = displayBounds(true);
+    const center = assistBounds && boundsCenter(assistBounds);
+    if (!center) return;
+    assistExtent = Math.max(0.05,...assistBounds!.max.map((v,i)=>v-assistBounds!.min[i]));
     for (const [view,cam] of [["assist-top",topCamera],["assist-front",frontCamera]] as const) {
-      const pose=assistPose(framing.target,assistExtent,view);
+      const pose=assistPose(center,assistExtent,view);
       cam.position.set(...pose.position as [number,number,number]);
       cam.up.set(...pose.up as [number,number,number]);
       cam.lookAt(...pose.target as [number,number,number]);
@@ -259,6 +262,23 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   const meshGeometryCache = new Map<number, BufferGeometry>();
   const objectByGeomIndex = new Map<number, Mesh>();
   const materialByKey = new Map<string, MeshPhongMaterial>();
+  // native由来のmesh変換だけを使用。床面/軸/接触矢印をboundsへ入れず、model原点へ引き寄せない。
+  const displayBounds = (focus: boolean): DisplayBounds | null => {
+    const all = new Box3(), working = new Box3();
+    for (const mesh of objectByGeomIndex.values()) {
+      if (mesh.userData.worldPlane === true) continue;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      if (!mesh.geometry.boundingBox) continue;
+      const box = new Box3().copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrix);
+      if (![box.min.x,box.min.y,box.min.z,box.max.x,box.max.y,box.max.z].every(Number.isFinite)) continue;
+      all.union(box);
+      // bodyに属するRobotと物体を優先。world直下の固定支持台は「全体」で含める。
+      if (typeof mesh.userData.nativeBodyId === "number" && mesh.userData.nativeBodyId > 0) working.union(box);
+    }
+    const box = focus && !working.isEmpty() ? working : all;
+    return box.isEmpty() ? null : {min:[box.min.x,box.min.y,box.min.z],max:[box.max.x,box.max.y,box.max.z]};
+  };
+
   const floorTexture = createCheckerFloorTexture();
   const floorMaterial = new MeshPhongMaterial({
     color: new Color("#d4d4d8"),
@@ -588,6 +608,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         }
 
         mesh = new Mesh(geometry, getMaterialForGeom(geom, sourceGeom));
+        mesh.userData.worldPlane = geom.type === mujocoApi.mjtGeom.mjGEOM_PLANE.value;
+        mesh.userData.nativeBodyId = geom.objtype === mujocoApi.mjtObj.mjOBJ_GEOM.value
+          ? Number(model.geom_bodyid[geom.objid]) : null;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         objectByGeomIndex.set(geomIndex, mesh);
@@ -710,22 +733,24 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   };
 
   let selectedCameraView: CameraView = options.initialCameraView ?? "iso";
-  const setCameraView = (view: CameraView | "fit"): void => {
-    if (view !== "fit") selectedCameraView = view;
+  const setCameraView = (view: CameraView | "fit" | "focus"): void => {
+    if (view !== "fit" && view !== "focus") selectedCameraView = view;
     if (!data) return;
-    const framing = cameraPresentation(data.xpos, selectedCameraView);
-    if (framing === null) return;
-    const offset = [camera.position.x-controls.target.x, camera.position.y-controls.target.y, camera.position.z-controls.target.z];
-    const length = Math.hypot(...offset);
-    if (view === "fit" && length > 0) {
-      // 全体表示は観察方向を保つ。presetへ戻す操作とは分離する。
-      const distance = Math.hypot(...framing.position.map((value,index)=>value-framing.target[index]));
-      camera.position.set(...framing.target.map((value,index)=>value+offset[index]*distance/length) as [number,number,number]);
-    } else {
-      camera.position.set(...framing.position);
-      camera.up.set(...framing.up);
-    }
-    controls.target.set(...framing.target);
+    const legacy = cameraPresentation(data.xpos, selectedCameraView);
+    if (!legacy) return;
+    const keepDirection = view === "fit" || view === "focus";
+    const offset = keepDirection
+      ? [camera.position.x-controls.target.x,camera.position.y-controls.target.y,camera.position.z-controls.target.z]
+      : legacy.position.map((v,i)=>v-legacy.target[i]);
+    const up = keepDirection ? [camera.up.x,camera.up.y,camera.up.z] : legacy.up;
+    const pane = options.getScenePanes?.().find(p=>p.id==="main");
+    const aspect = pane && pane.width>0 && pane.height>0 ? pane.width/pane.height : camera.aspect;
+    const bounds = displayBounds(view !== "fit");
+    const fit = bounds && perspectiveBoundsFit(bounds,offset,up,aspect,camera.fov,view==="fit"?1.3:1.18);
+    if (!fit) return;
+    camera.position.set(...fit.position);
+    camera.up.set(...up as [number,number,number]);
+    controls.target.set(...fit.target);
     controls.update();
     fitAssist();
   };
@@ -766,6 +791,10 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       renderer.clear();
       renderer.autoClear=false;
       renderer.setScissorTest(true);
+      const topPane=panes.find(p=>p.id==="assist-top"), frontPane=panes.find(p=>p.id==="assist-front");
+      if (assistBounds && topPane && frontPane && topPane.height>0 && frontPane.height>0) {
+        assistExtent=orthographicHalfWidth(assistBounds,topPane.width/topPane.height,frontPane.width/frontPane.height) ?? assistExtent;
+      }
       for (const pane of panes) {
         if (pane.width<=0 || pane.height<=0) continue;
         const rect=scissorRect(pane,options.canvas.clientHeight);

@@ -1,9 +1,10 @@
+import {boundsCenter,perspectiveBoundsFit,orthographicHalfWidth} from "../src/wasm-scene/sceneFraming.js";
 import assert from "node:assert/strict";
 import {renderToStaticMarkup} from "react-dom/server";
 import {angleNeedle,angleSector,angleLabel,jointRailGroups,decodeJointDisplayLayout} from "../src/wasm-scene/jointPresentation.js";
 import {assistPose,relativePane,scissorRect} from "../src/wasm-scene/viewportPresentation.js";
-import {inputKind,inputAvailability,standardGamepad,browserGamepadDisplay} from "../src/ui/inputStripPresentation.js";
-import {InputStrip} from "../src/ui/InputStrip.js";
+import {inputKind,inputAvailability,standardGamepad,browserGamepadDisplay,signedTriggerInput} from "../src/ui/inputStripPresentation.js";
+import {InputStrip,GamepadDiagnosticDetails} from "../src/ui/InputStrip.js";
 import {JointInstruments} from "../src/ui/JointInstruments.js";
 import {createInitialProductViewerState,buildProductViewerInputOverlayState} from "../src/wasm-scene/productViewerState.js";
 
@@ -57,7 +58,10 @@ const side={status:'armed' as const,zSign:1 as const,triggerValue:.8,triggerButt
 const latched={...input,gamepadTriggerControl:{outputScope:'coordinated' as const,outputSide:null,endpointBindings:{left:'left',right:'right'},reason:null,sides:{left:side,right:{...side,triggerButton:7,signButton:5}}}};
 const bumperRaw={...raw,buttons:raw.buttons.map((b,i)=>i===4?{pressed:true,value:1}:i===6?{pressed:true,value:.8}:b)};
 const latchMarkup=renderToStaticMarkup(<InputStrip state={{...state,inputOverlay:latched}} raw={bumperRaw}/>);
-assert.match(latchMarkup,/LB 押下/);assert.match(latchMarkup,/適用 \+Z/);assert.doesNotMatch(latchMarkup,/適用 -Z/);
+assert.doesNotMatch(latchMarkup,/LB 押下|strip-buttons/);
+assert.match(latchMarkup,/data-signed-value="0.8"/);
+const latchDetails=renderToStaticMarkup(<GamepadDiagnosticDetails state={{...state,inputOverlay:latched}} raw={bumperRaw}/>);
+assert.match(latchDetails,/LB 押下/);assert.match(latchDetails,/適用 \+Z/);assert.doesNotMatch(latchDetails,/適用 -Z/);
 assert.equal(standardGamepad({...raw,axes:[NaN,0,0,0]}),false);
 assert.equal(standardGamepad({...raw,buttons:raw.buttons.map((b,i)=>i===0?{pressed:false,value:Infinity}:b)}),false);
 console.log('operation projection: angles, address/epoch, named rails, cameras, sources, standard denial and stale PASS');
@@ -91,3 +95,46 @@ assert.ok(inputAvailability({...neutralKeyboard,keyboardFocusState:'blurred'}));
 assert.ok(inputAvailability({...neutralKeyboard,keyboardZeroState:null}));
 assert.ok(inputAvailability({...neutralKeyboard,staleReason:'invalid_viewer_control_message'}));
 console.log('neutral source samples remain visible; disconnected, blurred and timed-out samples stay invalid');
+
+// v1.1: Zは同一backend sampleの確定符号付きtrigger量。rawでラッチを再解釈しない。
+assert.equal(signedTriggerInput(latched,'left'),.8);
+const negative={...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,sides:{...latched.gamepadTriggerControl.sides,left:{...side,zSign:-1 as const}}}};
+assert.equal(signedTriggerInput(negative,'left'),-.8);
+const negativeMarkup=renderToStaticMarkup(<InputStrip state={{...state,inputOverlay:negative}} raw={bumperRaw}/>);
+assert.match(negativeMarkup,/data-signed-value="-0.8"/);
+assert.doesNotMatch(negativeMarkup,/strip-buttons|LB 押下|Back|Start|B6 raw/);
+for (const changed of [
+  {...latched,staleReason:'timeout'},
+  {...latched,gamepadTriggerControl:null},
+  {...latched,motionStatus:'stopped'},
+  {...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,reason:'invalid'}},
+  {...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,endpointBindings:{right:'right'}}},
+  {...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,sides:{...latched.gamepadTriggerControl.sides,left:{...side,status:'waiting_trigger_neutral' as const}}}},
+]) assert.equal(signedTriggerInput(changed,'left'),null);
+assert.equal(signedTriggerInput({...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,sides:{...latched.gamepadTriggerControl.sides,left:{...side,triggerValue:0}}}},'left'),0);
+assert.equal(signedTriggerInput({...latched,gamepadTriggerControl:{...latched.gamepadTriggerControl,outputScope:'single_endpoint',outputSide:'right'}},'left'),null);
+const noDirection=renderToStaticMarkup(<InputStrip state={{...state,inputOverlay:input}} raw={raw}/>);
+assert.match(noDirection,/data-signed-value=""/);assert.doesNotMatch(noDirection,/data-signed-value="0"/);
+console.log('signed vertical Z, diagnostic-only buttons and unknown values PASS');
+
+// 表示geometryの画角検査。物理modelの可動域を仮定しない。
+const bounds={min:[-1,-.5,-.1] as [number,number,number],max:[1,.5,.1] as [number,number,number]};
+assert.deepEqual(boundsCenter(bounds),[0,0,0]);
+const fit=perspectiveBoundsFit(bounds,[0,0,1],[0,1,0],2)!;
+assert.ok(Math.abs(fit.distance-(.1+1.18*.5/Math.tan(Math.PI/8)))<1e-12);
+assert.deepEqual(fit.position,[0,0,fit.distance]);
+const narrowFit=perspectiveBoundsFit(bounds,[0,0,1],[0,1,0],.5)!;
+assert.ok(narrowFit.distance>fit.distance);
+assert.equal(perspectiveBoundsFit(bounds,[0,0,0],[0,1,0],1),null);
+assert.equal(perspectiveBoundsFit(bounds,[0,0,1],[0,0,1],1),null);
+assert.equal(perspectiveBoundsFit(bounds,[0,0,1],[0,1,0],0),null);
+assert.equal(boundsCenter({min:[NaN,0,0],max:[1,1,1]}),null);
+assert.equal(boundsCenter({min:[2,0,0],max:[1,1,1]}),null);
+assert.equal(orthographicHalfWidth(bounds,1,1),1.18);
+assert.equal(orthographicHalfWidth(bounds,2,1),2.36);
+assert.equal(orthographicHalfWidth(bounds,0,1),null);
+const shifted={min:[9,19.5,29.9] as [number,number,number],max:[11,20.5,30.1] as [number,number,number]};
+assert.deepEqual(boundsCenter(shifted),[10,20,30]);
+const reverse=perspectiveBoundsFit(shifted,[0,0,-1],[0,1,0],2)!;
+assert.ok(reverse.position[2]<30);assert.ok(Math.abs(reverse.distance-fit.distance)<1e-12);
+console.log('geometry-aware perspective/orthographic fit, aspect and direction preservation PASS');
