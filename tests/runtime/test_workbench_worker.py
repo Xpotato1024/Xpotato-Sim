@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from xpotato_sim.runtime.runners.workbench import execution_worker
+from xpotato_sim.runtime.application.workbench_worker import execution_worker
 
 
 @pytest.mark.parametrize("diagnostic", [False, True])
@@ -90,7 +90,7 @@ def test_worker_explicit_prepare_recovers_after_discard_or_reset_failure(tmp_pat
 def test_worker_retry_reuses_prepared_assets_after_terminal_or_stop(tmp_path, monkeypatch, operator_stop):
     """実workerのretryは空directoryを要求するasset writerを呼び直さない。"""
     from pathlib import Path
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     now = [10.0]
     events = []
@@ -138,7 +138,7 @@ def test_worker_retry_reuses_prepared_assets_after_terminal_or_stop(tmp_path, mo
 @pytest.mark.parametrize("failure", ["start.json", "terminal.json"])
 def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_path, monkeypatch, failure):
     from pathlib import Path
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     from xpotato_sim.runtime.experiment.trial_record import TrialRecorder
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
@@ -193,7 +193,7 @@ def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypat
                 None, None, {"op": "close"}]
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
     # 時計を進めなくてもprepare/reprepareの新しいticketは即座に公開される。
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.monotonic", lambda: 10.)
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.monotonic", lambda: 10.)
     class Wire:
         def __enter__(self): return self
         def __exit__(self, *args): pass

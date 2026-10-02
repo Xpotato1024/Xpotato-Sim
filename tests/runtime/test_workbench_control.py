@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from xpotato_sim.runtime.runners.workbench import WorkbenchControl, Peer, decode_request, profile_catalog
+from xpotato_sim.runtime.application.workbench_control import WorkbenchControl, decode_request, profile_catalog
+from xpotato_sim.runtime.application.workbench_service import Peer
 
 
 KEY = "ephemeral-test-capability-not-a-real-secret"

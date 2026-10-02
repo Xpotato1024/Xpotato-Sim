@@ -6,7 +6,7 @@ import socket
 import pytest
 from websockets.asyncio.client import connect
 
-from xpotato_sim.runtime.runners.workbench import serve_workbench
+from xpotato_sim.runtime.application.workbench_service import serve_workbench
 from xpotato_sim.runtime.runners.workbench_web import build_asset_allowlist
 
 
@@ -105,7 +105,8 @@ def test_terminal_input_and_worker_rejection_preserve_authoritative_reason(tmp_p
 def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usable(tmp_path,monkeypatch):
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
     now=[10.]
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.monotonic",lambda:now[0])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.monotonic",lambda:now[0])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_control.monotonic",lambda:now[0])
     async def scenario():
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1",0));port=reservation.getsockname()[1]
@@ -150,7 +151,7 @@ def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usab
 
 @pytest.mark.parametrize("disconnect", [False, True])
 def test_stop_during_prepare_survives_old_completion_and_status(tmp_path, monkeypatch, disconnect):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog",
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog",
                         lambda: [{"id": "known", "available": True}])
 
     async def scenario():
@@ -222,7 +223,7 @@ def test_static_mode_requires_real_referenced_build_assets(tmp_path):
 
 
 def test_untrusted_peer_cannot_stop_owner_and_private_frame_exceeds_command_cap(tmp_path, monkeypatch, caplog):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog", lambda: [])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog", lambda: [])
 
     async def scenario():
         with socket.socket() as reservation:
@@ -271,7 +272,7 @@ def test_untrusted_peer_cannot_stop_owner_and_private_frame_exceeds_command_cap(
 
 
 def test_run_once_prepare_error_finishes_without_hanging(tmp_path, monkeypatch):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog",
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog",
                         lambda: [{"id": "known", "available": True}])
 
     async def scenario():

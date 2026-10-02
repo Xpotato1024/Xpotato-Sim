@@ -201,7 +201,7 @@ def test_deferred_tick_still_enforces_wall_budget(tmp_path):
 @pytest.mark.parametrize("backlog_count", [15, 65])
 def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatch, stop_queued, backlog_count):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     now = [10.]
     events = []
     commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "fast-arm-bimanual-gamepad"},
@@ -279,7 +279,7 @@ def _stalled_worker_process(url, config, stall, position, injected):
     """native実行ownerを専用processへ隔離し、親から期限付きで終了可能にする。"""
     from time import sleep
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    from xpotato_sim.runtime.runners.workbench import execution_worker
+    from xpotato_sim.runtime.application.workbench_worker import execution_worker
     original = TrialRunner.advance
     def advance(runner, ticket, **kwargs):
         inject = runner.tick_count == 5 and not injected.is_set()
@@ -490,7 +490,7 @@ def test_actual_worker_missing_close_is_bounded(tmp_path, monkeypatch):
 @pytest.mark.parametrize("limit", ["wall", "input_wait"])
 def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch, limit):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     now, runners, events, bursts = [10.], [], [], [0]
     commands = [{"op": "prepare", "id": "p", "generation": 1,
                  "profile_id": "fast-arm-bimanual-gamepad"},
