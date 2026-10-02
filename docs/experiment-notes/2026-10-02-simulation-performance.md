@@ -244,3 +244,35 @@ pause時間、wall budget、結果の無効性と探索操作の継続を明示�
 中立自身のreceiptを保持し、neutral age .31秒/latest age .01秒の親probeは`waiting_neutral`となった。新しい中立を取得した後だけ起動する。64件batchが連続してもwall/input-wait監督を通し、終端後のbatchも全件ticket/valid late messageを検査する。STOP/close取消と通常late入力を区別する。receipt gapは診断に留め、元のnow−latest receipt gateを維持する。
 
 同じworker wire/clockでbaseは15件backlogの最初のreceipt 10.060秒をtick 10.263秒に使って203ms stale停止、修正版はsequence 15まで消費して1tick進行した。実WebSocket・実MuJoCoで60Hzの合成入力3,661件を61秒供給し、worker ownerだけ700ms停止した試験は3,545tick、processed sequence 3,660で明示STOPまで継続した。190/250/700msのadvance前後6ケース、連続64件batchの両監督、65件境界STOP/close、不正なlate後続入力も検証した。元のユーザー実行環境・実Gamepadは未再現である。前回のViewer/buildと実接触・trigger/中立/STOP/disconnect証拠は変更影響がない範囲で再利用する。詳細結果とsource identityは今回のhandoffに残す。
+
+### #610 main CI失敗後の境界追試
+
+基点`e303e4ab0dfc79d83143691fe51ae3b5f6da8def`のmain CIは、61秒試験のsimulation 53.1秒時点で
+receipt 172.024670785 / now 172.234989、age 0.210318秒となり失敗した。
+直前receipt間隔だけではその後の継続供給を証明できず、元runのproducer gapが未記録のため原因の寄与は未確定である。
+
+実MuJoCoの決定的clock試験で、advance入口のdrain後・source read後・clock評価時の各210ms停止を注入し、
+後続fresh入力をqueueに置くと、基点はdrain後とclock評価時には誤って終端へ落ちた。source read後では古いnowで1tick進めてしまい、延期を要求する回帰条件に失敗した。fault前の一度だけの再確認により、
+3条件ともphysicsを延期し、次advanceで最新sequenceを使って1tickだけ進んだ。
+空queueの201ms staleはstrictな無効終了、deferred制御は積分せずSTOPへ戻ることも検証した。
+
+harnessはfixture検証を供給開始前の一度に変更し、全frame保持を除去した。毎sampleのfixture読込・検証と
+大量frame保持は元harnessの供給負荷要因だが、元CIのGIL/GC停止を観測した証拠ではない。
+producerの最大送信receipt間隔、最大send時間、最終receipt、worker状態の受信時刻を診断へ追加した。
+供給期間だけで60Hz連続を主張せず、正常継続試験では最大receipt gapが0.2秒以内であることも要求する。
+
+既存Windows Python 3.12環境、`OPENBLAS_NUM_THREADS=1`を検証processだけに設定し、実WebSocket・実MuJoCoで
+3,661sampleを予定60Hzで供給、workerを700ms停止する61秒試験を連続3回実行した。
+
+| 回 | 供給秒 | 最大receipt gap秒 | 最大send秒 | tick数 | 消費sequence | 保存終端 |
+|---|---:|---:|---:|---:|---:|---|
+| 1 | 61.016 | 0.047 | 0.016 | 3608 | 3659 | `operator_abort` |
+| 2 | 61.016 | 0.047 | 0.000 | 3608 | 3659 | `operator_abort` |
+| 3 | 61.015 | 0.047 | 0.000 | 3609 | 3659 | `operator_abort` |
+
+時計の分解能によりsend時間の0.000は観測差が0だった値で、無遅延の保証ではない。
+実wireのdrain直後210ms停止は104tickでSTOPまで継続した。sourceを意図的に350ms止める別試験では
+最大receipt gap 0.344秒、sequence 29のまま38tickで`technical_invalid`となり、後続入力で復活しなかった。
+関連224件、追加境界7件、最終worker/transport/input/architecture 303件がpassした。
+旧性能測定とViewerのbyteは変更せず再実行していない。main CI、実Gamepad、実機、利用者受入は未検証である。
+command、red/greenと失敗log、最終source hash、完全diffは親へのhandoffに保存する。

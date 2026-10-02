@@ -72,13 +72,15 @@ class ModelExecution:
             self.runtime.runtime.fail(f"source_ingress_failed:{type(exc).__name__}:{exc}")
             raise
 
-    def tick(self):
+    def tick(self, *, freshness_barrier=None):
         """中立待ちはstepしない。戻り値は実際にcommitされたtick数。"""
         if (self.runtime.source.last_received_at_s is None
                 and self.runtime.runtime.state == "waiting_neutral"):
             self.state, self.reason = "waiting_neutral", "awaiting_gamepad_input"
         else:
-            result = self.runtime.tick(epoch=self.epoch)
+            result = self.runtime.tick(epoch=self.epoch, freshness_barrier=freshness_barrier)
+            if result is None:
+                return self.tick_count
             self.state, self.reason, self.tick_count = result.state, result.reason, result.tick
         return self.tick_count
 

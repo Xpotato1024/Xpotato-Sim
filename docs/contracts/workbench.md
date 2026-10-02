@@ -219,6 +219,14 @@ ready/terminalの同じ状態をtimerで繰り返し生成しない。peer最新
 
 ### 受信batchとfreshness判定（#610）
 
+sampleのread/Mapping後にhost clockを評価し、そのsampleとnowを同じtickの鮮度判定へ渡す。
+鮮度判定の線形化点は、このownerが保持するsampleに対するhost nowの取得時点とする。
+staleの場合、fault latch・provider invalidate・結果保存より前にownerのqueueを一度だけ再確認する。
+新入力は最大64件を順序検査・消費してtickを延期し、次iterationのwall/input-wait監督へ戻る。
+STOP/closeを検出した場合、または既にdeferred操作を保持している場合も、積分せずownerへ戻す。空queueなら元sample/nowでstrictに終了する。
+workerの受付batchは鮮度の最終判断をこのtickへ委ねるが、不正sample・future・pretrialは即時拒否する。
+再確認後の任意OS停止まで競合が起きない保証はない。receiptを現在時刻で置換せず、faultから復帰しない。
+
 workerは1件ごとにtickを挟まず、既に受信済みの同ticket入力を最大64件まで順に消費する。
 受信loopとadvance入口の両方で確認し、両者の間にworkerが停滞して届いた入力もtick前に消費する。
 各sampleのvalidation、Mappingのbutton/trigger符号ラッチ・解除、中立を処理し、physicsは最新sampleで
