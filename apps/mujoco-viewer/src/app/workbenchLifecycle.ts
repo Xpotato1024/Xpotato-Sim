@@ -52,11 +52,21 @@ export function createWorkbenchGamepadLifecycle<T extends ViewerGamepadLike>(opt
   nowSeconds(): number;
 }) {
   const sample = createWorkbenchGamepadMessages();
-  return createViewerGamepadLifecycle({...options, publish: undefined, pollIntervalMs: 40,
+  return createViewerGamepadLifecycle({...options, publish: undefined, neutralHeartbeat: false, pollIntervalMs: 40,
     getGamepads: () => options.context()?.enabled ? options.getGamepads() : null, onSample(pads) {
     const context = options.context();
     if (!context?.enabled) return;
     const message = sample(context.epoch, pads, options.nowSeconds());
     if (message !== null) options.publish(message, pads);
   }});
+}
+
+/** runnerの停止理由を要求rejectionより優先する。次trialには旧理由を持ち越さない。 */
+export function workbenchNotice(status: {phase:string; error:string|null;
+  result?:{runner_stop_reason:string; error?:string|null}|null}|null, requestError:string):string {
+  if (status?.error) return status.error;
+  if (status && ["terminal","recording_failed"].includes(status.phase) && status.result) {
+    return status.result.error || status.result.runner_stop_reason;
+  }
+  return requestError;
 }

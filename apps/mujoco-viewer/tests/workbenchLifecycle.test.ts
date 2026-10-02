@@ -49,3 +49,41 @@ const second=acquire("two",pads,6)!;
 assert.equal(second.sequence,0);
 assert.notEqual(second.metadata?.viewer_provider_session_id,first.metadata?.viewer_provider_session_id);
 console.log("Workbench socket/epoch, safe heap and raw input checks passed");
+
+// 描画と独立した時計で実appの取得helperを測定する。
+import {createWorkbenchGamepadLifecycle, workbenchNotice} from "../src/app/workbenchLifecycle.js";
+const cadenceIntervals:number[][]=[];
+for (const hz of [60, 30, 10]) {
+  let now = 0, nextId = 1;
+  const frame:{callback:(()=>void)|null}={callback:null};
+  const timers = new Map<number, {at:number; callback:()=>void}>();
+  const samples:number[]=[];
+  const lifecycle=createWorkbenchGamepadLifecycle({
+    window:{requestAnimationFrame(cb){frame.callback=cb;return 1;},cancelAnimationFrame(){frame.callback=null;},addEventListener(){},removeEventListener(){}},
+    document:{visibilityState:"visible",addEventListener(){},removeEventListener(){}},
+    context:()=>({epoch:"cadence",enabled:true}),getGamepads:()=>{samples.push(now);return pads;},
+    nowMs:()=>now,nowSeconds:()=>now/1000,publish(){},
+    setTimeoutFn:(callback,delay)=>{const id=nextId++;timers.set(id,{at:now+delay,callback});return id as unknown as ReturnType<typeof setTimeout>;},
+    clearTimeoutFn:id=>{timers.delete(id as unknown as number);},
+  });
+  lifecycle.start();
+  let nextFrame=1000/hz;
+  while (Math.min(nextFrame,...[...timers.values()].map(t=>t.at))<=1000) {
+    const timer=[...timers.entries()].sort((a,b)=>a[1].at-b[1].at)[0];
+    if(timer&&timer[1].at<=nextFrame){now=timer[1].at;timers.delete(timer[0]);timer[1].callback();}
+    else {now=nextFrame;nextFrame+=1000/hz;const cb=frame.callback;frame.callback=null;cb?.();}
+  }
+  const intervals=samples.slice(1).map((t,i)=>t-samples[i]);
+  console.log(JSON.stringify({hz,samples:samples.length,min_ms:Math.min(...intervals),max_ms:Math.max(...intervals),mean_ms:intervals.reduce((a,b)=>a+b,0)/intervals.length}));
+  lifecycle.dispose();
+  assert.equal(timers.size,0);
+  assert.equal(frame.callback,null);
+  cadenceIntervals.push(intervals);
+}
+assert.ok(cadenceIntervals.every(intervals=>intervals.every(dt=>Math.abs(dt-40)<1e-6)),"描画fpsと独立した40ms実取得");
+const terminal={phase:"terminal",error:"original stale",result:{runner_stop_reason:"technical_invalid",error:"original stale"}};
+assert.equal(workbenchNotice(terminal,"late rejection"),"original stale");
+assert.equal(workbenchNotice({...terminal,error:null,result:{runner_stop_reason:"simulation_budget",error:null}},"late rejection"),"simulation_budget");
+assert.equal(workbenchNotice({...terminal,error:null},"late rejection"),"original stale");
+assert.equal(workbenchNotice({...terminal,phase:"running",error:null,result:null},"real input failure"),"real input failure");
+assert.equal(workbenchNotice({...terminal,phase:"recording_failed",error:"disk failure"},"old rejection"),"disk failure");

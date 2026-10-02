@@ -28,9 +28,24 @@ from xpotato_sim.runtime.experiment.edited_condition import preset_condition, re
 from xpotato_sim.runtime.runners.application_process import OwnedApplicationWorkers, join_application_job
 from xpotato_sim.runtime.runners.workbench_metrics import process_memory
 from xpotato_sim.transport import mujoco_state_to_payload
+from xpotato_sim.schemas import parse_viewer_control_message_json
 
 ACTIVE = {"waiting_input", "running", "finalizing"}
+INPUT_ACTIVE = {"waiting_input", "running"}
+INPUT_FINISHED = {"terminal", "recording_failed"}
 ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+
+
+def validate_late_input(message):
+    """終了済み同ticketの有効なGamepadだけを棄却する。不正入力は正常化しない。"""
+    if not isinstance(message, str) or len(message.encode("utf-8")) > 65536:
+        raise ValueError("bounded Gamepad message required")
+    parsed = parse_viewer_control_message_json(message)
+    if (parsed.gamepad is None or parsed.gamepad.stale or not parsed.gamepad.connected
+            or parsed.source_kind != "gamepad" or parsed.sequence is None
+            or not isinstance(parsed.metadata.get("viewer_provider_session_id"), str)
+            or not parsed.metadata["viewer_provider_session_id"]):
+        raise ValueError("unavailable or invalid late Gamepad input")
 
 
 def decode_request(raw):
@@ -198,10 +213,18 @@ class WorkbenchControl:
         if op == "input":
             if set(r) != {"op", "capability", "ticket", "message"}:
                 raise ValueError("未知field")
-            if self.busy or self.state["phase"] not in ACTIVE or r["ticket"] != self.state["ticket"]:
+            if r["ticket"] is None or r["ticket"] != self.state["ticket"]:
                 raise ValueError("旧epochまたは実行前の入力です")
             if not isinstance(r["message"], str):
                 raise ValueError("入力messageは文字列です")
+            if self.state.get("fixture_mode"):
+                raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
+            if ((not self.busy and self.state["phase"] in INPUT_FINISHED)
+                    or (self.stop_id is not None and self.state["phase"] in INPUT_ACTIVE | INPUT_FINISHED)):
+                validate_late_input(r["message"])
+                return self.status(), None
+            if self.busy or self.state["phase"] not in INPUT_ACTIVE:
+                raise ValueError("旧epochまたは実行前の入力です")
             return None, {"op": op, "ticket": r["ticket"], "message": r["message"], "received_at_s": monotonic()}
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
@@ -312,9 +335,10 @@ def execution_worker(url, config):
             "worker_pid": os.getpid(),
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
-    def send_state(ws, rid=None, error=None, completed_op=None):
+    def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
         ws.send(json.dumps({"type": "worker_status", "id": rid, "state": state(),
-                            "error": error, "completed_op": completed_op, "generation": generation, "assets": assets}, allow_nan=False))
+                            "error": error, "completed_op": completed_op, "operation": operation,
+                            "generation": generation, "assets": assets}, allow_nan=False))
     try:
         with connect(url, proxy=None, max_size=2**20, max_queue=8) as ws:
             ws.send(json.dumps({"op": "worker", "capability": os.environ.pop("XPOTATO_WORKBENCH_WORKER_KEY")}))
@@ -370,9 +394,13 @@ def execution_worker(url, config):
                         elif op == "input":
                             if fixture is not None:
                                 raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
-                            if cmd["ticket"] != asdict(runner.ticket):
+                            if runner.ticket is None or cmd["ticket"] != asdict(runner.ticket):
                                 raise ValueError("旧ticket")
-                            runner.ingest(runner.ticket, cmd["message"], received_at_s=cmd["received_at_s"])
+                            if runner.status in INPUT_FINISHED:
+                                validate_late_input(cmd["message"])
+                                send_state(ws, cmd.get("id"))
+                            else:
+                                runner.ingest(runner.ticket, cmd["message"], received_at_s=cmd["received_at_s"])
                         elif op == "stop":
                             generation = cmd["generation"]
                             if runner.status in ACTIVE:
@@ -392,7 +420,7 @@ def execution_worker(url, config):
                             runner.discard_prepared()
                             assets = []
                             profile = None
-                        send_state(ws, cmd.get("id"), str(exc))
+                        send_state(ws, cmd.get("id"), str(exc), operation=op)
                 now = monotonic()
                 if runner.status in ACTIVE and now >= next_tick:
                     old_phase = runner.status
@@ -551,13 +579,13 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     else:
                         if not control.worker_event(event):
                             continue
-                        if event.get("error"):
-                            control.state["error"] = event["error"]
                         allowed_assets = set(event["assets"])
                         if control.busy is None:
                             prepare_deadline = None
                         if event.get("id"):
                             broadcast({"type": "completed", "id": event.get("id"), "error": event.get("error")})
+                        elif event.get("error"):
+                            broadcast({"type": "rejected", "op": event.get("operation"), "error": event["error"]})
                         broadcast(control.status())
                 return
             if len(peers) >= 8:
