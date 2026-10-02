@@ -9,6 +9,10 @@ INVENTORY = ROOT / "docs/reports/implementation/script-inventory-and-retirement.
 RETIRED_LAUNCHER = "run_mujoco_viewer_dev.py"
 TEXT_SUFFIXES = {".md", ".py", ".ps1", ".yml", ".yaml", ".toml", ".txt"}
 EXPECTED_SCRIPTS = {
+    "scripts/diagnostics/fast_arm/measure_pinch_checkpoint.py",
+    "scripts/diagnostics/fast_arm/measure_simulation_hot_path.py",
+    "scripts/diagnostics/fast_arm/pinch-checkpoint.json",
+    "scripts/viewer/measure_workbench_latency.py",
     "scripts/diagnostics/run_prehardware_signal_e2e.py",
     "scripts/hardware/selfrionette/measure_loadcell_channel_response.ps1",
     "scripts/hardware/selfrionette/monitor_selfrionette_serial.ps1",

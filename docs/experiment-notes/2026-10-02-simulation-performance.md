@@ -153,7 +153,9 @@ $env:TEMP = $TEMP_ROOT
 pinchは20warmup+200回、毎回同じnative checkpointへ戻してcacheを測定外で失効する。
 左右toolが実100mm cubeの反対面に接する初期状態で、0/0.1m/sの内向き速度を比較する。
 ユーザーの連続軌跡・把持成功を示す試行ではない。reportは全qpos/qvel、integration state、
-geometry/contact/force、native配列を含む。browserは5396/8986/CDP9386を使用するため直列実行する。
+geometry/contact/force、native配列を含む。Web/backendは5396/8986を使用するため直列実行する。
+Chromiumは今回専用の新規profileとOS選択CDP portを使い、`DevToolsActivePort`とbrowser endpointの一致を確認する。
+既存のCDP endpointへ接続せず、所有を確認できたbrowserだけを終了する。以前の測定はCDP9386で実施した。
 各layoutは4warmup+48sample、Single/Assistの描画量を維持し、通常Workbenchと実MuJoCoを通す。
 CPU描画提出までの指標であり、GPU完了・入力to光子・実Gamepad遅延の保証ではない。
 

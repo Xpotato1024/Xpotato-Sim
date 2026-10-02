@@ -138,7 +138,7 @@ worker死亡・強制終了後はアプリを終了して明示再起動する�
 ## 入力と資源所有
 
 browserの取得寿命は従来Viewerと同じ`gamepadLifecycle`が所有する。Workbenchは描画rAFから独立した
-?60Hz?`1000 / 60` ms??timerで毎回実sampleを取得する。描画fpsによる間引きやcached heartbeatの再送を行わない。
+約60 Hz（周期`1000 / 60` ms）のtimerで毎回実sampleを取得する。描画fpsによる間引きやcached heartbeatの再送を行わない。
 従来ViewerのrAF/publication cadenceは維持する。完全なJavaScript停止で取得が遅れた場合のfreshness判定は緩めない。
 raw axes/buttonsを保持し、試行epochごとにsessionとsequenceを新規にする。初回device未取得はsampleを送らず入力待ち期限に従う。
 visibleならfocus=falseでも取得する。取得後のhidden/欠落/切断はstale/disconnectedとして送り、

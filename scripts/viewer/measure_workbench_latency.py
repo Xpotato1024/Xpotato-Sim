@@ -1,7 +1,48 @@
 """当該worktreeの固定buildをsoftware fixtureで確認する。実device受入ではない。"""
-import base64,json,os,secrets,signal,subprocess,time,urllib.request,sys
+import base64,json,os,secrets,signal,subprocess,time,urllib.request,sys,tempfile
+from urllib.parse import urlsplit
 from pathlib import Path
 from websockets.sync.client import connect
+def _owned_debugger_tab(browser, profile_dir: Path, timeout_s: float = 10.0):
+    """今回だけのprofileへChromiumが書いたendpoint以外には接続しない。"""
+    deadline = time.monotonic() + timeout_s
+    active_port = profile_dir / "DevToolsActivePort"
+    while time.monotonic() < deadline:
+        if browser.poll() is not None:
+            raise RuntimeError("owned Chromium exited before CDP discovery")
+        try:
+            lines = active_port.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            time.sleep(.05)
+            continue
+        if len(lines) < 2:
+            time.sleep(.05)
+            continue
+        port = int(lines[0])
+        path = lines[1]
+        if not 0 < port < 65536 or not path.startswith("/devtools/browser/"):
+            raise RuntimeError("invalid owned Chromium endpoint")
+        origin = f"http://127.0.0.1:{port}"
+        with urllib.request.urlopen(origin + "/json/version", timeout=1) as response:
+            version = json.load(response)
+        if version.get("webSocketDebuggerUrl") != f"ws://127.0.0.1:{port}{path}":
+            raise RuntimeError("owned Chromium browser identity mismatch")
+        with urllib.request.urlopen(origin + "/json/list", timeout=1) as response:
+            tabs = json.load(response)
+        tab = next((item for item in tabs if item.get("type") == "page"), None)
+        if tab is None:
+            time.sleep(.05)
+            continue
+        endpoint = urlsplit(tab.get("webSocketDebuggerUrl", ""))
+        if (endpoint.scheme != "ws" or endpoint.netloc != f"127.0.0.1:{port}"
+                or not endpoint.path.startswith("/devtools/page/") or endpoint.query or endpoint.fragment):
+            raise RuntimeError("owned Chromium page endpoint mismatch")
+        if browser.poll() is not None:
+            raise RuntimeError("owned Chromium exited during CDP discovery")
+        return tab
+    raise RuntimeError("owned Chromium CDP discovery timeout")
+
+
 ROOT=Path(sys.argv[1])
 BASE=Path(sys.argv[4])
 E=BASE/('latency-'+sys.argv[3])
@@ -57,12 +98,12 @@ try:
   try:urllib.request.urlopen('http://127.0.0.1:5396/apps/mujoco-viewer/',timeout=1);break
   except Exception:time.sleep(.1)
  else:raise RuntimeError('server startup timeout')
+ # 新規profileとOS選択portを使い、既存CDPへ接続・Browser.closeしない。
+ browser_profile=Path(tempfile.mkdtemp(prefix='owned-chromium-',dir=TEMP))
  browser=subprocess.Popen([sys.argv[6],'--headless=new','--no-first-run',
-  '--remote-debugging-port=9386','--user-data-dir='+str(TEMP/'ui-chromium-inprocess-profile'),'--disable-background-networking','--use-angle=d3d11','about:blank'],env=env,stdout=subprocess.DEVNULL,stderr=(E/'browser-stderr.log').open('w',encoding='utf-8'))
- for _ in range(30):
-  try:tabs=json.load(urllib.request.urlopen('http://127.0.0.1:9386/json/list',timeout=.3));tab=next(t for t in tabs if t['type']=='page');break
-  except Exception:time.sleep(.1)
- else:raise RuntimeError('task-owned Chromium CDP unavailable; exit='+str(browser.poll()))
+  '--remote-debugging-port=0','--user-data-dir='+str(browser_profile),'--disable-background-networking','--use-angle=d3d11','about:blank'],env=env,stdout=subprocess.DEVNULL,stderr=(E/'browser-stderr.log').open('w',encoding='utf-8'))
+ tab=_owned_debugger_tab(browser,browser_profile)
+ report['browser_ownership']={'method':'fresh profile / DevToolsActivePort / matching browser endpoint','pid':browser.pid,'profile':str(browser_profile),'page_endpoint':tab['webSocketDebuggerUrl']}
  wire=connect(tab['webSocketDebuggerUrl'],proxy=None,max_size=32*2**20)
  cdp('Page.enable');cdp('Runtime.enable');size(1440,900)
  cdp('Page.addScriptToEvaluateOnNewDocument',{'source':"window.__qaPad={mapping:'standard',id:'software-standard-pad',index:0,connected:true,axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,touched:false,value:0})),get timestamp(){return performance.now()}};window.__qaDeviceVisible=false;Object.defineProperty(navigator,'getGamepads',{value:()=>{return window.__qaDeviceVisible?[window.__qaPad,null,null,null]:[null,null,null,null]}});window.__qaLastFrame=null;const NativeWebSocket=WebSocket;window.WebSocket=class extends NativeWebSocket{send(value){try{const m=JSON.parse(value);if(m.op==='input'){window.__qaLastInput=m;window.__qaControl=this;if(window.__latencyPending&&!window.__latencyPending.sequence){const s=JSON.parse(m.message);if(s.gamepad.raw_axes[0]===window.__latencyPending.value)window.__latencyPending.sequence=s.sequence;}}}catch{}super.send(value)}constructor(...args){super(...args);this.addEventListener('message',e=>{try{const m=JSON.parse(e.data);if(m.type==='frame')window.__qaLastFrame=m;}catch{}})}};"})
