@@ -80,7 +80,7 @@ for (const hz of [60, 30, 10]) {
   assert.equal(frame.callback,null);
   cadenceIntervals.push(intervals);
 }
-assert.ok(cadenceIntervals.every(intervals=>intervals.every(dt=>Math.abs(dt-40)<1e-6)),"描画fpsと独立した40ms実取得");
+assert.ok(cadenceIntervals.every(intervals=>intervals.every(dt=>Math.abs(dt-1000/60)<1e-6)),"描画fpsと独立した約60Hz実取得");
 const terminal={phase:"terminal",error:"original stale",result:{runner_stop_reason:"technical_invalid",error:"original stale"}};
 assert.equal(workbenchNotice(terminal,"late rejection"),"original stale");
 assert.equal(workbenchNotice({...terminal,error:null,result:{runner_stop_reason:"simulation_budget",error:null}},"late rejection"),"simulation_budget");

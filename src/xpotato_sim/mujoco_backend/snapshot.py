@@ -83,6 +83,16 @@ def snapshot_mujoco_state(
     mujoco = _import_mujoco()
     mujoco.mj_forward(model, data)
 
+    return _read_synchronized_mujoco_state(model, data, frame_index=frame_index,
+        target_position_m=target_position_m, metadata=metadata)
+
+
+def _read_synchronized_mujoco_state(
+    model: object, data: object, *, frame_index: int,
+    target_position_m: Vector3 | None = None,
+    metadata: Mapping[str, object] | None = None,
+) -> MuJoCoState:
+    """reset/commitでforward済みのprovider専用読取り。native stateを変更しない。"""
     return MuJoCoState(
         frame_index=frame_index,
         time_s=float(data.time),

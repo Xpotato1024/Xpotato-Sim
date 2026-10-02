@@ -7,7 +7,7 @@ import numpy as np
 from fast_arm_core.assembly import FastArmAssembly, resolve_assembly_addresses
 from fast_arm_core.assembly_model import FastArmAssemblyModel, build_fast_arm_assembly_model
 from xpotato_sim.motion import LocalEndpointMotionGenerator
-from xpotato_sim.mujoco_backend import snapshot_mujoco_state
+from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state
 from xpotato_sim.schemas import InputIntent, MuJoCoState
 from xpotato_sim.schemas.command import JointPositionCommand
 from xpotato_sim.schemas.coordinated import CoordinatedSnapshot, EndpointObservation, EndpointVelocity, number
@@ -60,6 +60,7 @@ class FastArmAssemblyMotionProvider:
         self.limits = parse_fast_arm_joint_limit_config(default_fast_arm_joint_limits_path())
         self._data = mujoco.MjData(self.model)
         self._generation = 0
+        self._snapshot_cache: CoordinatedSnapshot | None = None
         self._pending: tuple[PreparedCoordinatedStep, object] | None = None
         self._lock = RLock()
         self._scene_observer = None if object_scene is None else SceneGeometryObserver(self.model, object_scene, self.built.model_sha256)
@@ -85,7 +86,10 @@ class FastArmAssemblyMotionProvider:
 
     def snapshot(self) -> CoordinatedSnapshot:
         with self._lock:
-            return self._snapshot(self._data, self._generation)
+            # 全fieldがtuple/scalarのfrozen snapshotだけを同generationで共有する。
+            if self._snapshot_cache is None:
+                self._snapshot_cache = self._snapshot(self._data, self._generation)
+            return self._snapshot_cache
 
     def transport_state(
         self, *, frame_index: int, metadata: Mapping[str, object]
@@ -103,8 +107,8 @@ class FastArmAssemblyMotionProvider:
             raise ValueError("invalid sample frame/metadata")
         with self._lock:
             geometry = None if self._scene_observer is None else self._scene_observer.observe(self._data,frame_index=frame_index)
-            state = snapshot_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
-            return ModelStateSample(self._snapshot(self._data,self._generation),state,
+            state = _read_synchronized_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
+            return ModelStateSample(self.snapshot(),state,
                 tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry,
                 self._dynamics_observation(frame_index))
 
@@ -113,9 +117,9 @@ class FastArmAssemblyMotionProvider:
         return None
 
     def _check_data(self, data) -> None:
-        if not all(np.all(np.isfinite(a)) for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
+        if not all(np.isfinite(a).all() for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
             raise ValueError("nonfinite assembly state")
-        if any(int(w.number) > 0 for w in data.warning):
+        if (data.warning.number > 0).any():
             raise ValueError("MuJoCo warning in candidate state")
         for arm in self.addresses:
             q = tuple(float(data.qpos[i]) for i in arm.qpos_addresses)
@@ -143,10 +147,12 @@ class FastArmAssemblyMotionProvider:
                 self._scene_observer.validate_initial(data)
             self._generation += 1
             self._data = data
+            self._snapshot_cache = None
 
     def invalidate(self) -> None:
         with self._lock:
             self._pending = None
+            self._snapshot_cache = None
 
     def numerical_condition(self):
         """実際のnative modelと実行policyの数値条件をcopyで公開する。"""
@@ -209,6 +215,11 @@ class FastArmAssemblyMotionProvider:
             reference = base if observed is None else observed
             velocity = np.asarray(reference.site_xmat[arm.tip_site_id]).reshape(3, 3) @ velocity
         q = tuple(float(base.qpos[i]) for i in arm.qpos_addresses)
+        if not np.any(velocity):
+            # 中立でも物理積分は続ける。ゼロ増分のDLSだけを省き、servo targetを保持する。
+            if self.limits.violations_for_qpos(q):
+                raise ValueError(f"joint_limit_violation:{arm.arm_id}")
+            return q
         kinematics = self._kinematics[arm.arm_id]
         kinematics.load(base)
         solver = LocalEndpointMotionGenerator(
@@ -261,7 +272,7 @@ class FastArmAssemblyMotionProvider:
     def commit(self, candidate: PreparedCoordinatedStep) -> CoordinatedSnapshot:
         with self._lock:
             pending, self._pending = self._pending, None
-            if pending is None or pending[0] is not candidate or candidate.before != self.snapshot():
+            if pending is None or pending[0] is not candidate or candidate.before != self._snapshot(self._data, self._generation):
                 raise ValueError("foreign, consumed, or stale coordinated candidate")
             self._check_data(pending[1])
             if self._snapshot(pending[1], self._generation + 1) != candidate.predicted:
@@ -269,4 +280,5 @@ class FastArmAssemblyMotionProvider:
             # 検査完了後にlive/candidateを交換。以後のprepareは旧liveを作業域にする。
             self._candidate_data, self._data = self._data, pending[1]
             self._generation += 1
+            self._snapshot_cache = None
             return self.snapshot()

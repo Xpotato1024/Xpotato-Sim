@@ -55,6 +55,14 @@ Gamepad inputは明示epochと元のtimestamp/sequence/sessionを保ち、一度
 fixtureは有限の時刻付きGamepad message列で、受領予定時刻を実monotonicへ一度だけ対応させる。
 遅延dispatchで古いsampleを現在時刻へ繰り上げない。欠測・stale・切断をneutralへ補完しない。
 
+ingressの受信時刻検査は`input_invalid_timestamp`（型・非finite）、`input_pre_trial`（Startより前）、
+`input_future`（host現在時刻より後）、`input_stale`（ageが実効上限より大きい）を区別する。
+有限な受信時刻では元のreceipt、host現在時刻、Start時刻、実age秒、実効limit秒をerrorへ残す。
+pre-trialを先に判定し、重複するstaleとの分類を決定する。判定境界の0.2秒、元timestamp、
+technical_invalid終端、新しい中立を伴う明示retryは維持する。
+共同runtimeの鮮度違反も`input_stale_or_future`にcause・実age・limit・receipt・host時刻を付ける。
+browserのsource timestampは同source内の順序検査用で、host receiptへの時刻変換には使わない。
+
 resetは全object/Robotのqpos/qvel/actuator/control/time・warmstart等をhomeへ戻し、pending ticketを無効化する。
 Source/Mapping/Task/filter/dwell/timerは新しい試行objectに置換し、前試行への参照を解放する。
 model、固定asset、FK/candidate用MjDataは再利用可能。runnerは最新結果1件、入力1件、pending ticket1件までを保持し、

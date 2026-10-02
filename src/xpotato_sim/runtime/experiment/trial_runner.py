@@ -213,10 +213,18 @@ class TrialRunner:
                 raise RuntimeError("input requires an active trial")
             try:
                 now = self._now()
-                if (type(received_at_s) not in (int, float) or not isfinite(received_at_s)
-                        or received_at_s < self._started
-                        or not 0 <= now - received_at_s <= self._execution.profile.max_input_age_s):
-                    raise ValueError("stale, future, or pre-trial input")
+                limit = self._execution.profile.max_input_age_s
+                if type(received_at_s) not in (int, float) or not isfinite(received_at_s):
+                    raise ValueError(f"input_invalid_timestamp: finite receipt required; limit_s={limit:.6f}")
+                age = now - received_at_s
+                diagnostic = (f"age_s={age:.6f}; limit_s={limit:.6f}; received_at_s={received_at_s:.6f}; "
+                              f"now_s={now:.6f}; trial_started_at_s={self._started:.6f}")
+                if received_at_s < self._started:
+                    raise ValueError(f"input_pre_trial: {diagnostic}")
+                if age < 0:
+                    raise ValueError(f"input_future: {diagnostic}")
+                if age > limit:
+                    raise ValueError(f"input_stale: {diagnostic}")
                 if type(message) is not str or len(message.encode("utf-8")) > 65536:
                     raise ValueError("bounded Gamepad message required")
                 parsed = parse_viewer_control_message_json(message)

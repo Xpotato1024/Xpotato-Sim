@@ -322,7 +322,7 @@ def execution_worker(url, config):
     fixture_start = None
     fixture_index = 0
     next_tick = monotonic()
-    last_frame = 0.0
+    last_frame_key = None
     last_status = 0.0
     retired_builds = 0
     def state():
@@ -437,11 +437,14 @@ def execution_worker(url, config):
                     if runner.status != old_phase or now - last_status >= 0.5:
                         send_state(ws)
                         last_status = now
-                if assets and runner.status in {"ready", "waiting_input", "running", "terminal"} and runner.ticket and runner.viewer_resources is not None and now - last_frame >= 0.05:
+                if assets and runner.status in {"ready", "waiting_input", "running", "terminal"} and runner.ticket and runner.viewer_resources is not None:
+                    frame_key = (generation, runner.ticket, runner.status, runner.tick_count)
+                    if frame_key == last_frame_key:
+                        continue
                     sample = runner.snapshot()
                     ws.send(json.dumps({"type": "frame", "generation": generation,
                         "ticket": asdict(runner.ticket), "payload": mujoco_state_to_payload(sample)}, allow_nan=False))
-                    last_frame = now
+                    last_frame_key = frame_key
     finally:
         runner.close()
 

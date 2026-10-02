@@ -56,6 +56,17 @@ legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左�
 失敗した作業dataを公開せず、成功時だけロック内で一つのlogical worldのdataを交換する。
 これはソフトウェアでの共同反映であり、実機への通信を原子的にする保証ではない。
 
+名前付きFastArm providerの`CoordinatedSnapshot`は、同generation内で一つの不変値を共有する。
+全fieldはfrozen dataclassとtuple/scalarであり、native arrayや可変metadataへの参照を含めない。
+commit・reset・invalidateで共有参照を失効し、未公開候補の改変検査はcandidate dataから再取得する。
+geometry、force、Task、transport metadataをこの共有snapshotで代用しない。
+commitのpre-step guardはcacheを使わずlive dataからfresh snapshotを作り、prepare後の
+live qpos変更も従来どおり拒否する。providerの表示用sampleはreset/commitでforward済みの
+native dataを読み取るだけで、追加のforwardによりintegration stateを変更しない。
+generic `snapshot_mujoco_state` APIのforward動作は維持する。
+各substepのfinite値・warning・関節限界・速度・tracking error検査は維持する。
+完全なゼロ速度ではゼロ増分の有限差分IKだけを省き、dynamic servo targetと全物理substepを維持する。
+
 ## 時計・停止・復帰
 
 `source_timestamp_s`、Sourceが実際に取得した `last_received_at_s`、host clock、simulation timeを分離する。

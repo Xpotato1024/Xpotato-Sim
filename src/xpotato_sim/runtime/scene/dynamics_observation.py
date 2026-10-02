@@ -5,9 +5,9 @@ from xpotato_sim.mujoco_backend.contact_geometry import read_contact_geometry
 from xpotato_sim.mujoco_backend.contact_wrench import read_contact_wrench
 
 
-def observe_dynamics(model,data,*,scene,model_sha256,settings,arms,frame_index):
+def observe_dynamics(model,data,*,scene,model_sha256,settings,arms,frame_index,identity=None):
     """力を推定せずsolverから取得し、制御targetと実際のqpos/qvelを分離する。"""
-    if any(int(w.number)>0 for w in data.warning):
+    if (data.warning.number > 0).any():
         raise ValueError("dynamic observation has solver warning")
     objects=[]
     geom_roles={name:{"kind":"object","id":oid} for oid,name in scene.object_geoms}
@@ -42,8 +42,9 @@ def observe_dynamics(model,data,*,scene,model_sha256,settings,arms,frame_index):
         for name,qa,va,aid in zip(arm.joint_names,arm.qpos_addresses,arm.dof_addresses,arm.actuator_ids,strict=True):
             joints.append({"name":name,"target_rad":float(data.ctrl[aid]),"position_rad":float(data.qpos[qa]),
                 "velocity_rad_s":float(data.qvel[va]),"actuator_force_nm":float(data.actuator_force[aid])})
+    scene_digest, settings_digest = (scene.manifest.digest, settings.digest) if identity is None else identity
     result={"schema_version":"scene-dynamics-observation/v1","model_sha256":model_sha256,
-        "scene_digest":scene.manifest.digest,"settings_digest":settings.digest,"frame_index":frame_index,
+        "scene_digest":scene_digest,"settings_digest":settings_digest,"frame_index":frame_index,
         "simulation_time_s":float(data.time),"semantics":"coordinated_actuator_servo_dynamic/v1",
         "gravity_m_s2":model.opt.gravity.tolist(),"objects":objects,"joints":joints,"contacts":contacts}
     import json

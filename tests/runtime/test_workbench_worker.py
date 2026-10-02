@@ -184,3 +184,29 @@ def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_
     assert states["p2"]["state"]["ticket"]["epoch"]!=states["p1"]["state"]["ticket"]["epoch"]
     assert {p:p.read_bytes() for p in failed_files}==failed_files
     assert len(list((tmp_path/"results").iterdir()))==1
+
+
+def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypatch):
+    events = []
+    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "dynamic-cube-drop"},
+                None, None, None, {"op": "prepare", "id": "p2", "generation": 2, "profile_id": "dynamic-cube-drop"},
+                None, None, {"op": "close"}]
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
+    # 時計を進めなくてもprepare/reprepareの新しいticketは即座に公開される。
+    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.monotonic", lambda: 10.)
+    class Wire:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def send(self, raw): events.append(json.loads(raw))
+        def recv(self, **kwargs):
+            command = commands.pop(0)
+            if command is None: raise TimeoutError
+            return json.dumps(command)
+    monkeypatch.setattr("websockets.sync.client.connect", lambda *args, **kwargs: Wire())
+    execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
+        "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 2,
+        "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
+    frames = [event for event in events if event.get("type") == "frame"]
+    assert len(frames) == 2
+    assert frames[0]["ticket"] != frames[1]["ticket"]
+    assert frames[0]["payload"]["qpos"] == frames[1]["payload"]["qpos"]

@@ -116,8 +116,11 @@ class CoordinatedRuntime:
         self._validate_input_shape(value)
         if not value.available:
             raise ValueError("input_unavailable")
-        if not 0 <= now - value.received_at_s <= self.max_input_age_s:
-            raise ValueError("input_stale_or_future")
+        age = now - value.received_at_s
+        if not 0 <= age <= self.max_input_age_s:
+            cause = "future" if age < 0 else "stale"
+            raise ValueError(f"input_stale_or_future: cause={cause}; age_s={age:.6f}; "
+                             f"limit_s={self.max_input_age_s:.6f}; received_at_s={value.received_at_s:.6f}; now_s={now:.6f}")
         if value.received_at_s < self._minimum_received_at_s or value.source_epoch in self._retired_sources:
             raise ValueError("previous_execution_input")
         old = self._last
