@@ -156,64 +156,78 @@ class WorkbenchControl:
             return {"type": "claimed"}, None
         self.authorize(client, r)
         if op in {"edit", "clone", "export", "import", "diff"}:
-            expected = {"op", "capability", "revision", "ticket"}
-            if "request_id" in r:
-                expected.add("request_id")
-                if not isinstance(r["request_id"], str) or not ID.fullmatch(r["request_id"]):
-                    raise ValueError("有効なeditor要求IDが必要です")
-            correlation = {"request_id": r["request_id"]} if "request_id" in r else {}
-            if op in {"edit", "import", "diff"}:
-                expected.add("condition")
-            if op == "clone":
-                expected.add("profile_id")
-            if set(r) != expected or type(r["revision"]) is not int or r["revision"] != self.revision or r["ticket"] != self.state["ticket"]:
-                raise ValueError("未知fieldまたは旧revision/ticketです")
-            if self.busy or self.state["phase"] not in {"unselected", "ready", "terminal"}:
-                raise ValueError("条件編集は停止中・記録確定後だけです")
-            if op == "diff":
-                if self.next_condition is None:
-                    raise ValueError("次条件がありません")
-                return {"type": "condition_diff", **correlation, "changes": condition_diff(self.state.get("applied_condition") or self.next_condition, r["condition"])}, None
-            if op == "export":
-                if self.next_condition is None:
-                    raise ValueError("次条件がありません")
-            else:
-                if op == "clone":
-                    if r["profile_id"] not in list_launch_profiles():
-                        raise ValueError("cloneは登録preset IDだけです。server pathは受け付けません")
-                    selected = load_launch_profile(r["profile_id"])
-                    value = preset_condition(r["profile_id"], TrialLimits(self.launcher_limits.get("ticks") or selected.steps,
-                        self.launcher_limits.get("input_wait_s", 5), self.launcher_limits.get("wall_s", 360),
-                        self.launcher_limits.get("prepare_s", 30)))
-                else:
-                    value = r["condition"]
-                if op == "import":
-                    if type(value) is not str:
-                        raise ValueError("importはJSON文字列です。server pathは受け付けません")
-                    value = value.encode("utf-8")
-                self.next_condition = resolve_condition(value)[2]
-                self.revision += 1
-            return {"type": "edited_condition", **correlation, "condition": self.next_condition,
-                "descriptors": descriptors(self.next_condition), "revision": self.revision,
-                "generation": self.generation, "ticket": self.state["ticket"]}, None
+            return self._editor_command(r)
         if op == "input":
-            if set(r) != {"op", "capability", "ticket", "message"}:
-                raise ValueError("未知field")
-            if r["ticket"] is None or r["ticket"] != self.state["ticket"]:
-                raise ValueError("旧epochまたは実行前の入力です")
-            if not isinstance(r["message"], str):
-                raise ValueError("入力messageは文字列です")
-            if self.state.get("fixture_mode"):
-                raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
-            if ((not self.busy and self.state["phase"] in INPUT_FINISHED)
-                    or (self.stop_id is not None and self.state["phase"] in INPUT_ACTIVE | INPUT_FINISHED)):
-                validate_late_input(r["message"])
-                return self.status(), None
-            if self.busy or self.state["phase"] not in INPUT_ACTIVE:
-                raise ValueError("旧epochまたは実行前の入力です")
-            self.last_input_receipt_s = monotonic()
-            return None, {"op": op, "ticket": r["ticket"], "message": r["message"],
-                          "received_at_s": self.last_input_receipt_s}
+            return self._input_command(r)
+        return self._lifecycle_command(r)
+
+    def _editor_command(self, r):
+        """認可済みeditor要求を同じrevisionと次条件へ適用する。"""
+        op = r["op"]
+        expected = {"op", "capability", "revision", "ticket"}
+        if "request_id" in r:
+            expected.add("request_id")
+            if not isinstance(r["request_id"], str) or not ID.fullmatch(r["request_id"]):
+                raise ValueError("有効なeditor要求IDが必要です")
+        correlation = {"request_id": r["request_id"]} if "request_id" in r else {}
+        if op in {"edit", "import", "diff"}:
+            expected.add("condition")
+        if op == "clone":
+            expected.add("profile_id")
+        if set(r) != expected or type(r["revision"]) is not int or r["revision"] != self.revision or r["ticket"] != self.state["ticket"]:
+            raise ValueError("未知fieldまたは旧revision/ticketです")
+        if self.busy or self.state["phase"] not in {"unselected", "ready", "terminal"}:
+            raise ValueError("条件編集は停止中・記録確定後だけです")
+        if op == "diff":
+            if self.next_condition is None:
+                raise ValueError("次条件がありません")
+            return {"type": "condition_diff", **correlation, "changes": condition_diff(self.state.get("applied_condition") or self.next_condition, r["condition"])}, None
+        if op == "export":
+            if self.next_condition is None:
+                raise ValueError("次条件がありません")
+        else:
+            if op == "clone":
+                if r["profile_id"] not in list_launch_profiles():
+                    raise ValueError("cloneは登録preset IDだけです。server pathは受け付けません")
+                selected = load_launch_profile(r["profile_id"])
+                value = preset_condition(r["profile_id"], TrialLimits(self.launcher_limits.get("ticks") or selected.steps,
+                    self.launcher_limits.get("input_wait_s", 5), self.launcher_limits.get("wall_s", 360),
+                    self.launcher_limits.get("prepare_s", 30)))
+            else:
+                value = r["condition"]
+            if op == "import":
+                if type(value) is not str:
+                    raise ValueError("importはJSON文字列です。server pathは受け付けません")
+                value = value.encode("utf-8")
+            self.next_condition = resolve_condition(value)[2]
+            self.revision += 1
+        return {"type": "edited_condition", **correlation, "condition": self.next_condition,
+            "descriptors": descriptors(self.next_condition), "revision": self.revision,
+            "generation": self.generation, "ticket": self.state["ticket"]}, None
+
+    def _input_command(self, r):
+        """認可済み入力をticketとphaseで検査し、元receiptを保持する。"""
+        op = r["op"]
+        if set(r) != {"op", "capability", "ticket", "message"}:
+            raise ValueError("未知field")
+        if r["ticket"] is None or r["ticket"] != self.state["ticket"]:
+            raise ValueError("旧epochまたは実行前の入力です")
+        if not isinstance(r["message"], str):
+            raise ValueError("入力messageは文字列です")
+        if self.state.get("fixture_mode"):
+            raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
+        if ((not self.busy and self.state["phase"] in INPUT_FINISHED)
+                or (self.stop_id is not None and self.state["phase"] in INPUT_ACTIVE | INPUT_FINISHED)):
+            validate_late_input(r["message"])
+            return self.status(), None
+        if self.busy or self.state["phase"] not in INPUT_ACTIVE:
+            raise ValueError("旧epochまたは実行前の入力です")
+        self.last_input_receipt_s = monotonic()
+        return None, {"op": op, "ticket": r["ticket"], "message": r["message"],
+                      "received_at_s": self.last_input_receipt_s}
+    def _lifecycle_command(self, r):
+        """認可済み操作の履歴、revision、開始・停止gateを所有する。"""
+        op = r["op"]
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
             fields.add("profile_id")
