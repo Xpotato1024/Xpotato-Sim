@@ -25,6 +25,11 @@ resourceのcurrent値は[`plugin.py`](plugin.py)とadapter declarationを正と�
 resetではhomeの全stateへ戻しpending候補を破棄する。model/FK/candidate作業域の再利用とtrial寿命の境界は
 [有限試行契約](../../../../../docs/contracts/finite-trial-runtime.md)を参照する。trial IDや結果fileの所有者はruntimeである。
 
+共同snapshotは同generation内のfrozen値を共有し、commit/reset/invalidateで失効する。
+candidate検査は未公開native dataを再読込みし、可変metadataや接触/Task結果を共有cacheへ入れない。
+中立時も全物理substepとservo targetを維持し、ゼロ増分IKだけを省略する。
+scene/settingsのfrozen identityは構築時に解決するが、位置・速度・接触力は毎回現在dataから読む。
+
 import / discoveryはhardwareへ接続しない。runtime assembly後にpackage resourceからMuJoCo modelを
 loadし、simulatorを構築する。serial、OSC、robot hardwareはopenしない。
 

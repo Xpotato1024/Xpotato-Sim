@@ -14,6 +14,7 @@ class SceneGeometryObserver:
         if type(scene) is not ComposedObjectScene:
             raise TypeError("composed scene required")
         self.model, self.scene, self.model_sha256 = model, scene, model_sha256
+        self.scene_digest = scene.manifest.digest
         self.tools = {}
         self.objects = {}
         for collider in scene.colliders:
@@ -53,7 +54,7 @@ class SceneGeometryObserver:
         if type(frame_index) is not int or frame_index < 0 or data.model is not self.model:
             raise ValueError("scene observation frame/model mismatch")
         time=number(float(data.time),nonnegative=True)
-        if any(int(w.number)>0 for w in data.warning):
+        if (data.warning.number > 0).any():
             raise ValueError("scene observation solver warning")
         poses=[]
         for gid,(oid,name,bid) in self.objects.items():
@@ -81,5 +82,5 @@ class SceneGeometryObserver:
             records.append(SceneContact(tool.endpoint_id,oid,tool.geom_name,name,g.point_world_m,normal,
                                         g.distance_m,g.penetration_m,relation))
         records.sort(key=lambda r:(r.endpoint_id,r.object_id,r.point_world_m,r.normal_world,r.distance_m))
-        return SceneGeometryObservation(self.scene.manifest.digest,self.model_sha256,frame_index,time,
+        return SceneGeometryObservation(self.scene_digest,self.model_sha256,frame_index,time,
             tuple(sorted(poses,key=lambda p:p.instance_id)),tuple(records),self.scene.dynamic_execution)

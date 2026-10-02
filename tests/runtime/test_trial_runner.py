@@ -188,6 +188,32 @@ def test_stale_held_sample_is_not_refreshed(tmp_path):
     runner.close()
 
 
+@pytest.mark.parametrize("kind", ["stale", "future", "pre_trial", "invalid_timestamp"])
+def test_receipt_failure_reports_cause_and_original_age_without_retiming(tmp_path, kind):
+    runner, ticket, clock = prepared(tmp_path)
+    start(runner, ticket, clock)
+    received = clock()
+    if kind == "stale":
+        clock.now += .21
+    elif kind == "future":
+        received += 1
+    elif kind == "pre_trial":
+        received -= .01
+    else:
+        received = float("nan")
+    with pytest.raises(ValueError, match="input_" + kind) as error:
+        runner.ingest(ticket, message(1), received_at_s=received)
+    assert "limit_s=0.200000" in str(error.value)
+    if kind != "invalid_timestamp":
+        assert f"age_s={clock()-received:.6f}" in str(error.value)
+        assert f"received_at_s={received:.6f}" in str(error.value)
+    assert runner.result.to_document()["error"] == str(error.value)
+    assert runner.tick_count == 0 and runner.status == "terminal"
+    with pytest.raises(RuntimeError, match="active trial"):
+        runner.ingest(ticket, message(2), received_at_s=clock())
+    runner.close()
+
+
 def test_duplicate_start_active_changes_and_late_inputs(tmp_path):
     runner, ticket, clock = prepared(tmp_path)
     start(runner, ticket, clock)
@@ -501,3 +527,33 @@ def test_record_failure_preserves_task_and_stop_reason(tmp_path,monkeypatch):
     assert result["task_outcome"]["classification"]=="success"
     assert result["recording"]=="failed" and result["recording_error"]=="terminal unavailable"
     runner.close()
+
+
+def test_display_cadence_preserves_task_outcome_and_all_native_state(tmp_path):
+    runners = [prepared(tmp_path / str(i), "dynamic-cube-drop", ticks=30) for i in range(2)]
+    try:
+        for runner, ticket, clock in runners:
+            start(runner, ticket, clock)
+        for sequence in range(1, 31):
+            for runner, ticket, clock in runners:
+                clock.now += 1 / 60
+                runner.ingest(ticket, message(sequence, (.1, 0, -.1, 0)), received_at_s=clock())
+                runner.advance(ticket)
+            for _ in range(4):
+                runners[1][0].snapshot()
+            left, right = (item[0] for item in runners)
+            assert left._execution.instance.provider.trial_state() == right._execution.instance.provider.trial_state()
+            views = [dict(item[0]._execution.task_view) for item in runners]
+            for view, (_, ticket, _) in zip(views, runners):
+                assert view.pop("epoch") == "trial-" + ticket.trial_id
+            assert views[0] == views[1]
+            assert left.snapshot().qpos == right.snapshot().qpos
+            assert left.snapshot().metadata["scene_dynamics_v1"] == right.snapshot().metadata["scene_dynamics_v1"]
+        outcomes = [item[0].result.to_document() for item in runners]
+        for outcome, (_, ticket, _) in zip(outcomes, runners):
+            assert outcome["task_outcome"].pop("epoch") == "trial-" + ticket.trial_id
+        for field in ("ticks", "runner_stop_reason", "task_outcome"):
+            assert outcomes[0][field] == outcomes[1][field]
+    finally:
+        for runner, _, _ in runners:
+            runner.close()

@@ -50,6 +50,8 @@ class CoordinatedRuntime:
         self.state, self.reason = "waiting_neutral", None
         self._tick = 0
         self._last: CoordinatedInput | None = None
+        self._neutral_input: CoordinatedInput | None = None
+        self.last_receipt_gap_s: float | None = None
         self._last_now: float | None = None
         self._minimum_received_at_s = 0.0
         self._retired_sources: set[str] = set()
@@ -103,6 +105,8 @@ class CoordinatedRuntime:
             self.epoch = epoch
             self._used_epochs.add(epoch)
             self._tick, self._last = 0, None
+            self._neutral_input = None
+            self.last_receipt_gap_s = None
             self._last_now = self._minimum_received_at_s = now
             self.state, self.reason = "waiting_neutral", None
 
@@ -116,8 +120,11 @@ class CoordinatedRuntime:
         self._validate_input_shape(value)
         if not value.available:
             raise ValueError("input_unavailable")
-        if not 0 <= now - value.received_at_s <= self.max_input_age_s:
-            raise ValueError("input_stale_or_future")
+        age = now - value.received_at_s
+        if not 0 <= age <= self.max_input_age_s:
+            cause = "future" if age < 0 else "stale"
+            raise ValueError(f"input_stale_or_future: cause={cause}; age_s={age:.6f}; "
+                             f"limit_s={self.max_input_age_s:.6f}; received_at_s={value.received_at_s:.6f}; now_s={now:.6f}")
         if value.received_at_s < self._minimum_received_at_s or value.source_epoch in self._retired_sources:
             raise ValueError("previous_execution_input")
         old = self._last
@@ -130,6 +137,21 @@ class CoordinatedRuntime:
             if value.source_sequence == old.source_sequence and value != old:
                 raise ValueError("input_sequence_reused_with_changed_content")
         self._last = value
+
+    def consume_received_input(self, value: CoordinatedInput) -> None:
+        """有界batchの履歴を元receiptで検査する。physicsとfreshness判定はtickに残す。"""
+        with self._lock:
+            if self.state in ("stopped", "faulted"):
+                raise RuntimeError("input requires an active runtime")
+            try:
+                if self._last is not None:
+                    self.last_receipt_gap_s = value.received_at_s - self._last.received_at_s
+                self._validate_input(value, value.received_at_s)
+                if value.neutral:
+                    self._neutral_input = value
+            except Exception as exc:
+                self._trip(f"input_consumption_failed:{type(exc).__name__}:{exc}")
+                raise
 
     def tick(self, value: CoordinatedInput | None, *, epoch: str, now_s: float) -> CoordinatedStepResult:
         with self._lock:
@@ -160,7 +182,11 @@ class CoordinatedRuntime:
                     raise ValueError("input_unavailable")
                 self._validate_input(value, now)
                 if self.state == "waiting_neutral":
-                    if value.neutral:
+                    neutral = value if value.neutral else self._neutral_input
+                    fresh_neutral = (neutral is not None and neutral.source_epoch == value.source_epoch
+                        and neutral.received_at_s >= self._minimum_received_at_s
+                        and 0 <= now - neutral.received_at_s <= self.max_input_age_s)
+                    if fresh_neutral:
                         if self.provider.preflight() is not True:
                             raise ValueError("preflight_rejected")
                         self.state, self.reason = "running", None

@@ -76,3 +76,14 @@ Issue #436当時の分類と、Issue #416の合成log demo分類は変更しな�
 ## 2026-09-20: #543のsoftware-only統合入口
 
 `run_prehardware_signal_e2e.py`（`scripts/diagnostics/run_prehardware_signal_e2e.py`）を追加した。local fixtureとoutputだけを受け取り、port/host/enableは持たない。既存retirementの履歴・移行数は変更しない。現行手順はpre-hardware-signal-emulation contractへ委譲する。
+
+## 2026-10-02: #610の性能計測入口
+
+既存の分類・退役履歴を維持し、今回追加した再測定用の4ファイルを明示登録する。
+
+| script / fixture | consumer / evidence | 分類 | 判断 |
+| --- | --- | --- | --- |
+| `measure_simulation_hot_path.py` | #610性能note、実MuJoCoの基点・候補比較 | developer diagnostic | profiler付き内訳と通常tickの計測を分離する。production起動経路ではない |
+| `measure_pinch_checkpoint.py` | #610反対面接触のstate/force parity | developer diagnostic | 同じ100 mm cube接触checkpointの有限比較。実機・把持成功の証明ではない |
+| `pinch-checkpoint.json` | 上記pinch測定script | diagnostic fixture | 同じqpos/ctrlの入力条件を固定する。実測geometryの正本ではない |
+| `measure_workbench_latency.py` | #610の固定ブラウザ→実MuJoCo→CPU描画提出 | developer diagnostic | 今回専用Chromiumのendpointだけを使い、既存ブラウザを操作・終了しない |

@@ -17,6 +17,8 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
         super().__init__(assembly,built=built,object_scene=object_scene)
         self.state_layout=resolve_scene_state_layout(self.model,self.assembly.joint_names,
             tuple("object__"+o.instance_id+"__free" for o in object_scene.manifest.objects if o.motion_type=="dynamic"))
+        # frozen scene/settingsのidentityだけを固定し、物理値は毎回live dataから読む。
+        self._observation_identity = (object_scene.manifest.digest, settings.digest)
         if abs(float(self.model.opt.timestep)-settings.physics_dt_s)>1e-15:
             raise ValueError("compiled timestep differs from execution configuration")
 
@@ -39,7 +41,7 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
     def _dynamics_observation(self,frame_index):
         from xpotato_sim.runtime.scene.dynamics_observation import observe_dynamics
         return observe_dynamics(self.model,self._data,scene=self._scene_observer.scene,model_sha256=self.built.model_sha256,
-            settings=self.settings,arms=self.addresses,frame_index=frame_index)
+            settings=self.settings,arms=self.addresses,frame_index=frame_index, identity=self._observation_identity)
 
     def _planning_state(self,base):
         """保持中のcommand targetをseedとする。中立でmeasured poseへ追従し続けて沈下させない。"""
@@ -52,13 +54,13 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
 
     def _check_data(self,data):
         super()._check_data(data)
-        if not np.all(np.isfinite(data.qacc)) or not np.all(np.isfinite(data.actuator_force)):
+        if not np.isfinite(data.qacc).all() or not np.isfinite(data.actuator_force).all():
             raise ValueError("nonfinite dynamic state")
         for arm in self.addresses:
-            if np.max(np.abs(data.qvel[list(arm.dof_addresses)]))>self.settings.max_joint_speed_rad_s:
+            if any(abs(float(data.qvel[i]))>self.settings.max_joint_speed_rad_s for i in arm.dof_addresses):
                 raise ValueError("dynamic joint speed budget exceeded")
-            error=data.ctrl[list(arm.actuator_ids)]-data.qpos[list(arm.qpos_addresses)]
-            if np.max(np.abs(error))>self.settings.max_tracking_error_rad:
+            if any(abs(float(data.ctrl[a])-float(data.qpos[q]))>self.settings.max_tracking_error_rad
+                   for a,q in zip(arm.actuator_ids,arm.qpos_addresses,strict=True)):
                 raise ValueError("dynamic tracking error budget exceeded")
 
     def _integrate_candidate(self,base,candidates,dt_s):
