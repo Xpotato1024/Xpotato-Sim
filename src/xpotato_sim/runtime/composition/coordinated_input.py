@@ -43,13 +43,12 @@ class CoordinatedInputRuntime:
             self.runtime.fail(f"source_ingress_failed:{type(exc).__name__}")
             raise
 
-    def tick(self, *, epoch: str) -> CoordinatedStepResult:
+    def tick(self, *, epoch: str, freshness_barrier=None) -> CoordinatedStepResult | None:
         if self.runtime.state in ("stopped", "faulted"):
             self.mapping.reset_coordinated_presentation(
                 self.parameters, reason=self.runtime.reason or self.runtime.state)
             return self.runtime.tick(None, epoch=epoch, now_s=0.)
         try:
-            now = number(self.clock(), "host clock")
             frame = self.source.read_frame()
             self.last_frame = frame
             received = self.source.last_received_at_s
@@ -57,6 +56,13 @@ class CoordinatedInputRuntime:
             if value is None and received is not None:
                 value = self.mapping.map_coordinated_input(
                     frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
+            now = number(self.clock(), "host clock")
+            # sampleとclockを確定後、staleをlatchする前だけqueueを一度再確認する。
+            # 新入力または制御操作があれば積分せずownerへ戻す。future等は救済しない。
+            if (freshness_barrier is not None and value is not None
+                    and now - value.received_at_s > self.runtime.max_input_age_s
+                    and freshness_barrier()):
+                return None
         except Exception as exc:
             self.runtime.fail(f"input_mapping_failed:{type(exc).__name__}:{exc}")
             self.mapping.reset_coordinated_presentation(

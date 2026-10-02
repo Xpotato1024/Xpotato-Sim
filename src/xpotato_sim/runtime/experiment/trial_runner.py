@@ -224,19 +224,19 @@ class TrialRunner:
         """受領元のmonotonic時刻を保持し、遅延sampleの鮮度を更新しない。"""
         return self.ingest_batch(ticket, ((message, received_at_s),))
 
-    def ingest_batch(self, ticket, samples):
+    def ingest_batch(self, ticket, samples, *, check_freshness=True):
         """最大64件のreceipt履歴を消費後、最新sampleの実時刻鮮度を検査する。"""
         with self._mutating():
             self._check_ticket(ticket)
             if self._status not in {"waiting_input", "running"}:
                 raise RuntimeError("input requires an active trial")
             try:
-                self._consume_batch(ticket, samples)
+                self._consume_batch(ticket, samples, check_freshness=check_freshness)
             except Exception as exc:
                 self._finish("technical_invalid", error=str(exc))
                 raise
 
-    def _consume_batch(self, ticket, samples):
+    def _consume_batch(self, ticket, samples, *, check_freshness=True):
         if type(samples) not in (tuple, list) or not 1 <= len(samples) <= 64:
             raise ValueError("bounded nonempty input batch required")
         now = self._now()
@@ -244,7 +244,7 @@ class TrialRunner:
             self._ingest_received(ticket, message, received_at_s=received_at_s, now=now)
         age = self._now() - self._last_input[3]
         limit = self._execution.profile.max_input_age_s
-        if age > limit:
+        if check_freshness and age > limit:
             raise ValueError(f"input_stale: age_s={age:.6f}; limit_s={limit:.6f}; "
                              f"received_at_s={self._last_input[3]:.6f}; now_s={self._last_now:.6f}")
 
@@ -310,11 +310,19 @@ class TrialRunner:
                     if samples is None:
                         return None
                     if samples:
-                        self._consume_batch(ticket, samples)
+                        self._consume_batch(ticket, samples, check_freshness=False)
                         if len(samples) == 64:
                             return None
                 before = self.tick_count
-                self._execution.tick()
+                def freshness_barrier():
+                    samples = pending_input()
+                    if samples is None:
+                        return True
+                    if not samples:
+                        return False
+                    self._consume_batch(ticket, samples, check_freshness=False)
+                    return True
+                self._execution.tick(freshness_barrier=None if pending_input is None else freshness_barrier)
                 if self._execution.state == "faulted":
                     return self._finish("technical_invalid", error=self._execution.reason)
                 if self._execution.state == "running":

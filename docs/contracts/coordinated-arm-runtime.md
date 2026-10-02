@@ -46,6 +46,12 @@ legacyのsingle-endpoint intentを二腕へ複製せず、診断metadataの左�
 
 ## 同一状態からの候補とcommit
 
+共通input compositionはsampleのread/Mapping後にhost clockを評価する。Workbench ownerが
+freshness callbackを渡した場合だけ、staleのfault latch前に一度queueを再確認できる。
+callbackが延期を返したtickはprovider候補・commit・Taskを進めず、ownerの有限監督へ戻る。
+空queueの場合は確定したsample/nowで通常のstrict gateへ進む。futureや不正入力を救済せず、
+既にfaulted/stoppedのruntimeにはcallbackを使わない。任意のOS schedulingの無限競合回避は保証しない。
+
 各armのIKは同じMuJoCo snapshotのコピーを見る。一腕のcandidateを次の腕の初期状態へ混ぜない。
 4関節分の既存 `LocalEndpointMotionGenerator` と同じ有限差分・減衰・step上限を各armへ用い、
 元のjoint-limit設定を個別に照合する。tool方向は当該armの同じsnapshotのsite姿勢からworldへ解決する。

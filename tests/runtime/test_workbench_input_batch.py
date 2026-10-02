@@ -8,6 +8,69 @@ from test_trial_runner import prepared, start, message
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import message as trigger_message
 
 
+@pytest.mark.parametrize("boundary", ["drain", "read", "clock"])
+def test_freshness_barrier_before_fault(tmp_path, monkeypatch, boundary):
+    runner, ticket, clock = prepared(tmp_path, ticks=100)
+    try:
+        start(runner, ticket, clock)
+        queued, injected = [], [False]
+        def stall():
+            if not injected[0]:
+                injected[0] = True
+                clock.now += .210
+                queued.append((message(1), clock.now))
+        def pending():
+            samples = tuple(queued)
+            queued.clear()
+            if boundary == "drain": stall()
+            return samples
+        composition = runner._execution.runtime
+        original_read = composition.source.read_frame
+        def read():
+            frame = original_read()
+            if boundary == "read": stall()
+            return frame
+        monkeypatch.setattr(composition.source, "read_frame", read)
+        original_clock = composition.clock
+        def observe_clock():
+            if boundary == "clock": stall()
+            return original_clock()
+        composition.clock = observe_clock
+        runner.advance(ticket, pending_input=pending)
+        assert runner.status == "running" and runner.result is None
+        assert runner.tick_count == 0
+        runner.advance(ticket, pending_input=pending)
+        assert runner.tick_count == 1
+        assert runner.processed_input_sequence == 1
+    finally:
+        runner.close()
+
+
+@pytest.mark.parametrize("control", [False, True])
+def test_barrier_empty_queue_is_strict_and_control_defers(tmp_path, control):
+    runner, ticket, clock = prepared(tmp_path, ticks=100)
+    try:
+        start(runner, ticket, clock)
+        calls = [0]
+        def pending():
+            calls[0] += 1
+            if calls[0] == 1:
+                clock.now += .201
+                return ()
+            return None if control else ()
+        runner.advance(ticket, pending_input=pending)
+        assert calls[0] == 2 and runner.tick_count == 0
+        if control:
+            assert runner.result is None
+            runner.abort(ticket)
+            assert runner.result.to_document()["runner_stop_reason"] == "operator_abort"
+        else:
+            assert runner.result.to_document()["runner_stop_reason"] == "technical_invalid"
+            assert "input_stale_or_future" in runner.result.to_document()["error"]
+    finally:
+        runner.close()
+
+
 def wire_message(**kwargs):
     value = asdict(trigger_message(**kwargs))
     value.pop("keyboard")
@@ -220,6 +283,15 @@ def _stalled_worker_process(url, config, stall, position, injected):
     original = TrialRunner.advance
     def advance(runner, ticket, **kwargs):
         inject = runner.tick_count == 5 and not injected.is_set()
+        if inject and position == "after_drain":
+            pending = kwargs["pending_input"]
+            def delayed_pending():
+                samples = pending()
+                if not injected.is_set():
+                    injected.set()
+                    sleep(stall)
+                return samples
+            kwargs["pending_input"] = delayed_pending
         if inject and position == "before_advance":
             injected.set()
             sleep(stall)
@@ -233,7 +305,7 @@ def _stalled_worker_process(url, config, stall, position, injected):
 
 
 def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
-                             acknowledge_stop=True, deadline_s=None):
+                             acknowledge_stop=True, deadline_s=None, source_gap=False):
     from multiprocessing import get_context
     from threading import Thread, Event
     from time import monotonic
@@ -266,23 +338,39 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                     remaining()
                     continue
                 event = json.loads(raw)
-                events.append(event)
+                if event.get("type") != "frame":
+                    event["test_received_at_s"] = monotonic()
+                    events.append(event)
                 if event.get("id") == "p":
                     ws.send(json.dumps({"op": "start", "id": "start", "generation": 1}))
                 if event.get("id") == "start":
                     ticket = event["state"]["ticket"]
                     def produce():
                         try:
+                            # fixture I/O・検証は供給開始前に一度だけ行う。
+                            template = json.loads(message())
                             began = monotonic()
+                            diagnostics = {"samples": 0, "max_receipt_gap_s": 0.,
+                                           "max_send_duration_s": 0., "last_receipt_s": None}
+                            supply.append(diagnostics)
                             for i in range(sample_count):
+                                if source_gap and i == 30:
+                                    if cancel.wait(.350): return
                                 if cancel.wait(max(0, began + i / 60 - monotonic())):
                                     return
                                 remaining()
+                                axes = (0, 0, 0, 0) if i == 0 else (.15 if (i // 30) % 2 else -.15, 0, 0, 0)
+                                template.update(sequence=i, timestamp_s=i / 60)
+                                template["gamepad"].update(raw_axes=list(axes), axes=list(axes), zero_state=not any(axes))
+                                receipt = monotonic()
+                                previous = diagnostics["last_receipt_s"]
+                                if previous is not None:
+                                    diagnostics["max_receipt_gap_s"] = max(diagnostics["max_receipt_gap_s"], receipt - previous)
+                                diagnostics.update(samples=i + 1, last_receipt_s=receipt)
                                 ws.send(json.dumps({"op": "input", "ticket": ticket,
-                                    "message": message(i, (0, 0, 0, 0) if i == 0 else
-                                        (.15 if (i // 30) % 2 else -.15, 0, 0, 0)),
-                                    "received_at_s": monotonic()}))
-                            supply.append({"samples": sample_count, "duration_s": monotonic() - began})
+                                    "message": json.dumps(template), "received_at_s": receipt}))
+                                diagnostics["max_send_duration_s"] = max(diagnostics["max_send_duration_s"], monotonic() - receipt)
+                            diagnostics["duration_s"] = monotonic() - began
                             ws.send(json.dumps({"op": "stop", "id": "stop", "generation": 2}))
                         except Exception as exc:
                             errors.append(exc)
@@ -350,14 +438,20 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
     assert not errors, errors
     assert injected.is_set()
     stopped = next(e for e in events if e.get("id") == "stop")
-    if stopped["state"]["result"]["runner_stop_reason"] != "operator_abort":
+    expected = "technical_invalid" if source_gap else "operator_abort"
+    if stopped["state"]["result"]["runner_stop_reason"] != expected:
         print(json.dumps({"unexpected_terminal": stopped["state"]["result"],
                           "input_diagnostics": stopped["state"].get("input_diagnostics"),
                           "supply": supply, "injected": injected.is_set(),
                           "first_errors": [e.get("error") for e in events if e.get("error")][:8]}))
-    assert stopped["state"]["result"]["runner_stop_reason"] == "operator_abort", stopped
-    assert stopped["state"]["ticks"] > 60
-    assert stopped["state"]["input_diagnostics"]["processed_sequence"] >= sample_count - 5
+    assert stopped["state"]["result"]["runner_stop_reason"] == expected, stopped
+    if source_gap:
+        assert "input_stale_or_future" in stopped["state"]["result"]["error"]
+        assert supply[0]["max_receipt_gap_s"] > .2
+    else:
+        assert stopped["state"]["ticks"] > 60
+        assert stopped["state"]["input_diagnostics"]["processed_sequence"] >= sample_count - 5
+        assert supply[0]["max_receipt_gap_s"] <= .2, "producer itself lost continuous supply"
     assert not any(e.get("error") for e in events)
     assert supply[0]["duration_s"] >= (sample_count - 1) / 60
     print(json.dumps({"actual_wire": True, "stall_s": stall, "position": position,
@@ -377,6 +471,14 @@ def test_actual_worker_websocket_61_seconds(tmp_path, monkeypatch):
     """全CIでも短いsnapshotだけでなく、61秒の継続操作と700ms停滞を確認する。"""
     monkeypatch.setenv("XPOTATO_TEST_INPUT_SAMPLES", "3661")
     _exercise_stalled_worker(tmp_path, monkeypatch, .700, "before_advance")
+
+
+def test_actual_worker_stall_after_drain(tmp_path, monkeypatch):
+    _exercise_stalled_worker(tmp_path, monkeypatch, .210, "after_drain")
+
+
+def test_actual_worker_true_source_gap(tmp_path, monkeypatch):
+    _exercise_stalled_worker(tmp_path, monkeypatch, .01, "before_advance", source_gap=True)
 
 
 def test_actual_worker_missing_close_is_bounded(tmp_path, monkeypatch):

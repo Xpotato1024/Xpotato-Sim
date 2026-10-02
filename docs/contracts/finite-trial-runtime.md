@@ -111,5 +111,9 @@ session/sequence/source timestampと利用可能性の検査は省かない。�
 receipt gapは診断だけに記録し、tick前に新鮮な入力を取得済みならgapだけでは終了させない。単一`ingest`もこの経路を使用し、stale入力を復帰手段にしない。
 中立自身のreceiptがtick時に0.2秒以内で、同source epochかつ試行開始以後の最初のbatchは次のtickでpreflightだけを通し、Task/physicsの進行数を増やさない。
 Workbenchはowner内の`pending_input` callbackをadvance入口で呼び、受付loop後の到着分も消費する。
+さらにread/Mapping後のsampleとhost nowでstaleを検出した場合、fault前に同callbackを一度だけ呼ぶ。
+新入力を順序消費した場合とdeferred制御操作がある場合はphysics/Taskを進めずownerへ戻る。
+workerは`check_freshness=False`でbatch鮮度の最終判断をtickへ委ねる。通常の`ingest`/`ingest_batch`は従来のstrict検査を維持する。
+空queueでのstale、future、pretrial、clock逆行、不正入力の拒否や旧ticketの境界は維持する。
 STOP/close待ちや64件上限ではtickを延期するが、wall/input-wait監督は先に実行する。
 tick時のstrict freshness、formal Task結果、記録と明示retryの契約は維持する。

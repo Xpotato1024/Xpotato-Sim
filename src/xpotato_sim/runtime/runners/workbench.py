@@ -463,7 +463,8 @@ def execution_worker(url, config):
                                 input_diagnostics["last_receipt_s"] = batch[-1]["received_at_s"]
                                 input_diagnostics["last_ingest_s"] = monotonic()
                                 runner.ingest_batch(runner.ticket,
-                                    tuple((item["message"], item["received_at_s"]) for item in batch))
+                                    tuple((item["message"], item["received_at_s"]) for item in batch),
+                                    check_freshness=False)
                                 input_diagnostics["processed_sequence"] = runner.processed_input_sequence
                         elif op == "stop":
                             generation = cmd["generation"]
