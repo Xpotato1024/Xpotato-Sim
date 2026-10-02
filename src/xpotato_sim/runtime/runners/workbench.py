@@ -108,6 +108,7 @@ class WorkbenchControl:
         self.dead = False
         self.next_condition = None
         self.launcher_limits = launcher_limits or {}
+        self.last_input_receipt_s = None
 
     def complete(self, rid, error=None):
         if rid in self.history:
@@ -142,6 +143,7 @@ class WorkbenchControl:
         return {"type": "status", **self.state, "revision": self.revision,
                 "generation": self.generation, "busy": self.busy, "profiles": self.catalog,
                 "busy_operation": self.busy_operation,
+                "service_last_input_receipt_s": self.last_input_receipt_s,
                 "results": list(self.results), "renderer_ready": self.renderer_epoch is not None,
                 "history_size": len(self.history), "history_limit": 128}
 
@@ -225,7 +227,9 @@ class WorkbenchControl:
                 return self.status(), None
             if self.busy or self.state["phase"] not in INPUT_ACTIVE:
                 raise ValueError("旧epochまたは実行前の入力です")
-            return None, {"op": op, "ticket": r["ticket"], "message": r["message"], "received_at_s": monotonic()}
+            self.last_input_receipt_s = monotonic()
+            return None, {"op": op, "ticket": r["ticket"], "message": r["message"],
+                          "received_at_s": self.last_input_receipt_s}
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
             fields.add("profile_id")
@@ -325,6 +329,9 @@ def execution_worker(url, config):
     last_frame_key = None
     last_status = 0.0
     retired_builds = 0
+    deferred_raw = None
+    input_diagnostics = {"batch_size": 0, "batch_limit_hit": False, "last_receipt_s": None,
+                         "last_ingest_s": None, "processed_sequence": None, "tick_duration_s": None}
     def state():
         return {"phase": runner.status, "ticket": None if runner.ticket is None else asdict(runner.ticket),
             "ticks": runner.tick_count, "profile_id": None if profile is None else profile.name,
@@ -333,24 +340,70 @@ def execution_worker(url, config):
             "condition": None if runner.condition is None else runner.condition.to_document(),
             "applied_condition": applied_condition,
             "worker_pid": os.getpid(),
+            "input_diagnostics": {**input_diagnostics, **runner.processed_input_diagnostics},
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
     def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
         ws.send(json.dumps({"type": "worker_status", "id": rid, "state": state(),
                             "error": error, "completed_op": completed_op, "operation": operation,
                             "generation": generation, "assets": assets}, allow_nan=False))
+    def pending_input():
+        """advance入口で到着分を再確認する。STOPは次iterationの先頭へ戻す。"""
+        nonlocal deferred_raw
+        if deferred_raw is not None:
+            return None
+        samples = []
+        while len(samples) < 64:
+            try:
+                raw = ws.recv(timeout=0)
+            except TimeoutError:
+                break
+            cmd = json.loads(raw)
+            if (cmd["op"] != "input" or cmd.get("ticket") != asdict(runner.ticket)
+                    or cmd.get("id") is not None):
+                deferred_raw = raw
+                if cmd["op"] in {"stop", "close"}:
+                    return None
+                break
+            samples.append((cmd["message"], cmd["received_at_s"]))
+        if samples:
+            input_diagnostics.update(batch_size=len(samples), batch_limit_hit=len(samples) == 64,
+                last_receipt_s=samples[-1][1], last_ingest_s=monotonic())
+        return tuple(samples)
     try:
-        with connect(url, proxy=None, max_size=2**20, max_queue=8) as ws:
+        with connect(url, proxy=None, max_size=2**20, max_queue=64) as ws:
             ws.send(json.dumps({"op": "worker", "capability": os.environ.pop("XPOTATO_WORKBENCH_WORKER_KEY")}))
             send_state(ws)
             while True:
                 try:
-                    raw = ws.recv(timeout=max(0.001, min(0.02, next_tick - monotonic())))
+                    if deferred_raw is not None:
+                        raw, deferred_raw = deferred_raw, None
+                    else:
+                        raw = ws.recv(timeout=max(0.001, min(0.02, next_tick - monotonic())))
                 except TimeoutError:
                     raw = None
                 if raw is not None:
                     cmd = json.loads(raw)
                     op = cmd["op"]
+                    batch = [cmd] if op == "input" else []
+                    # 既に受信済みの入力をtickより先に消費。STOPはbatchを積分せず優先する。
+                    if (batch and runner.status in INPUT_ACTIVE | INPUT_FINISHED and runner.ticket is not None
+                            and cmd.get("ticket") == asdict(runner.ticket) and cmd.get("id") is None):
+                        while len(batch) < 64:
+                            try:
+                                following = ws.recv(timeout=0)
+                            except TimeoutError:
+                                break
+                            candidate = json.loads(following)
+                            if candidate["op"] in {"stop", "close"}:
+                                cmd, op, batch = candidate, candidate["op"], []
+                                break
+                            if (candidate["op"] != "input" or candidate.get("ticket") != cmd["ticket"]
+                                    or candidate.get("id") is not None):
+                                deferred_raw = following
+                                break
+                            batch.append(candidate)
+                        input_diagnostics.update(batch_size=len(batch), batch_limit_hit=len(batch) == 64)
                     if op == "close":
                         break
                     try:
@@ -389,6 +442,8 @@ def execution_worker(url, config):
                             assets = list(prepared_assets)
                         elif op == "start":
                             runner.start(runner.ticket, input_provenance=fixture.identity() if fixture else {"source": "workbench-gamepad/v1"})
+                            input_diagnostics.update(batch_size=0, batch_limit_hit=False, last_receipt_s=None,
+                                last_ingest_s=None, processed_sequence=None, tick_duration_s=None)
                             fixture_start, fixture_index = monotonic(), 0
                             next_tick = fixture_start
                         elif op == "input":
@@ -397,10 +452,19 @@ def execution_worker(url, config):
                             if runner.ticket is None or cmd["ticket"] != asdict(runner.ticket):
                                 raise ValueError("旧ticket")
                             if runner.status in INPUT_FINISHED:
-                                validate_late_input(cmd["message"])
+                                for item in batch:
+                                    if item["ticket"] != asdict(runner.ticket):
+                                        raise ValueError("旧ticket")
+                                    validate_late_input(item["message"])
                                 send_state(ws, cmd.get("id"))
                             else:
-                                runner.ingest(runner.ticket, cmd["message"], received_at_s=cmd["received_at_s"])
+                                if any(item["ticket"] != asdict(runner.ticket) for item in batch):
+                                    raise ValueError("旧ticket")
+                                input_diagnostics["last_receipt_s"] = batch[-1]["received_at_s"]
+                                input_diagnostics["last_ingest_s"] = monotonic()
+                                runner.ingest_batch(runner.ticket,
+                                    tuple((item["message"], item["received_at_s"]) for item in batch))
+                                input_diagnostics["processed_sequence"] = runner.processed_input_sequence
                         elif op == "stop":
                             generation = cmd["generation"]
                             if runner.status in ACTIVE:
@@ -421,6 +485,11 @@ def execution_worker(url, config):
                             assets = []
                             profile = None
                         send_state(ws, cmd.get("id"), str(exc), operation=op)
+                    if len(batch) == 64 and runner.status in ACTIVE:
+                        runner.advance(runner.ticket, pending_input=lambda: None)
+                        if runner.status not in ACTIVE:
+                            send_state(ws)
+                        continue
                 now = monotonic()
                 if runner.status in ACTIVE and now >= next_tick:
                     old_phase = runner.status
@@ -430,7 +499,9 @@ def execution_worker(url, config):
                                 offset, message = fixture.samples[fixture_index]
                                 runner.ingest(runner.ticket, message, received_at_s=fixture_start + offset)
                                 fixture_index += 1
-                        runner.advance(runner.ticket)
+                        tick_started = monotonic()
+                        runner.advance(runner.ticket, pending_input=None if fixture is not None else pending_input)
+                        input_diagnostics["tick_duration_s"] = monotonic() - tick_started
                     except Exception as exc:
                         send_state(ws, error=str(exc))
                     next_tick = max(next_tick + profile.dt_s, now)

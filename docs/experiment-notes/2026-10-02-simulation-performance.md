@@ -201,3 +201,46 @@ focused146件、related/architecture328件、後から追加したworker/Task回
 独立レビューとcurrent-head CI、commit/push/PR作成は親担当で、この実装taskでは未実行である。
 実Gamepad、participant、実機、serial、OSC、OS変更、依存更新は行っていない。
 ユーザーの200ms超過原因は未確定であり、停止の完全解消を主張しない。
+
+## #610 ordinary-input stale stopの追試と修復
+
+起点は`46ed388dc1c4f1f0a94307dfa330aaf46e1475ad`、未commitのsource差分と
+`tests/runtime/test_workbench_input_batch.py`を対象とする。実Gamepad、participant、実機I/Oは使わない。
+元の利用者のprofile・実行環境・terminal記録は未取得であり、発生環境の再現ではない。
+
+元sourceを別interpreter内で再構成した合成clock試験では、receipt 10.031秒のsampleを10.221秒に
+ingestし、10.234秒にtickすると、queueに後続11sampleがある条件でも`age_s=0.203000`で
+`technical_invalid`、0tickとなった。修正経路は全12sampleを順に消費し、最新receipt 10.218秒で
+1tickだけ進めた。過去motionの追い付き再生、receipt再付与、gate延長は行っていない。
+
+実MuJoCoと実worker WebSocketの回帰では、約60Hzで120sampleを送信し、advance前後へ
+190/250/700msの停滞をそれぞれ注入した。受付loopとadvance入口で受信済みbatchを消費し、
+6条件とも試行を継続してSTOPで`operator_abort`を保存した。途中のtrigger解除・中立、
+disconnect/stale通知、旧schema、session変更、sequence再利用を捨てないことも検査した。
+tick時の最新actual receiptが201ms古い無入力とwall budgetはstrictに停止する。receipt間隔単独の終了判定はreview修正で除去した。これらは模擬負荷とsoftware回帰である。
+
+固定Viewer buildと新規所有Chromiumを通した追試では、合成Gamepadの通常wireから実MuJoCo接触を
+確認した後、stickを500msごとに±0.15へ反転して30秒間継続した。trigger符号ラッチ・解除、
+中立、STOP保存、旧ticket拒否、disconnectの無効終了を確認した。別試行でbrowser主threadを
+300ms停止すると、service/processed receiptが同じ値で止まり、tick側の0.2秒gateで
+`technical_invalid`となった。自動resumeは起きなかった。これはCPU busy loopによる無sample再現であり、
+GCそのものの観測や実deviceの入力欠落を証明するものではない。
+
+Pythonの関連201件、Viewer compile/lifecycle test/typecheck/buildがpassした。最終のwall監督補足を含む
+focused107件とMarkdown検査（errors=0）もpassした。command、終了code、fixture/helper、source hashと
+完全結果は親への`handoff.md`から参照する。既存の平均遅延値は本修復の達成指標として再利用しない。
+
+### 残るpolicy判断
+
+新鮮な入力が受信済みのlocal backlogにあるケースは改善したが、本当の0.2秒超の無sampleは
+通常操作を終了させる。長いGC/render停止もmain-thread timerを止めるため、timerの独立化だけでは避けられない。
+通常運用でこの欠落を許容するには、stale motionを適用せずsimulationを一時停止し、operatorの
+明示resumeと新鮮な中立を要求する別policyが必要となる。formal evaluationはstrictのまま保ち、
+pause時間、wall budget、結果の無効性と探索操作の継続を明示的に区別する設計を親へ引き継ぐ。
+本taskではphase/schema、Task成功、正式な実験有効性、自動resumeを変更していない。
+
+### input batching独立reviewの修正・追試
+
+中立自身のreceiptを保持し、neutral age .31秒/latest age .01秒の親probeは`waiting_neutral`となった。新しい中立を取得した後だけ起動する。64件batchが連続してもwall/input-wait監督を通し、終端後のbatchも全件ticket/valid late messageを検査する。STOP/close取消と通常late入力を区別する。receipt gapは診断に留め、元のnow−latest receipt gateを維持する。
+
+同じworker wire/clockでbaseは15件backlogの最初のreceipt 10.060秒をtick 10.263秒に使って203ms stale停止、修正版はsequence 15まで消費して1tick進行した。実WebSocket・実MuJoCoで60Hzの合成入力3,661件を61秒供給し、worker ownerだけ700ms停止した試験は3,545tick、processed sequence 3,660で明示STOPまで継続した。190/250/700msのadvance前後6ケース、連続64件batchの両監督、65件境界STOP/close、不正なlate後続入力も検証した。元のユーザー実行環境・実Gamepadは未再現である。前回のViewer/buildと実接触・trigger/中立/STOP/disconnect証拠は変更影響がない範囲で再利用する。詳細結果とsource identityは今回のhandoffに残す。

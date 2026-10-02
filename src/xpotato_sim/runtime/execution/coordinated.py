@@ -50,6 +50,8 @@ class CoordinatedRuntime:
         self.state, self.reason = "waiting_neutral", None
         self._tick = 0
         self._last: CoordinatedInput | None = None
+        self._neutral_input: CoordinatedInput | None = None
+        self.last_receipt_gap_s: float | None = None
         self._last_now: float | None = None
         self._minimum_received_at_s = 0.0
         self._retired_sources: set[str] = set()
@@ -103,6 +105,8 @@ class CoordinatedRuntime:
             self.epoch = epoch
             self._used_epochs.add(epoch)
             self._tick, self._last = 0, None
+            self._neutral_input = None
+            self.last_receipt_gap_s = None
             self._last_now = self._minimum_received_at_s = now
             self.state, self.reason = "waiting_neutral", None
 
@@ -134,6 +138,21 @@ class CoordinatedRuntime:
                 raise ValueError("input_sequence_reused_with_changed_content")
         self._last = value
 
+    def consume_received_input(self, value: CoordinatedInput) -> None:
+        """有界batchの履歴を元receiptで検査する。physicsとfreshness判定はtickに残す。"""
+        with self._lock:
+            if self.state in ("stopped", "faulted"):
+                raise RuntimeError("input requires an active runtime")
+            try:
+                if self._last is not None:
+                    self.last_receipt_gap_s = value.received_at_s - self._last.received_at_s
+                self._validate_input(value, value.received_at_s)
+                if value.neutral:
+                    self._neutral_input = value
+            except Exception as exc:
+                self._trip(f"input_consumption_failed:{type(exc).__name__}:{exc}")
+                raise
+
     def tick(self, value: CoordinatedInput | None, *, epoch: str, now_s: float) -> CoordinatedStepResult:
         with self._lock:
             before = self._observe()
@@ -163,7 +182,11 @@ class CoordinatedRuntime:
                     raise ValueError("input_unavailable")
                 self._validate_input(value, now)
                 if self.state == "waiting_neutral":
-                    if value.neutral:
+                    neutral = value if value.neutral else self._neutral_input
+                    fresh_neutral = (neutral is not None and neutral.source_epoch == value.source_epoch
+                        and neutral.received_at_s >= self._minimum_received_at_s
+                        and 0 <= now - neutral.received_at_s <= self.max_input_age_s)
+                    if fresh_neutral:
                         if self.provider.preflight() is not True:
                             raise ValueError("preflight_rejected")
                         self.state, self.reason = "running", None

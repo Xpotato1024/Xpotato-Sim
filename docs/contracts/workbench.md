@@ -216,3 +216,29 @@ workerはticket・phase・成功commitによるtick数の変化後にframeを公
 ready/terminalの同じ状態をtimerで繰り返し生成しない。peer最新1frame slotと制御FIFOは維持する。
 表示sampleはreset/commitでforward済みのnative stateを読み、追加の`mj_forward`を呼ばない。
 表示頻度でwarmstartやTask進行が変わらないことを回帰testで照合する。
+
+### 受信batchとfreshness判定（#610）
+
+workerは1件ごとにtickを挟まず、既に受信済みの同ticket入力を最大64件まで順に消費する。
+受信loopとadvance入口の両方で確認し、両者の間にworkerが停滞して届いた入力もtick前に消費する。
+各sampleのvalidation、Mappingのbutton/trigger符号ラッチ・解除、中立を処理し、physicsは最新sampleで
+1tickだけ進める。元receiptを保持し、古いmotionの追い付き再生やlatest-onlyの履歴破棄は行わない。
+64件に達したiterationではtick/frame生成を後回しにし、次の受信へ戻る。worker受信queueも64件、
+service制御queueは32件のままとする。受信batch内のSTOP/closeは入力を積分せず優先し、
+別ticket・要求ID付き操作はbatchの境界として扱う。既存service STOP監督も維持する。
+
+batchの過去sampleは元receiptで順序・source・利用可能性を検査する。receipt間隔は診断に残すが、
+過去のgapだけを停止理由にしない。最新sampleが実時刻で0.2秒を超えて古い場合は停止する。切断、hiddenのstale通知、
+不正sample、source/session変更は後続のfresh sampleで消さない。初回batch内の中立は自身のreceiptがtick時に0.2秒以内で、同source epochかつ試行開始以後の場合だけarm条件に使い、
+最初のtickでpreflightだけを行う。Task/physics積分や正式結果を過去sample数だけ進めない。
+
+通常の終端後入力はbatch全件の同ticket・valid late messageを検査し、不正な後続入力を黙って捨てない。明示STOP/close取消とは区別する。
+statusの`service_last_input_receipt_s`と`input_diagnostics`は、serviceの最新receipt、workerのbatch件数・
+上限到達、ingest開始時刻、消費成功sequence/source timestamp/receipt、直前tick所要時間を分離する。
+session ID、device値、入力値や全sample logは追加しない。browser時計とhost receiptは別clock domainである。
+service receiptだけ先行し、processed receipt/sequenceが止まる場合はqueue/worker遅延の候補となる。
+両receiptが止まる場合はsource/送信/service側の欠落を調べる。診断だけでGCやdevice故障を断定しない。
+
+browser主threadの長時間停止など、tick時の最新actual receiptが0.2秒超のstaleなら試行は引き続き`technical_invalid`となる。
+simulation一時停止による操作継続、明示resumeと再中立、wall budgetや実験有効性の扱いは別のpolicy判断を要し、
+本修正は自動resumeやformal evaluation変更を導入しない。

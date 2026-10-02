@@ -17,7 +17,8 @@ def neutral(sequence=0):
 
 
 @pytest.mark.parametrize("ending", ["budget", "task", "stale", "stop"])
-def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp_path, monkeypatch, ending):
+@pytest.mark.parametrize("late_bad", [None, "malformed", "old_ticket"])
+def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp_path, monkeypatch, ending, late_bad):
     now = [10.0]
     events, saved, tickets, runners = [], {}, {}, []
     condition = preset_condition("dynamic-cube-drop")
@@ -25,6 +26,8 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
     if ending == "task":
         condition["task"]["parameters"]["duration_s"] = .05
     commands = ["prepare", "start", "neutral", "finish", "late", "retry", "old", "new_ready", "close"]
+    if late_bad:
+        commands[4:5] = ["late_batch", "late_bad", "late"]
     sequence = 0
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
     monkeypatch.setattr(module, "monotonic", lambda: now[0])
@@ -72,11 +75,16 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
             if op == "prepare":
                 return json.dumps({"op": op, "id": op, "generation": 1,
                     "profile_id": "dynamic-cube-drop", "condition": condition})
-            if op in {"neutral", "late", "old", "new_ready"}:
+            if op in {"neutral", "late", "old", "new_ready", "late_batch", "late_bad"}:
                 sequence += 1
                 ticket = tickets.get("new") if op == "new_ready" else tickets["old"]
-                return json.dumps({"op": "input", "id": op, "ticket": ticket,
-                                   "message": neutral(sequence), "received_at_s": now[0]})
+                if op == "late_bad" and late_bad == "old_ticket":
+                    ticket = {**ticket, "epoch": "different"}
+                request = {"op": "input", "ticket": ticket,
+                           "message": "{" if op == "late_bad" and late_bad == "malformed" else neutral(sequence),
+                           "received_at_s": now[0]}
+                if op not in {"late_batch", "late_bad"}: request["id"] = op
+                return json.dumps(request)
             return json.dumps({"op": op, "id": op, "generation": generation})
 
     monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
@@ -90,6 +98,10 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
     assert late["error"] is None, late
     assert late["state"]["result"] == terminal["result"]
     assert late["state"]["error"] == terminal["error"]
+    if late_bad:
+        rejected = [e for e in events if e.get("operation") == "input" and e.get("error")]
+        assert rejected, "invalid trailing late input was silently discarded"
+        assert all(e["state"]["result"] == terminal["result"] for e in rejected)
     assert saved and {p: p.read_bytes() for p in saved} == saved
     old = next(e for e in events if e.get("id") == "old")
     assert old["error"] == "旧ticket"

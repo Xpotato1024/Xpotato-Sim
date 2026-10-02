@@ -102,3 +102,14 @@ fixtureの元byte SHA-256、ID、byte数、標本数、期間、来歴をstart�
 隠れたneutral/noop defaultは存在しない。
 100回以上のnative短試行で構築回数、参照、queue/cache、warm-up後のtracemalloc/object数/process memoryを測る。
 これはsoftware validationで、RSS単独によるリーク断定、participant/実機性能、GUI完了、#584全体完了を主張しない。
+
+## 有界入力batch（#610）
+
+`TrialRunner.ingest_batch`は最大64件の同trial入力を元receipt順に検査・Mapping消費する。
+過去sampleをphysicsへ再生せず、最新sampleのhost鮮度を消費後に検査する。各sampleのprovider/schema、
+session/sequence/source timestampと利用可能性の検査は省かない。途中の不正入力は試行を無効にする。
+receipt gapは診断だけに記録し、tick前に新鮮な入力を取得済みならgapだけでは終了させない。単一`ingest`もこの経路を使用し、stale入力を復帰手段にしない。
+中立自身のreceiptがtick時に0.2秒以内で、同source epochかつ試行開始以後の最初のbatchは次のtickでpreflightだけを通し、Task/physicsの進行数を増やさない。
+Workbenchはowner内の`pending_input` callbackをadvance入口で呼び、受付loop後の到着分も消費する。
+STOP/close待ちや64件上限ではtickを延期するが、wall/input-wait監督は先に実行する。
+tick時のstrict freshness、formal Task結果、記録と明示retryの契約は維持する。

@@ -89,6 +89,21 @@ class TrialRunner:
         return self._model_build_count
 
     @property
+    def processed_input_sequence(self):
+        """消費成功した最新sequenceだけを診断へ公開する。"""
+        return None if self._last_input is None else self._last_input[1]
+
+    @property
+    def processed_input_diagnostics(self):
+        """session IDやdevice値を含めず、消費済みsampleの時刻と順番を返す。"""
+        value = self._last_input
+        return {"processed_sequence": None if value is None else value[1],
+                "processed_source_timestamp_s": None if value is None else value[2],
+                "processed_receipt_s": None if value is None else value[3],
+                "last_receipt_gap_s": None if self._execution is None else
+                    self._execution.runtime.runtime.last_receipt_gap_s}
+
+    @property
     def viewer_resources(self):
         """現在のnative modelが公開した不変viewer bundle。別modelをbuildしない。"""
         return None if self._execution is None else self._execution.instance.viewer
@@ -207,46 +222,67 @@ class TrialRunner:
 
     def ingest(self, ticket, message: str, *, received_at_s: float):
         """受領元のmonotonic時刻を保持し、遅延sampleの鮮度を更新しない。"""
+        return self.ingest_batch(ticket, ((message, received_at_s),))
+
+    def ingest_batch(self, ticket, samples):
+        """最大64件のreceipt履歴を消費後、最新sampleの実時刻鮮度を検査する。"""
         with self._mutating():
             self._check_ticket(ticket)
             if self._status not in {"waiting_input", "running"}:
                 raise RuntimeError("input requires an active trial")
             try:
-                now = self._now()
-                limit = self._execution.profile.max_input_age_s
-                if type(received_at_s) not in (int, float) or not isfinite(received_at_s):
-                    raise ValueError(f"input_invalid_timestamp: finite receipt required; limit_s={limit:.6f}")
-                age = now - received_at_s
-                diagnostic = (f"age_s={age:.6f}; limit_s={limit:.6f}; received_at_s={received_at_s:.6f}; "
-                              f"now_s={now:.6f}; trial_started_at_s={self._started:.6f}")
-                if received_at_s < self._started:
-                    raise ValueError(f"input_pre_trial: {diagnostic}")
-                if age < 0:
-                    raise ValueError(f"input_future: {diagnostic}")
-                if age > limit:
-                    raise ValueError(f"input_stale: {diagnostic}")
-                if type(message) is not str or len(message.encode("utf-8")) > 65536:
-                    raise ValueError("bounded Gamepad message required")
-                parsed = parse_viewer_control_message_json(message)
-                if parsed.gamepad is None or parsed.gamepad.stale or not parsed.gamepad.connected:
-                    raise ValueError("unavailable or stale Gamepad input")
-                session = parsed.metadata.get("viewer_provider_session_id")
-                identity = (session, parsed.sequence, parsed.timestamp_s, float(received_at_s))
-                if not isinstance(session, str) or not session or parsed.sequence is None:
-                    raise ValueError("explicit input session/sequence required")
-                if self._last_input is not None:
-                    old = self._last_input
-                    if (session != old[0] or parsed.sequence <= old[1]
-                            or parsed.timestamp_s < old[2] or received_at_s < old[3]):
-                        raise ValueError("duplicate, changed-source, or out-of-order input")
-                self._ingress_time = float(received_at_s)
-                self._execution.ingest(message)
-                self._last_input = identity
+                self._consume_batch(ticket, samples)
             except Exception as exc:
                 self._finish("technical_invalid", error=str(exc))
                 raise
-            finally:
-                self._ingress_time = None
+
+    def _consume_batch(self, ticket, samples):
+        if type(samples) not in (tuple, list) or not 1 <= len(samples) <= 64:
+            raise ValueError("bounded nonempty input batch required")
+        now = self._now()
+        for message, received_at_s in samples:
+            self._ingest_received(ticket, message, received_at_s=received_at_s, now=now)
+        age = self._now() - self._last_input[3]
+        limit = self._execution.profile.max_input_age_s
+        if age > limit:
+            raise ValueError(f"input_stale: age_s={age:.6f}; limit_s={limit:.6f}; "
+                             f"received_at_s={self._last_input[3]:.6f}; now_s={self._last_now:.6f}")
+
+    def _ingest_received(self, ticket, message, *, received_at_s, now):
+        self._check_ticket(ticket)
+        if self._status not in {"waiting_input", "running"}:
+            raise RuntimeError("input requires an active trial")
+        try:
+            limit = self._execution.profile.max_input_age_s
+            if type(received_at_s) not in (int, float) or not isfinite(received_at_s):
+                raise ValueError(f"input_invalid_timestamp: finite receipt required; limit_s={limit:.6f}")
+            age = now - received_at_s
+            diagnostic = (f"age_s={age:.6f}; limit_s={limit:.6f}; received_at_s={received_at_s:.6f}; "
+                          f"now_s={now:.6f}; trial_started_at_s={self._started:.6f}")
+            if received_at_s < self._started:
+                raise ValueError(f"input_pre_trial: {diagnostic}")
+            if age < 0:
+                raise ValueError(f"input_future: {diagnostic}")
+            if type(message) is not str or len(message.encode("utf-8")) > 65536:
+                raise ValueError("bounded Gamepad message required")
+            parsed = parse_viewer_control_message_json(message)
+            if parsed.gamepad is None or parsed.gamepad.stale or not parsed.gamepad.connected:
+                raise ValueError("unavailable or stale Gamepad input")
+            session = parsed.metadata.get("viewer_provider_session_id")
+            identity = (session, parsed.sequence, parsed.timestamp_s, float(received_at_s))
+            if not isinstance(session, str) or not session or parsed.sequence is None:
+                raise ValueError("explicit input session/sequence required")
+            if self._last_input is not None:
+                old = self._last_input
+                if (session != old[0] or parsed.sequence <= old[1]
+                        or parsed.timestamp_s < old[2] or received_at_s < old[3]):
+                    raise ValueError("duplicate, changed-source, or out-of-order input")
+            self._ingress_time = float(received_at_s)
+            self._execution.ingest(message)
+            self._execution.runtime.consume_received_input()
+            self._last_input = identity
+        finally:
+            self._ingress_time = None
 
     def snapshot(self):
         """表示sampleはphysics/Task/予算を進めない。未選択時はNone。"""
@@ -255,7 +291,7 @@ class TrialRunner:
                 return None
             return self._execution.sample(self._frame)
 
-    def advance(self, ticket):
+    def advance(self, ticket, *, pending_input=None):
         """実commitとTaskを同じ実行で進め、空入力でもwall監督を行う。"""
         with self._mutating():
             self._check_ticket(ticket)
@@ -269,6 +305,14 @@ class TrialRunner:
                     return self._finish("wall_timeout")
                 if self._status == "waiting_input" and now - self._started >= self._limits.input_wait_s:
                     return self._finish("input_wait_timeout")
+                if pending_input is not None:
+                    samples = pending_input()
+                    if samples is None:
+                        return None
+                    if samples:
+                        self._consume_batch(ticket, samples)
+                        if len(samples) == 64:
+                            return None
                 before = self.tick_count
                 self._execution.tick()
                 if self._execution.state == "faulted":

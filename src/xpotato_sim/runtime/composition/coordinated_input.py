@@ -31,12 +31,14 @@ class CoordinatedInputRuntime:
         self.runtime = CoordinatedRuntime(provider, epoch=epoch,
                                           dt_s=dt_s, max_input_age_s=max_input_age_s)
         self.last_frame = None
+        self._consumed_value = None
         self.mapping.reset_coordinated_presentation(
             self.parameters, reason="awaiting_gamepad_input")
 
     def ingest(self, message: ViewerControlMessage) -> None:
         try:
             self.source.ingest_control_message(message)
+            self._consumed_value = None
         except Exception as exc:
             self.runtime.fail(f"source_ingress_failed:{type(exc).__name__}")
             raise
@@ -51,8 +53,10 @@ class CoordinatedInputRuntime:
             frame = self.source.read_frame()
             self.last_frame = frame
             received = self.source.last_received_at_s
-            value = None if received is None else self.mapping.map_coordinated_input(
-                frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
+            value = self._consumed_value
+            if value is None and received is not None:
+                value = self.mapping.map_coordinated_input(
+                    frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
         except Exception as exc:
             self.runtime.fail(f"input_mapping_failed:{type(exc).__name__}:{exc}")
             self.mapping.reset_coordinated_presentation(
@@ -63,6 +67,16 @@ class CoordinatedInputRuntime:
             self.mapping.reset_coordinated_presentation(
                 self.parameters, reason=result.reason or result.state)
         return result
+
+    def consume_received_input(self) -> None:
+        """各sampleのMapping離散状態を順に更新し、古いmotionは積分しない。"""
+        frame = self.source.read_frame()
+        received = self.source.last_received_at_s
+        value = self.mapping.map_coordinated_input(
+            frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
+        self.last_frame = frame
+        self.runtime.consume_received_input(value)
+        self._consumed_value = value
 
     @property
     def latest_trigger_presentation(self) -> dict[str, object] | None:
@@ -76,6 +90,7 @@ class CoordinatedInputRuntime:
         self.source = ViewerInputSource(clock=self.clock)
         self.mapping = self._mapping_factory()
         self.last_frame = None
+        self._consumed_value = None
         self.mapping.reset_coordinated_presentation(
             self.parameters, reason="awaiting_gamepad_input")
 
