@@ -7,8 +7,12 @@ import math
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
 
 from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import (
     FastArmMuJoCoModelForwardKinematicsSolver,
