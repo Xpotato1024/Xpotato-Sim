@@ -14,6 +14,7 @@
 | `output/` | 実評価candidate / endpoint routeのsafety binding、typed physical output permission decision、recording / dry-run trace、lifecycle / bounded stop。transport / hardware送信は所有しない |
 | `experiment/` | versioned experiment contract、registry、readiness composition、software-only trial lifecycle |
 | `evaluation/` | FK / endpoint evaluation、progress、manifest / freeze readiness |
+| `application/` | Workbenchの制御要求、通信・停止監督、専用worker、headless client、process memory診断 |
 | `runners/` | dry-run、live / offline smoke、WebSocket publisher、experimentのthin entry point |
 
 #406で成立したexperiment lifecycle / runnerは`experiment/`が所有する。#407のexecution trace / motion-log
@@ -48,7 +49,8 @@ Robot Bundle、MuJoCo backend、transport。
 
 ## 依存してはいけない層
 
-なし。ただし各層が runtime に依存してはいけない。
+なし。pluginはdependency境界で許可されたgeneric runtime contractだけを参照できる。
+pluginとgeneric runtime ownerから`application/`への逆依存は禁止する。
 
 ## 禁止事項
 
@@ -59,7 +61,7 @@ runtime package rootは`RuntimeConfig`とRobot catalog resolver 5件だけをlaz
 
 ## canonical routing
 
-- [Workbench制御・停止監督・資源所有](../../../docs/contracts/workbench.md): `runners/workbench.py`が共通TrialRunnerを専用workerへ接続する。
+- [Workbench制御・停止監督・資源所有](../../../docs/contracts/workbench.md): `application/`が共通TrialRunnerを専用workerへ接続し、`runners/workbench.py`はCLIとworker/web起動を所有する。
 
 - [runtime composition](../../../docs/architecture/runtime-composition.md)
 - [dependency boundary](../../../docs/architecture/dependency-boundaries.md)

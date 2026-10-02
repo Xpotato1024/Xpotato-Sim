@@ -1,4 +1,4 @@
-"""現在の所有processだけを測る。別processの探索・操作はしない。"""
+"""Workbenchのprocess memoryを明示診断し、未測定を区別する。"""
 import ctypes
 import os
 from pathlib import Path

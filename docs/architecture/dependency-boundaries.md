@@ -428,3 +428,13 @@ Viewerはmodel digest、関節名・順序・次元を検査して受信stateを
 新geometry診断から共有する。raw force、Task、Viewerの処理は共有primitiveへ逆流させない。
 Task/Evaluationの境界検査は曖昧な`geom`部分文字列ではなくAST上のnative geom属性/API参照を拒否し、
 geometryというDTO名だけで誤検出しない。Robot固有名のgeneric layer禁止は維持する。
+
+
+## Workbench application owner
+
+`runtime/application/`はWorkbench固有の制御、通信・停止監督、専用worker、headless client、
+process memory診断を所有する。generic trial lifecycleとphysicsは既存`experiment/`、`execution/`へ委譲する。
+`runtime/runners/workbench.py`はCLIとworker/web起動を所有し、内部class/helperの互換再exportを持たない。
+serviceから`runners/application_process.py`のprocess所有primitiveを参照する既存境界は維持する。
+pluginとgeneric runtime owner（applicationとrunners以外）からapplicationへのimportは禁止する。
+`tests/architecture/test_runtime_ownership_boundaries.py`がowner配置、旧内部consumer、逆依存をASTで検査する。
