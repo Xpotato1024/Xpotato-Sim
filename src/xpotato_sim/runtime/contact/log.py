@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Final, cast
+from typing import Final, cast, Literal, overload
 
 from xpotato_sim.runtime.contact.evidence import (
     CONTACT_EVIDENCE_IDENTITY,
@@ -139,6 +139,17 @@ def _optional_finite(name: str, value: object) -> float | None:
     return None if value is None else _finite(name, value)
 
 
+# 検証済みの固定長を型へ伝える。実装の受理集合と例外は維持する。
+@overload
+def _vector(name: str, value: object, *, length: Literal[3]) -> tuple[float, float, float]: ...
+
+@overload
+def _vector(name: str, value: object, *, length: Literal[4]) -> tuple[float, float, float, float]: ...
+
+@overload
+def _vector(name: str, value: object, *, length: int) -> tuple[float, ...]: ...
+
+
 def _vector(
     name: str,
     value: object,
@@ -152,6 +163,17 @@ def _vector(
     ):
         raise ContactTaskLogError(f"{name} must contain {length} finite numbers")
     return tuple(_finite(f"{name}[{index}]", item) for index, item in enumerate(value))
+
+
+# 検証済みの固定長を型へ伝える。実装の受理集合と例外は維持する。
+@overload
+def _optional_vector(name: str, value: object, *, length: Literal[3]) -> tuple[float, float, float] | None: ...
+
+@overload
+def _optional_vector(name: str, value: object, *, length: Literal[4]) -> tuple[float, float, float, float] | None: ...
+
+@overload
+def _optional_vector(name: str, value: object, *, length: int) -> tuple[float, ...] | None: ...
 
 
 def _optional_vector(
@@ -445,23 +467,23 @@ def _decode_force_aggregate(value: object) -> ContactForceAggregate | None:
                 "aggregate.tangential_force_world_n",
                 root["tangential_force_world_n"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             resultant_force_world_n=_vector(
                 "aggregate.resultant_force_world_n",
                 root["resultant_force_world_n"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             resultant_force_n=_finite("aggregate.resultant_force_n", root["resultant_force_n"]),
             object_on_tool_force_world_n=_vector(
                 "aggregate.object_on_tool_force_world_n",
                 root["object_on_tool_force_world_n"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             tool_on_object_force_world_n=_vector(
                 "aggregate.tool_on_object_force_world_n",
                 root["tool_on_object_force_world_n"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             object_on_tool_wrench_world_nm=_vector(
                 "aggregate.object_on_tool_wrench_world_nm",
                 root["object_on_tool_wrench_world_nm"],
@@ -519,11 +541,11 @@ def _decode_contact_record(value: object, index: int) -> ContactRecord:
             body2_id=root["body2_id"],  # type: ignore[arg-type]
             body1_name=root["body1_name"],  # type: ignore[arg-type]
             body2_name=root["body2_name"],  # type: ignore[arg-type]
-            point_world_m=_vector("contact.point_world_m", root["point_world_m"], length=3),  # type: ignore[arg-type]
-            normal_world=_vector("contact.normal_world", root["normal_world"], length=3),  # type: ignore[arg-type]
+            point_world_m=_vector("contact.point_world_m", root["point_world_m"], length=3),
+            normal_world=_vector("contact.normal_world", root["normal_world"], length=3),
             distance_m=_finite("contact.distance_m", root["distance_m"]),
             penetration_m=_finite("contact.penetration_m", root["penetration_m"], non_negative=True),
-            contact_frame_world=_vector("contact.contact_frame_world", root["contact_frame_world"], length=9),  # type: ignore[arg-type]
+            contact_frame_world=_vector("contact.contact_frame_world", root["contact_frame_world"], length=9),
             force_contact_frame_n=_optional_vector("contact.force_contact_frame_n", root["force_contact_frame_n"], length=3),
             force_world_n=_optional_vector("contact.force_world_n", root["force_world_n"], length=3),
             torque_contact_frame_nm=_optional_vector("contact.torque_contact_frame_nm", root["torque_contact_frame_nm"], length=3),
@@ -864,22 +886,22 @@ def _decode_task_observation(
                 "observation.tip_position_world_m",
                 root["tip_position_world_m"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             object_position_world_m=_optional_vector(
                 "observation.object_position_world_m",
                 root["object_position_world_m"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             object_orientation_wxyz=_optional_vector(
                 "observation.object_orientation_wxyz",
                 root["object_orientation_wxyz"],
                 length=4,
-            ),  # type: ignore[arg-type]
+            ),
             contact_location_world_m=_optional_vector(
                 "observation.contact_location_world_m",
                 root["contact_location_world_m"],
                 length=3,
-            ),  # type: ignore[arg-type]
+            ),
             operator_status=cast(
                 ContactOperatorStatus,
                 _decode_enum(
