@@ -350,6 +350,11 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
     assert not errors, errors
     assert injected.is_set()
     stopped = next(e for e in events if e.get("id") == "stop")
+    if stopped["state"]["result"]["runner_stop_reason"] != "operator_abort":
+        print(json.dumps({"unexpected_terminal": stopped["state"]["result"],
+                          "input_diagnostics": stopped["state"].get("input_diagnostics"),
+                          "supply": supply, "injected": injected.is_set(),
+                          "first_errors": [e.get("error") for e in events if e.get("error")][:8]}))
     assert stopped["state"]["result"]["runner_stop_reason"] == "operator_abort", stopped
     assert stopped["state"]["ticks"] > 60
     assert stopped["state"]["input_diagnostics"]["processed_sequence"] >= sample_count - 5
