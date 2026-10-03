@@ -52,8 +52,9 @@ descriptorで公開する型・値域は同じ入口の検証に使い、scene/T
 `runners/workbench.py`はCLIとworker/web起動だけを所有し、内部helperを再exportしない。
 `runners/workbench_web.py`は明示buildのlocal配信、`application/workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
 `application/workbench_projection.py`はprivate socketのreader、STOP slot、入力/制御FIFO、最新表示slotとsenderを所有する。
-これらのthreadはMuJoCo/Mapping/Taskを変更しない。終端記録threadは不変stateのfile公開だけを所有し、
-結果採用はTrialRunnerのExecution ownerが行う。固定buildがGUI起動の既定で、source devは明示optionだけとする。
+これらのthreadはMuJoCo/Mapping/Taskを変更しない。終端記録processは不変stateの検証済みstagingだけを所有し、
+期限内の結果採用と完了marker公開はTrialRunnerのExecution ownerが行い、期限超過時は保存processを回収する。
+固定buildがGUI起動の既定で、source devは明示optionだけとする。
 phase、Task判定、記録形式、physicsをこれらに再実装しない。詳細は[Workbench契約](../contracts/workbench.md)を参照する。
 
 #406で成立したexperiment lifecycle / runnerと、#407で追加したexecution trace / motion-log recorderのownerは

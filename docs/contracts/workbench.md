@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -163,9 +163,9 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | --- | --- | --- |
 | Web/process/job、worker、async service task | launcher / `OwnedApplicationWorkers` | アプリ終了、監督fault |
 | Python MjModel/MjData、Source/Mapping/Task/input | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
-| private socket取得、入力FIFO256、制御FIFO32、STOP専用slot | ExecutionInboxのreader | STOP/closeはFIFOより優先。通常要求は元順序を維持。overflow/切断はtechnical_invalid記録 |
+| private async socket、IO入口FIFO256、入力FIFO256、制御FIFO32、STOP専用slot | IO thread / ExecutionInboxのreader | STOP/closeはExecution FIFOより優先。元順序を維持。overflow/切断はtechnical_invalid記録 |
 | 表示最新1slot、制御応答FIFO32、JSON整形/送信 | ProjectionSenderのsender | 制御遷移で旧表示slot失効。send/overflow障害は終了へ伝える |
-| immutable終端snapshotの排他的保存 | TrialRecorder専用thread、同時1件 | finalizingではphysics/入力/retry禁止。完了採用と失敗分類はExecution owner。closeでjoin |
+| immutable終端snapshotの検証済みstaging | TrialRecorder専用spawn process、同時1件 | Start gateで起動確認。finalizingではphysics/retry禁止。期限内のmarker公開はExecution owner。期限/closeで回収 |
 | asset file/allowlist | workerは現modelだけ生成、serviceが公開 | 次prepare/STOP/faultでallowlist無効化、アプリ終了でtask内directory削除 |
 | 結果と履歴 | service 32 / 128、永続結果はtrial別file | bounded listから退役。永続結果は消さない |
 | WASM module | browser loaderのPromise 1件 | ページ寿命。失敗したloadだけ再試行可能 |
@@ -239,8 +239,8 @@ workerは1件ごとにtickを挟まず、既に受信済みの同ticket入力を
 受信loopとadvance入口の両方で確認し、両者の間にworkerが停滞して届いた入力もtick前に消費する。
 各sampleのvalidation、Mappingのbutton/trigger符号ラッチ・解除、中立を処理し、physicsは最新sampleで
 1tickだけ進める。元receiptを保持し、古いmotionの追い付き再生やlatest-onlyの履歴破棄は行わない。
-64件に達したiterationではtick/frame生成を後回しにし、次の受信へ戻る。worker受信queueも64件、
-service制御queueは32件のままとする。受信batch内のSTOP/closeは入力を積分せず優先し、
+64件に達したiterationではtick/frame生成を後回しにし、次の受信へ戻る。WS library受信上限64、
+IO入口256、Execution入力FIFO256、service制御queue32を区別する。受信batch内のSTOP/closeは入力を積分せず優先し、
 別ticket・要求ID付き操作はbatchの境界として扱う。既存service STOP監督も維持する。
 
 batchの過去sampleは元receiptで順序・source・利用可能性を検査する。receipt間隔は診断に残すが、

@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-29
+last_verified: 2026-10-03
 canonical_for:
   - finite model trial condition lifecycle and local result
 related:
@@ -48,6 +48,8 @@ prepare上限、開始記録成立後の入力待ち上限、startからの総wa
 `started_monotonic_s`は開始要求処理時刻を維持する。`input_accepting_monotonic_s`は開始記録のflush/fsync/
 read-back/排他的公開が成功した後のhost時刻で、statusとterminal記録へ残す。入力待ち期限は後者から測る。
 Start前は`input_pre_trial`、Start以後でも記録成立前のreceiptは`input_pre_recording`として拒否する。
+receiptの下限と共同runtimeの中立下限は同じ`input_accepting_monotonic_s`（以上）へ設定する。
+future receipt、旧ticket、記録中のreceiptは区別して拒否する。同clock bucket内の時刻順序をns精度と主張せず、serviceのStart busy gateも維持する。
 記録失敗では入力受付時刻を成立させない。renderer ACK、明示Start、記録、新epochのfresh neutralの順を維持する。
 入力が空でもadvanceでwall/待機期限へ到達する。callerは同期advanceを継続して監督する必要がある。
 実時刻はmonotonicで後退を拒否し、既存presetの入力freshness 0.2秒は変更しない。
