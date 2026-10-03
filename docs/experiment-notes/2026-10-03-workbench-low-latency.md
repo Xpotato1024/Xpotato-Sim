@@ -132,3 +132,30 @@ raw rootの`latency-before312-60`、`latency-candidate312-reviewed`、`latency-c
 最終HEADへのsource/build同一性、condition raw SHA、環境、残存成果物はcontinuation report/manifestで束縛する。
 shared-memory snapshot、GIL/JSON CPU競合の完全除去、Start記録と終端marker公開を含む完全async storageは未実装である。
 全件CI、独立最終review、push、新Draft PRは親taskへ引き継ぐ。実Gamepad・参加者・実機・元発生操作系列は未受入である。
+
+
+## 最終境界補修後の統合確認（3ba2320）
+
+製品sourceは`3ba23203aeb0a0d0cf7dc591dbe74cc635384a75`、Python 3.12.13、前節と同じ添付条件・固定build方式・所有Edgeである。
+保存の結果取得/回収後の期限再確認と、中継Peerのrequired FIFO・STOP時frame失効を補修した。
+対象4回帰は補修前red、補修後runtime/architectureの276件が成功した。独立のread-only補完レビューで前回P1/P2の閉鎖を確認し、補完範囲に新規findingはなかった。
+操作状態帯のRTFはbackend値を既存status周期で表示し、終了時・未計測を区別する。
+
+同じ通常遅延測定の後、左軸raw `[0,-0.7,0,0]` を3秒、その後中立とする合成pushを実行した。
+60.0167秒の実commitと20回の明示retryが成立し、hostの約10秒RTFは0.99417–0.99839（101窓）だった。
+left–cube接触を128 frameに有界収集し、最終cube位置は `(0.46721, 0.56650, 0.45989)` m。
+初期x=0.360 mから約0.1072 m移動した。Taskのsuccessは観測窓完了であり、力評価・押し成功・実機受入ではない。
+
+| 同Python 3.12・固定buildの指標 | main通常系列 | 3ba2320（push前の同じ遅延系列） |
+| --- | --- | --- |
+| Single 描画提出中央値 / p95、48件 | 38.0 / 52.6 ms | 48.8 / 49.9 ms |
+| Assist 描画提出中央値 / p95、48件 | 35.7 / 54.5 ms | 41.1 / 49.8 ms |
+| renderer主thread CPU時間 / wall、Single | 25.18% | 12.81% |
+| 同、Assist | 24.89% | 15.73% |
+| STOP→保存確定p95、20回 | 22.5 ms | 48.3 ms |
+
+CPUはrenderer主threadだけで、worker・GPU・全processの削減率ではない。中央値の遅延はこの一回比較では改善しておらず、
+通常時の保存確定はmainより遅い。全指標の高速化を主張しない。候補の目的は表示待ちによる入力停止の分離、保存hangの有限回収、CPU負荷の削減を同時に成立させることにある。
+元の半速化・0.906秒staleはbaselineでも未再現で、恒久解消の証明には使わない。
+rawは`latency-final312-3ba2320/browser-validation.json`と同試行のterminal/final-state、親集計`parent-final-summary.json`に保持した。
+主な検証fixtureと再現入口はrepository内、機械依存のraw/build/環境は既存task evidence rootに保持し、製品sourceへ混ぜない。
