@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-10-01
+last_verified: 2026-10-03
 canonical_for:
   - validation categories
 related:
@@ -117,3 +117,29 @@ Windows実測をLinux CIの改善率として扱わない。単一testの時間�
 単一jobへ戻す際も`pytest tests`による全集合、durations、JUnit、既存Markdown・compile・diff検査を
 維持する。チェック名は`python-validation`と`viewer-validation`のままとし、testの削除・skip追加・
 閾値緩和・反復縮小で性能やgateを回復させない。
+
+## Python静的検査とcontact生成テスト
+
+開発依存のmypy、Ruff、Hypothesisは`uv.lock`で固定する。追加時も既存のruntime依存versionを変更しない。
+`general` shardで、既存の全集合検証を維持して次を実行する。
+
+```bash
+uv run mypy
+uv run ruff check src tests scripts .github
+```
+
+mypyの初期採用範囲は`runtime/contact/manifest.py`、`task_contract.py`、`log.py`と
+`tests/typing/contact_decoders.py`であり、設定は`pyproject.toml`を正とする。
+`follow_imports = "silent"`はimport先の型を解析するが、その内部診断を今回のgateに含めない。
+importを`Any`へ置換する`skip`や全域のmissing-import抑制は使わない。採用済みmoduleのerrorを隠したり、
+検査対象を外して合格にしない。未注釈のJSON境界と理由付き抑制は残っており、全Pythonの型安全性を主張しない。
+固定長vectorのoverloadは既存の実行時長さ検査に対応し、許容差、数値変換、例外順序、constructor検証を変えない。
+未検証のconstructor引数に残す`arg-type`抑制は、既存の`__post_init__`を唯一の値検証ownerとして維持するための境界である。
+
+Ruffは`E9/F63/F7/F82`だけを採用し、format、import sort、import削除、unsafe fixを一括適用しない。
+注釈だけに使う未解決名は`TYPE_CHECKING`の正規importで解決し、runtimeのimport副作用を追加しない。
+
+contact生成テストは既存のsynthetic JSONL fixtureを使い、各propertyを50例までの決定的生成で検査する。
+永続databaseを用いず、MuJoCo実行や実時間入力検査を生成loopへ入れない。
+manifestの辞書順独立性と、logのcanonical byte列以外の拒否を混同しない。
+既存の解析解、故障注入、連続入力、資源寿命の試験とその反復数・閾値は維持する。

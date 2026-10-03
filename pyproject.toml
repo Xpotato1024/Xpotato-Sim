@@ -45,5 +45,30 @@ members = ["src/xpotato_sim/plugins/robots/fast_arm/core"]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.3",
+    "mypy>=2.4.0",
     "pytest>=8.4.0",
+    "ruff>=0.16.10",
 ]
+
+[tool.mypy]
+python_version = "3.12"
+files = [
+    "src/xpotato_sim/runtime/contact/manifest.py",
+    "src/xpotato_sim/runtime/contact/task_contract.py",
+    "src/xpotato_sim/runtime/contact/log.py",
+    "tests/typing/contact_decoders.py",
+]
+# 未採用のimport先も型解析するが、その内部診断は本段階のgateに含めない。
+follow_imports = "silent"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# correctnessの限定導入。format、import削除、unsafe fixは含めない。
+select = ["E9", "F63", "F7", "F82"]

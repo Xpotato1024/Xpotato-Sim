@@ -689,49 +689,49 @@ class ContactTaskOutcome:
             raise ContactTaskContractError("outcome trial identity is invalid")
         try:
             trial = ContactTrialIdentity(
-                trial_id=trial_root["trial_id"],  # type: ignore[arg-type]
-                repetition_index=trial_root["repetition_index"],  # type: ignore[arg-type]
-                attempt_index=trial_root["attempt_index"],  # type: ignore[arg-type]
-                retry_of_trial_id=trial_root["retry_of_trial_id"],  # type: ignore[arg-type]
+                trial_id=trial_root["trial_id"],
+                repetition_index=trial_root["repetition_index"],
+                attempt_index=trial_root["attempt_index"],
+                retry_of_trial_id=trial_root["retry_of_trial_id"],
             )
             phase = ContactTaskPhase(value["phase"])
             classification = TaskTerminalClassification(value["classification"])
         except (TypeError, ValueError) as exc:
             raise ContactTaskContractError("outcome identity or classification is invalid") from exc
         return cls(
-            manifest_digest=value["manifest_digest"],  # type: ignore[arg-type]
+            manifest_digest=value["manifest_digest"],
             trial=trial,
-            dwell_interval_s=value["dwell_interval_s"],  # type: ignore[arg-type]
-            timeout_s=value["timeout_s"],  # type: ignore[arg-type]
-            target_penetration_band_m=value["target_penetration_band_m"],  # type: ignore[arg-type]
-            target_normal_force_band_n=value["target_normal_force_band_n"],  # type: ignore[arg-type]
-            approach_alignment_min_cosine=value["approach_alignment_min_cosine"],  # type: ignore[arg-type]
-            normal_alignment_min_cosine=value["normal_alignment_min_cosine"],  # type: ignore[arg-type]
-            max_contact_location_drift_m=value["max_contact_location_drift_m"],  # type: ignore[arg-type]
-            require_pose_measurement=value["require_pose_measurement"],  # type: ignore[arg-type]
+            dwell_interval_s=value["dwell_interval_s"],
+            timeout_s=value["timeout_s"],
+            target_penetration_band_m=value["target_penetration_band_m"],
+            target_normal_force_band_n=value["target_normal_force_band_n"],
+            approach_alignment_min_cosine=value["approach_alignment_min_cosine"],
+            normal_alignment_min_cosine=value["normal_alignment_min_cosine"],
+            max_contact_location_drift_m=value["max_contact_location_drift_m"],
+            require_pose_measurement=value["require_pose_measurement"],
             phase=phase,
             classification=classification,
-            reason=value["reason"],  # type: ignore[arg-type]
-            terminal_time_s=value["terminal_time_s"],  # type: ignore[arg-type]
-            completion_time_s=value["completion_time_s"],  # type: ignore[arg-type]
-            first_contact_time_s=value["first_contact_time_s"],  # type: ignore[arg-type]
-            peak_normal_force_n=value["peak_normal_force_n"],  # type: ignore[arg-type]
-            max_penetration_m=value["max_penetration_m"],  # type: ignore[arg-type]
-            overshoot_m=value["overshoot_m"],  # type: ignore[arg-type]
-            steady_state_error_m=value["steady_state_error_m"],  # type: ignore[arg-type]
-            force_variability_n=value["force_variability_n"],  # type: ignore[arg-type]
-            peak_tangential_force_n=value["peak_tangential_force_n"],  # type: ignore[arg-type]
-            slip_proxy_m=value["slip_proxy_m"],  # type: ignore[arg-type]
-            contact_loss_count=value["contact_loss_count"],  # type: ignore[arg-type]
-            recontact_count=value["recontact_count"],  # type: ignore[arg-type]
-            final_tip_position_world_m=value["final_tip_position_world_m"],  # type: ignore[arg-type]
-            final_object_position_world_m=value["final_object_position_world_m"],  # type: ignore[arg-type]
-            final_object_orientation_wxyz=value["final_object_orientation_wxyz"],  # type: ignore[arg-type]
-            final_contact_location_world_m=value["final_contact_location_world_m"],  # type: ignore[arg-type]
-            contact_location_drift_m=value["contact_location_drift_m"],  # type: ignore[arg-type]
-            final_normal_alignment_cosine=value["final_normal_alignment_cosine"],  # type: ignore[arg-type]
-            observations_count=value["observations_count"],  # type: ignore[arg-type]
-            schema_version=value["schema_version"],  # type: ignore[arg-type]
+            reason=value["reason"],
+            terminal_time_s=value["terminal_time_s"],
+            completion_time_s=value["completion_time_s"],
+            first_contact_time_s=value["first_contact_time_s"],
+            peak_normal_force_n=value["peak_normal_force_n"],
+            max_penetration_m=value["max_penetration_m"],
+            overshoot_m=value["overshoot_m"],
+            steady_state_error_m=value["steady_state_error_m"],
+            force_variability_n=value["force_variability_n"],
+            peak_tangential_force_n=value["peak_tangential_force_n"],
+            slip_proxy_m=value["slip_proxy_m"],
+            contact_loss_count=value["contact_loss_count"],
+            recontact_count=value["recontact_count"],
+            final_tip_position_world_m=value["final_tip_position_world_m"],
+            final_object_position_world_m=value["final_object_position_world_m"],
+            final_object_orientation_wxyz=value["final_object_orientation_wxyz"],
+            final_contact_location_world_m=value["final_contact_location_world_m"],
+            contact_location_drift_m=value["contact_location_drift_m"],
+            final_normal_alignment_cosine=value["final_normal_alignment_cosine"],
+            observations_count=value["observations_count"],
+            schema_version=value["schema_version"],
         )
 
 
@@ -782,10 +782,10 @@ def decode_contact_task_terminal_evidence(
         }:
             raise ContactTaskContractError("terminal trial identity is invalid")
         trial = ContactTrialIdentity(
-            trial_id=trial_root["trial_id"],  # type: ignore[arg-type]
-            repetition_index=trial_root["repetition_index"],  # type: ignore[arg-type]
-            attempt_index=trial_root["attempt_index"],  # type: ignore[arg-type]
-            retry_of_trial_id=trial_root["retry_of_trial_id"],  # type: ignore[arg-type]
+            trial_id=trial_root["trial_id"],
+            repetition_index=trial_root["repetition_index"],
+            attempt_index=trial_root["attempt_index"],
+            retry_of_trial_id=trial_root["retry_of_trial_id"],
         )
         terminal_time = _optional_finite("terminal.terminal_time_s", value["terminal_time_s"])
         completion = _optional_finite(

@@ -10,9 +10,12 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from xpotato_sim.mujoco_backend.simulator import HeadlessMuJoCoSimulator
 
 from xpotato_sim.plugins.robots.fast_arm.adapter.kinematics import FastArmMuJoCoModelForwardKinematicsSolver
 from xpotato_sim.plugins.robots.fast_arm.adapter.runtime import build_fast_arm_simulator
