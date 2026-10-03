@@ -81,6 +81,8 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
     urgent_stop = asyncio.Queue(maxsize=1)
     commands_ready = asyncio.Event()
     prepare_deadline = None
+    trial_deadline = None
+    finalizing_deadline = None
     fault_reported = False
     headless_task = None
     origin = f"http://127.0.0.1:{config['web_port']}"
@@ -127,7 +129,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
         return None
 
     async def handler(ws):
-        nonlocal worker, latest_frame, allowed_assets, prepare_deadline
+        nonlocal worker, latest_frame, allowed_assets, prepare_deadline, trial_deadline, finalizing_deadline
         peer = Peer(ws)
         sender = None
         is_worker = False
@@ -158,6 +160,10 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     else:
                         if not control.worker_event(event):
                             continue
+                        if event["state"]["phase"] == "finalizing" and finalizing_deadline is None:
+                            finalizing_deadline = monotonic() + 4
+                        elif event["state"]["phase"] in {"terminal", "recording_failed", "ready", "unselected"}:
+                            trial_deadline = finalizing_deadline = None
                         allowed_assets = set(event["assets"])
                         if control.busy is None:
                             prepare_deadline = None
@@ -195,6 +201,9 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                             allowed_assets = set()
                             latest_frame = None
                             prepare_deadline = prepare_watchdog_deadline(command, config, monotonic())
+                        if command["op"] == "start":
+                            budget = (control.state.get("applied_condition") or {}).get("limits", {}).get("wall_s", config["wall_s"])
+                            trial_deadline = monotonic() + budget + 4
                         if command["op"] == "stop":
                             enqueue_stop(command)
                         else:
@@ -252,7 +261,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     headless_task = asyncio.create_task(run_headless_client(config, control.capability))
                 if headless_task is not None and headless_task.done():
                     return await headless_task
-                if not fault_reported and (worker_process.poll() is not None or (control.stop_deadline and now >= control.stop_deadline) or (prepare_deadline and now >= prepare_deadline)):
+                if not fault_reported and (worker_process.poll() is not None or (control.stop_deadline and now >= control.stop_deadline) or (prepare_deadline and now >= prepare_deadline) or (trial_deadline and now >= trial_deadline) or (finalizing_deadline and now >= finalizing_deadline)):
                     fault_reported = True
                     control.dead = True
                     control.state.update(phase="stopping", error="実行worker終了または停止監督期限。所有processの終了を確認中")

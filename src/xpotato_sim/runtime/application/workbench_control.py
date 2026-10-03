@@ -216,7 +216,7 @@ class WorkbenchControl:
             raise ValueError("入力messageは文字列です")
         if self.state.get("fixture_mode"):
             raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
-        if ((not self.busy and self.state["phase"] in INPUT_FINISHED)
+        if ((not self.busy and self.state["phase"] in {"terminal", "recording_failed"})
                 or (self.stop_id is not None and self.state["phase"] in INPUT_ACTIVE | INPUT_FINISHED)):
             validate_late_input(r["message"])
             return self.status(), None

@@ -251,7 +251,7 @@ def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatc
             command = commands.pop(0)
             if command is None: raise TimeoutError
             return json.dumps(command)
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 100,
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
@@ -287,19 +287,14 @@ def _stalled_worker_process(url, config, stall, position, injected):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     from xpotato_sim.runtime.application.workbench_worker import execution_worker
     if position == "slow_display":
-        import websockets.sync.client as client
-        original_connect = client.connect
-        class SlowDisplay:
-            def __init__(self, *args, **kwargs):self.ws=original_connect(*args, **kwargs)
-            def __enter__(self):self.ws.__enter__();return self
-            def __exit__(self, *args):return self.ws.__exit__(*args)
-            def recv(self, **kwargs):return self.ws.recv(**kwargs)
-            def close(self):return self.ws.close()
+        from xpotato_sim.runtime.application import workbench_worker as module
+        original_connect = module.AsyncWorkerConnection
+        class SlowDisplay(original_connect):
             def send(self, raw):
                 if json.loads(raw).get("type") == "frame":
                     injected.set();sleep(stall)
-                self.ws.send(raw)
-        client.connect = SlowDisplay
+                return super().send(raw)
+        module.AsyncWorkerConnection = SlowDisplay
         execution_worker(url, config)
         return
     original = TrialRunner.advance
@@ -543,7 +538,7 @@ def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch
                     for i in range(first, first + 64))
                 bursts[0] += 1
             return json.dumps(commands.pop(0))
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 100,
         "input_wait_s": .1 if limit == "input_wait" else 5,

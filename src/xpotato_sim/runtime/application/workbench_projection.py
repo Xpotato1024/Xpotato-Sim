@@ -2,6 +2,106 @@
 from collections import deque
 from threading import Condition, Thread
 import json
+import asyncio
+from queue import Queue, Empty, Full
+from threading import Event
+
+
+class AsyncWorkerConnection:
+    """公開async APIで同一接続の送受信を分離する。Executionはsocketを操作しない。"""
+    def __init__(self, url, **options):
+        self.url, self.options = url, options
+        self.incoming = Queue(maxsize=256)
+        self.ready = Event()
+        self.error = None
+        self.closed = False
+        self.loop = None
+        self.thread = Thread(target=self._run, name="workbench-async-io", daemon=True)
+        self.thread.start()
+        if not self.ready.wait(15):
+            self.close()
+            raise RuntimeError("worker connection startup timeout")
+        if self.error is not None:
+            self.thread.join(2)
+            raise RuntimeError(f"worker connection failed: {self.error}") from self.error
+
+    def _run(self):
+        try:
+            asyncio.run(self._serve())
+        except Exception as exc:
+            self.error = exc
+        finally:
+            self.closed = True
+            self.ready.set()
+
+    async def _serve(self):
+        from websockets.asyncio.client import connect
+        self.loop = asyncio.get_running_loop()
+        async with connect(self.url, **self.options, open_timeout=10, close_timeout=1) as self.ws:
+            self.stopping = asyncio.Event()
+            self.ready.set()
+            async def receive():
+                async for raw in self.ws:
+                    try:
+                        self.incoming.put_nowait(raw)
+                    except Full as exc:
+                        raise RuntimeError("async ingress FIFO overflow") from exc
+                if not self.closed:
+                    raise RuntimeError("worker connection closed by peer")
+            reader = asyncio.create_task(receive())
+            stop = asyncio.create_task(self.stopping.wait())
+            try:
+                done, _ = await asyncio.wait((reader, stop), return_when=asyncio.FIRST_COMPLETED)
+                if reader in done:
+                    await reader
+            finally:
+                reader.cancel(); stop.cancel()
+                await asyncio.gather(reader, stop, return_exceptions=True)
+
+    def send(self, raw):
+        if self.error is not None or self.closed:
+            raise RuntimeError(f"worker connection unavailable: {self.error}")
+        future = asyncio.run_coroutine_threadsafe(self.ws.send(raw), self.loop)
+        while True:
+            from concurrent.futures import TimeoutError as FutureTimeout
+            try:
+                return future.result(timeout=.05)
+            except FutureTimeout:
+                if self.closed or self.error is not None:
+                    future.cancel()
+                    raise RuntimeError(f"async send interrupted: {self.error}")
+
+    def recv(self, timeout=None):
+        while True:
+            try:
+                return self.incoming.get_nowait()
+            except Empty:
+                pass
+            if self.error is not None:
+                raise RuntimeError(f"worker connection receive failed: {self.error}") from self.error
+            if self.closed:
+                raise RuntimeError("worker connection closed")
+            try:
+                return self.incoming.get(timeout=.05 if timeout is None else timeout)
+            except Empty:
+                if timeout is not None:
+                    raise TimeoutError
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            if self.thread.is_alive() and self.loop is not None and not self.loop.is_closed() and hasattr(self, "stopping"):
+                self.loop.call_soon_threadsafe(self.stopping.set)
+        self.thread.join(3)
+        if self.thread.is_alive():
+            raise RuntimeError("async worker IO did not close")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        # ownerがtechnical_invalidを記録してからfinallyで接続を解放する。
+        pass
 
 
 class ExecutionInbox:
@@ -84,7 +184,7 @@ class ProjectionSender:
             self.check()
             if self.closed:
                 raise RuntimeError("projection sender closed")
-            if value["type"] == "frame":
+            if value["type"] == "frame" and not value.get("required"):
                 self.frame = value
             else:
                 if len(self.control) >= self.capacity:
@@ -111,14 +211,20 @@ class ProjectionSender:
                 self.error = exc
                 self.changed.notify_all()
 
-    def close(self):
+    def close(self, *, discard=False):
         with self.changed:
             self.closed = True
+            if discard:
+                self.control.clear()
+                self.frame = None
             self.changed.notify_all()
+        if discard:
+            self.wire.close()
         self.thread.join(timeout=2)
         if self.thread.is_alive():
             self.wire.close()
             self.thread.join(timeout=2)
         if self.thread.is_alive():
             raise RuntimeError("projection sender did not close")
-        self.check()
+        if not discard:
+            self.check()

@@ -276,6 +276,11 @@ controlの認可後dispatchはeditor、input、lifecycleのprivate methodへ分�
 MuJoCo commit、Task観測を行う。readerは元receipt/session/sequenceを維持し、入力coalesceを行わない。
 Task観測で検査したcommit表示は`take_committed_projection()`で一度だけ渡し、入力、次advance、終端、新ticketで失効する。
 それ以外は明示再観測し、reset/live state/faultを隠す汎用cacheは作らない。
+同じworker接続を専用IO thread上の公開async WebSocket APIで送受信し、sendのflow-control待ち中にも受信taskが進む。
+sync WebSocketのprotocol mutexを共有しない。IO入口256件、Execution入力256件・制御32件・専用STOP、sender制御32件と最新frameを有界にする。
+ready初期frameとterminal最終frameは必須FIFOへ入れ、同じ接続でstatus→対応frameを順序保証する。
+旧generation/ticketとSTOP後frameはserviceで拒否する。IDなしのvalid late入力は検査・棄却し、制御応答を毎sample生成しない。
+送受信・overflow障害はactive試行を`technical_invalid`として原因とともに記録してから資源を回収する。
 message frameworkや第二の試行SoTは作らない。senderはthreadなのでGIL競合とowner上のsnapshot/payload変換負荷は残る。
 shared-memory snapshot専用processへの完全分離は未実装である。
 
@@ -284,9 +289,14 @@ shared-memory snapshot専用processへの完全分離は未実装である。
 sceneはReactを経ずrendererへ直接適用し、60Hz実Gamepad取得/送信はroot stateを更新しない。
 関節/Input計器は専用componentの10Hz、詳細は展開中だけ4Hzとする。Operate中はsetup editorと詳細JSXを生成しない。
 STOP/fault/epochの操作gateは即時statusで更新する。Single/Assist、camera、条件import/export、診断能力を維持する。
+計器・詳細のsampleはgeneration/epochへ束縛し、STOP要求・fault・切断・新epochで即時無効にする。
+Setupの展開診断にbackend実行RTFと窓秒数、実commit tick、処理時間、host receipt/ageを表示する。nullは未計測である。
 
 `execution_timing`と最大600件の`timing_samples_ns`は`perf_counter_ns`でhot path/deadline lagを測る。
 hot pathはadvanceとcommit表示のowner処理までで、別threadの送信/保存CPUを含まない。
 RTFはrunning中の実commit simulation delta / 実wall delta（最大10秒窓）である。新Start/retryでresetする。
 receipt→applyは同じhost monotonic領域だけで測り、browser時計と引算しない。
+周期deadlineとtick所要時間は高分解能`perf_counter_ns`で計測する。receipt/freshnessのhost monotonic領域は維持する。
+Python 3.12 Windowsのmonotonicは15.625ms分解能の場合があり、receipt差のns表現はns精度を意味しない。
+hot path/receipt→applyのraw列は末尾最大600件で、全試行quantileではない。`timing_sample_scope`に範囲を明示する。
 固定dtの一回commit後に期限を更新し、無限catchup、可変physics dt、表示時刻補正を行わない。

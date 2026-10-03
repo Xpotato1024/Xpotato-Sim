@@ -87,3 +87,13 @@ assert.equal(workbenchNotice({...terminal,error:null,result:{runner_stop_reason:
 assert.equal(workbenchNotice({...terminal,error:null},"late rejection"),"original stale");
 assert.equal(workbenchNotice({...terminal,phase:"running",error:null,result:null},"real input failure"),"real input failure");
 assert.equal(workbenchNotice({...terminal,phase:"recording_failed",error:"disk failure"},"old rejection"),"disk failure");
+
+import {telemetryIdentity,telemetryIsCurrent} from "../src/app/workbenchLifecycle.js";
+const telemetryOld=telemetryIdentity({ticket:{epoch:"old"},generation:1,phase:"running"});
+const telemetryNew=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"});
+assert.equal(telemetryIsCurrent(telemetryOld,telemetryNew,telemetryNew,true),false);
+assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,true),true);
+assert.equal(telemetryIsCurrent(telemetryNew,null,telemetryNew,true),false);
+assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,false),false);
+assert.equal(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"faulted"}),null);
+assert.notEqual(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"ready"}),telemetryNew);

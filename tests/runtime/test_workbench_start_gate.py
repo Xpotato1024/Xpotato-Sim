@@ -66,24 +66,39 @@ def test_commit_projection_is_one_shot_and_invalidated_by_input_and_stop(tmp_pat
         runner.close()
 
 
+def delayed_stage(recorder, final_state, record, reply, entered, release, failed):
+    entered.set()
+    release.wait()
+    if failed:
+        reply.send((False, "injected terminal record failure"));reply.close()
+    else:
+        try:reply.send((True,recorder.stage_terminal(final_state=final_state,record=record).document))
+        except Exception as exc:reply.send((False,str(exc)))
+        finally:reply.close()
+
+
+def recording_factory(monkeypatch, entered, release, failed=False):
+    from multiprocessing import get_context
+    from functools import partial
+    from xpotato_sim.runtime.experiment import trial_record
+    original = trial_record.stage_terminal_process
+    monkeypatch.setattr(trial_record, "stage_terminal_process", partial(delayed_stage, entered=entered, release=release, failed=failed))
+    return original
+
+
 @pytest.mark.parametrize("failed", [False, True])
 def test_async_recording_gate_does_not_block_execution_owner(tmp_path, monkeypatch, failed):
-    entered, release = Event(), Event()
-    original = TrialRecorder.terminal
-    def delayed(recorder, **kwargs):
-        entered.set()
-        assert release.wait(2)
-        if failed:raise OSError("injected terminal record failure")
-        return original(recorder, **kwargs)
-    monkeypatch.setattr(TrialRecorder, "terminal", delayed)
+    from multiprocessing import get_context
+    context=get_context("spawn")
+    entered, release = context.Event(), context.Event()
+    recording_factory(monkeypatch,entered,release,failed)
     clock = Clock()
     runner = TrialRunner(result_root=tmp_path, software_revision="test", clock=clock, async_terminal_recording=True)
     ticket = runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"), TrialLimits(1))
     try:
         start(runner, ticket, clock)
-        began = monotonic()
         runner.advance(ticket)
-        assert monotonic()-began < .1
+        assert not release.is_set()
         assert entered.wait(1)
         assert runner.status == "finalizing"
         ticks = runner.tick_count
@@ -104,4 +119,28 @@ def test_async_recording_gate_does_not_block_execution_owner(tmp_path, monkeypat
             assert runner.retry().epoch != ticket.epoch
     finally:
         release.set();runner.close()
-    assert runner._record_executor is None
+    assert runner._record_job is None
+
+
+@pytest.mark.parametrize("via_close",[False,True])
+def test_recording_hang_is_reclaimed_without_late_terminal(tmp_path,monkeypatch,via_close):
+    from multiprocessing import get_context
+    context=get_context("spawn");entered,release=context.Event(),context.Event()
+    recording_factory(monkeypatch,entered,release)
+    clock=Clock();runner=TrialRunner(result_root=tmp_path,software_revision="test",clock=clock,async_terminal_recording=True)
+    ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
+    try:
+        start(runner,ticket,clock);runner.advance(ticket);assert entered.wait(1)
+        job=runner._record_job;process=job.process
+        if via_close:runner.close()
+        else:clock.now+=2;runner.advance(ticket)
+        assert runner.status=="recording_failed"
+        assert "deadline" in runner.error
+        assert runner.result.to_document()["recording"]=="failed"
+        assert runner._record_job is None
+        sleep(.05)
+        assert not (tmp_path/ticket.trial_id/"terminal.json").exists()
+        with pytest.raises(RuntimeError):runner.retry()
+    finally:
+        if runner._record_job is not None:release.set()
+        runner.close()

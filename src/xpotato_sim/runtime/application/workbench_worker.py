@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import shutil
 from time import monotonic, perf_counter_ns
-from xpotato_sim.runtime.application.workbench_projection import ProjectionSender, ExecutionInbox
+from xpotato_sim.runtime.application.workbench_projection import ProjectionSender, ExecutionInbox, AsyncWorkerConnection
 
 from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
@@ -22,7 +22,6 @@ from xpotato_sim.runtime.application.workbench_control import ACTIVE, INPUT_ACTI
 
 def execution_worker(url, config):
     """このprocessのmain threadだけがTrialRunner/ModelExecutionを変更する。"""
-    from websockets.sync.client import connect
     from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
     import tracemalloc
     if config.get("diagnostic_memory"):
@@ -37,7 +36,7 @@ def execution_worker(url, config):
     applied_condition = None
     fixture_start = None
     fixture_index = 0
-    next_tick = monotonic()
+    next_tick = perf_counter_ns()
     last_frame_key = None
     last_status = 0.0
     retired_builds = 0
@@ -51,7 +50,7 @@ def execution_worker(url, config):
     lag_samples = deque(maxlen=600)
     apply_samples = deque(maxlen=600)
     rtf_window = deque()
-    timing = {"hot_path_ns": 0, "deadline_lag_ns": 0, "actual_rtf": None}
+    timing = {"hot_path_ns": 0, "deadline_lag_ns": 0, "actual_rtf": None, "deadline_clock": "perf_counter_ns", "rtf_window_s": None}
     input_diagnostics = {"batch_size": 0, "batch_limit_hit": False, "last_receipt_s": None,
                          "last_ingest_s": None, "processed_sequence": None, "tick_duration_s": None}
     def state():
@@ -63,9 +62,11 @@ def execution_worker(url, config):
             "applied_condition": applied_condition,
             "worker_pid": os.getpid(),
             "execution_timing": dict(timing),
+            "timing_sample_scope": "last-at-most-600-owner-iterations",
             "timing_samples_ns": {"hot_path": list(hot_samples), "deadline_lag": list(lag_samples), "receipt_to_apply": list(apply_samples)},
             "input_accepting_monotonic_s": runner.input_accepting_monotonic_s,
-            "input_diagnostics": {**input_diagnostics, **runner.processed_input_diagnostics},
+            "recording_pending": runner.recording_pending,
+            "input_diagnostics": {**input_diagnostics, **runner.processed_input_diagnostics, "processed_age_s": None if runner.processed_input_diagnostics["processed_receipt_s"] is None else monotonic()-runner.processed_input_diagnostics["processed_receipt_s"]},
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
     def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
@@ -96,19 +97,18 @@ def execution_worker(url, config):
                 last_receipt_s=samples[-1][1], last_ingest_s=monotonic())
         return tuple(samples)
     try:
-        with connect(url, proxy=None, max_size=2**20, max_queue=64) as ws:
+        with AsyncWorkerConnection(url, proxy=None, max_size=2**20, max_queue=64) as ws:
             ws.send(json.dumps({"op": "worker", "capability": os.environ.pop("XPOTATO_WORKBENCH_WORKER_KEY")}))
             sender = ProjectionSender(ws)
             inbox = ExecutionInbox(ws)
             send_state(ws)
             while True:
                 hot_started_ns = None
-                sender.check()
                 try:
                     if deferred_raw is not None:
                         raw, deferred_raw = deferred_raw, None
                     else:
-                        raw = inbox.recv(timeout=max(0.001, min(0.02, next_tick - monotonic())))
+                        raw = inbox.recv(timeout=max(0.001, min(0.02, (next_tick - perf_counter_ns()) / 1e9)))
                 except TimeoutError:
                     raw = None
                 if raw is not None:
@@ -135,8 +135,12 @@ def execution_worker(url, config):
                         input_diagnostics.update(batch_size=len(batch), batch_limit_hit=len(batch) == 64)
                     if op == "close":
                         break
+                    sender.check()
                     try:
                         if op == "prepare":
+                            running_origin_ns = None
+                            timing.update(hot_path_ns=0,deadline_lag_ns=0,actual_rtf=None,rtf_window_s=None)
+                            hot_samples.clear();lag_samples.clear();apply_samples.clear();rtf_window.clear()
                             generation = cmd["generation"]
                             assets = []
                             prepared_assets, prepared_viewer = (), None
@@ -170,16 +174,16 @@ def execution_worker(url, config):
                                 raise RuntimeError("retry model resources differ from prepared assets")
                             assets = list(prepared_assets)
                             running_origin_ns = None
-                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None)
+                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                             hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                         elif op == "start":
                             runner.start(runner.ticket, input_provenance=fixture.identity() if fixture else {"source": "workbench-gamepad/v1"})
                             input_diagnostics.update(batch_size=0, batch_limit_hit=False, last_receipt_s=None,
                                 last_ingest_s=None, processed_sequence=None, tick_duration_s=None)
                             fixture_start, fixture_index = monotonic(), 0
-                            next_tick = fixture_start
+                            next_tick = perf_counter_ns()
                             running_origin_ns = None
-                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None)
+                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                             hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                         elif op == "input":
                             if fixture is not None:
@@ -191,7 +195,8 @@ def execution_worker(url, config):
                                     if item["ticket"] != asdict(runner.ticket):
                                         raise ValueError("旧ticket")
                                     validate_late_input(item["message"])
-                                send_state(ws, cmd.get("id"))
+                                if cmd.get("id") is not None:
+                                    send_state(ws, cmd["id"])
                             else:
                                 if any(item["ticket"] != asdict(runner.ticket) for item in batch):
                                     raise ValueError("旧ticket")
@@ -230,10 +235,11 @@ def execution_worker(url, config):
                         if runner.status not in ACTIVE:
                             send_state(ws)
                         continue
+                sender.check()
                 now = monotonic()
-                if runner.status in ACTIVE and now >= next_tick:
+                if runner.status in ACTIVE and perf_counter_ns() >= next_tick:
                     hot_started_ns = perf_counter_ns()
-                    timing["deadline_lag_ns"] = max(0, int((now - next_tick) * 1e9))
+                    timing["deadline_lag_ns"] = max(0, perf_counter_ns() - next_tick)
                     old_phase = runner.status
                     try:
                         if fixture is not None:
@@ -241,25 +247,26 @@ def execution_worker(url, config):
                                 offset, message = fixture.samples[fixture_index]
                                 runner.ingest(runner.ticket, message, received_at_s=fixture_start + offset)
                                 fixture_index += 1
-                        tick_started = monotonic()
+                        tick_started = perf_counter_ns()
                         runner.advance(runner.ticket, pending_input=None if fixture is not None else pending_input)
-                        input_diagnostics["tick_duration_s"] = monotonic() - tick_started
+                        input_diagnostics["tick_duration_s"] = (perf_counter_ns() - tick_started) / 1e9
                         if runner.status == "running" and running_origin_ns is None:
                             running_origin_ns, running_origin_tick = perf_counter_ns(), runner.tick_count
-                        if running_origin_ns is not None:
+                        if running_origin_ns is not None and (runner.status == "running" or old_phase == "running"):
                             measurement_ns = perf_counter_ns()
                             rtf_window.append((measurement_ns, runner.tick_count))
                             while len(rtf_window) > 1 and measurement_ns - rtf_window[1][0] >= 10_000_000_000:
                                 rtf_window.popleft()
                             origin_ns, origin_tick = rtf_window[0]
                             elapsed = (measurement_ns - origin_ns) / 1e9
+                            timing["rtf_window_s"] = elapsed
                             timing["actual_rtf"] = ((runner.tick_count - origin_tick) * profile.dt_s / elapsed) if elapsed > 0 else None
                             receipt = runner.processed_input_diagnostics["processed_receipt_s"]
                             if receipt is not None:
                                 apply_samples.append(max(0, int((monotonic() - receipt) * 1e9)))
                     except Exception as exc:
                         send_state(ws, error=str(exc))
-                    next_tick = max(next_tick + profile.dt_s, monotonic())
+                    next_tick = max(next_tick + round(profile.dt_s * 1e9), perf_counter_ns())
                     if runner.status != old_phase or now - last_status >= 0.5:
                         if pending_stop is not None and runner.status in {"terminal", "recording_failed"}:
                             send_state(ws, pending_stop, error=runner.error if runner.status == "recording_failed" else None, completed_op="stop")
@@ -273,14 +280,14 @@ def execution_worker(url, config):
                         continue
                     sample = runner.take_committed_projection() or runner.snapshot()
                     sender.put({"type": "frame", "generation": generation,
-                        "ticket": asdict(runner.ticket), "payload": mujoco_state_to_payload(sample)})
+                        "ticket": asdict(runner.ticket), "required": runner.status != "running", "payload": mujoco_state_to_payload(sample)})
                     last_frame_key = frame_key
                 if runner.status in ACTIVE and hot_started_ns is not None:
                     timing["hot_path_ns"] = perf_counter_ns() - hot_started_ns
                     hot_samples.append(timing["hot_path_ns"])
                     lag_samples.append(timing["deadline_lag_ns"])
             runner.close()
-            sender.close()
+            sender.close(discard=True)
             sender = None
             inbox.close()
             inbox = None

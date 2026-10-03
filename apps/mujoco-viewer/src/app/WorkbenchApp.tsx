@@ -14,7 +14,7 @@ import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
 import "./workbench.css";
 import "../ui/operation.css";
-import {canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, type Preparation} from "./workbenchLifecycle.js";
+import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
@@ -24,7 +24,7 @@ type Status = {phase: string; revision: number; generation: number; busy: string
   profiles: {id:string; available:boolean; reason:string|null}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
-  rss_bytes?:number; private_bytes?:number};
+  rss_bytes?:number; private_bytes?:number; execution_timing?:{actual_rtf:number|null;rtf_window_s:number|null;hot_path_ns:number;deadline_lag_ns:number}; timing_sample_scope?:string; input_diagnostics?:{processed_receipt_s?:number|null;processed_age_s?:number|null;tick_duration_s?:number|null}};
 const phases: Record<string,string> = {unselected:"未選択・待機",ready:"開始待ち",waiting_input:"新しい中立入力を待機",
   running:"実行中",finalizing:"保存中",terminal:"停止確認・結果保存済み",faulted:"停止・障害",recording_failed:"記録失敗",closed:"終了"};
 
@@ -65,6 +65,7 @@ export function WorkbenchApp() {
     send({op,request_id:pending.id,capability:capability.current,revision:pending.status.revision,ticket:pending.status.ticket,...extra});
   const editRequest=(op:string,extra:object={},exportFile=false)=>{const pending=beginEditor(exportFile);if(pending) sendEditor(pending,op,extra);};
   const stateMailbox=useRef(createInitialProductViewerState());
+  const identityMailbox=useRef<string|null>(null);
   const readyEpoch = useRef<string|null>(null);
   const preparing = useRef<Preparation|null>(null);
   const failedEpoch = useRef<string|null>(null);
@@ -72,6 +73,7 @@ export function WorkbenchApp() {
   const command = (op:string, extra:object={}) => {
     const s=current.current;
     if(!s) return;
+    if(op==="stop"){identityMailbox.current=null;rawMailbox.current=null;setReady(null);renderer.current?.invalidateWorkbench();}
     send({op, id:crypto.randomUUID(), revision:s.revision, ticket:s.ticket, capability:capability.current,...extra});
   };
   useEffect(()=>{
@@ -83,7 +85,7 @@ export function WorkbenchApp() {
   useEffect(()=>{
     history.replaceState(null,"",location.pathname+location.search);
     let disposed=false;
-    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;},onError:e=>setError(e.message)});
+    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;identityMailbox.current=telemetryIdentity(current.current);},onError:e=>setError(e.message)});
     renderer.current=r;
     // 明示再接続は状態照会だけ。claimもStartも自動送信しない。
     const connect=()=>{
@@ -96,7 +98,7 @@ export function WorkbenchApp() {
       ws.onopen=()=>{if(!isCurrent()) return;setConnected(true);send({op:"status"});};
       ws.onclose=()=>{if(!isCurrent()) return;claimed.current=false;setOwned(false);setConnected(false);
         clearEditor();
-        r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
+        identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
       ws.onerror=()=>{if(isCurrent()) setError("制御接続を確認してください");};
       ws.onmessage=async event=>{
         if(disposed || socket.current!==ws) return;
@@ -126,7 +128,7 @@ export function WorkbenchApp() {
             if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) rawMailbox.current=null;
             if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
               || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
-              r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
+              identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
             }
             if(editorPending.current && !conditionReadIsCurrent(editorPending.current.socket,editorPending.current.status,ws,message)) clearEditor();
             current.current=message;setStatus(message);
@@ -228,7 +230,7 @@ export function WorkbenchApp() {
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       {notice && <p role="alert">{notice}</p>}
     </section>}
-    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox}
+    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status)}
       connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase}
       canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
       {screen==="setup" && <aside className="setup-inspector"><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
@@ -247,8 +249,8 @@ export function WorkbenchApp() {
         onExport={()=>editRequest("edit",{condition:edited},true)}
         onDiff={()=>editRequest("diff",{condition:edited})}/>
         {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
-        <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} connected={connected}
-          live={connected&&!!ready&&!frameStale&&status?.phase!=="terminal"}/>
+        <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status)} connected={connected}
+          live={connected&&!!ready&&!frameStale&&["waiting_input","running"].includes(status?.phase??"")} status={status}/>
         <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
         </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>}
@@ -257,34 +259,39 @@ export function WorkbenchApp() {
 }
 
 type ViewerState = ReturnType<typeof createInitialProductViewerState>;
-type Telemetry = {stateMailbox:RefObject<ViewerState>;rawMailbox:RefObject<BrowserGamepadDisplay|null>};
+type Telemetry = {identityMailbox:RefObject<string|null>;identity:string|null;stateMailbox:RefObject<ViewerState>;rawMailbox:RefObject<BrowserGamepadDisplay|null>};
 /** 計器だけが10Hzで購読し、setup/editorと入力送信を再描画しない。 */
 function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;phase?:string;
   canvas:RefObject<HTMLCanvasElement|null>;interaction:RefObject<HTMLDivElement|null>;
   renderer:RefObject<MujocoSceneRenderer|null>;layout:ViewLayout}) {
-  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current}));
-  useEffect(()=>{const timer=window.setInterval(()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current}),100);
+  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current}));
+  useEffect(()=>{const timer=window.setInterval(()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current}),100);
     return ()=>window.clearInterval(timer);},[]);
-  const {state,raw}=sample;
+  const valid=telemetryIsCurrent(sample.identity,props.identityMailbox.current,props.identity,props.connected);
+  const state=valid?sample.state:createInitialProductViewerState(),raw=valid?sample.raw:null;
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
-  const invalid=!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
+  const invalid=!valid?"?epoch / ??":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
   return <div className="operation-workspace" data-left={!!left} data-right={!!right}>
     {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
     {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
-    <InputStrip state={state} raw={raw} selected="gamepad" live={props.connected&&!!props.ready&&!props.frameStale&&props.phase!=="terminal"}/>
+    <InputStrip state={state} raw={raw} selected="gamepad" live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
   </div>;
 }
 /** 展開中だけ4Hzで詳細を取得する。折り畳み時は詳細JSXも生成しない。 */
-function WorkbenchDetails(props:Telemetry & {connected:boolean;live:boolean}) {
+function WorkbenchDetails(props:Telemetry & {connected:boolean;live:boolean;status:Status|null}) {
   const [open,setOpen]=useState(false);
-  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current}));
+  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current}));
   useEffect(()=>{if(!open)return;
-    const update=()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current});update();
+    const update=()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current});update();
     const timer=window.setInterval(update,250);return ()=>window.clearInterval(timer);},[open]);
-  const {state,raw}=sample;
+  const valid=telemetryIsCurrent(sample.identity,props.identityMailbox.current,props.identity,props.connected);
+  const state=valid?sample.state:createInitialProductViewerState(),raw=valid?sample.raw:null;
   return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>入力・qpos・接触・動力学診断</summary>{open&&<>
+    <p>実行RTF: {props.status?.execution_timing?.actual_rtf?.toFixed(3)??"未計測"} / 窓 {props.status?.execution_timing?.rtf_window_s?.toFixed(1)??"未計測"} s / 実commit {props.status?.ticks??"未計測"} ticks</p>
+    <p>処理時間: {props.status?.input_diagnostics?.tick_duration_s==null?"未計測":(props.status.input_diagnostics.tick_duration_s*1000).toFixed(2)+" ms"} / 分布範囲 {props.status?.timing_sample_scope??"未計測"}</p>
+    <p>host receipt: {props.status?.input_diagnostics?.processed_receipt_s?.toFixed(3)??"未計測"} s / host input age: {props.status?.input_diagnostics?.processed_age_s?.toFixed(2)??"未計測"} s（host monotonic、browser時計との減算なし）</p>
     <SceneContactPanel value={state.sceneContactPresentation} live={props.connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
     <GamepadDiagnosticDetails state={state} raw={raw} live={props.live}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre>
   </>}</details>;

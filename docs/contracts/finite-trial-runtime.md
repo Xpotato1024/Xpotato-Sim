@@ -86,9 +86,15 @@ stateはmodel identityと全MuJoCo integration stateを保存し、描画用関�
 保存失敗では可能な限り停止し、Task outcomeとは別の記録失敗を返す。途中fileを成功結果として読まない。
 OS crash耐久性、改竄防止、完全metric、全frame replayの保証ではない。per-frame fileは生成しない。
 
-Workbenchの終端保存は専用threadへimmutable final snapshotだけを渡し、ownerは`finalizing`で停止する。
-`advance`はfuture完了を採用するだけで保存を同期waitせず、physicsを進めない。結果確定前はretryを許可しない。
-STOP完了応答も保存の成否確定後に返す。保存失敗は`recording_failed`を維持し、closeは保存threadをjoinする。
+Workbenchの終端保存は専用spawn processへimmutable final snapshotだけを渡し、ownerは`finalizing`で停止する。
+保存processは検証済みpendingまで作り、期限内にownerが結果を採用した時だけ`terminal.json`を公開する。
+`advance`は保存結果をpollし、physicsを進めない。結果確定前はretryを許可しない。
+保存期限は終端処理開始から2秒、かつ開始要求からwall予算＋2秒以内で、既存STOP監督の2秒に対応する。
+期限超過は保存processをterminate/joinし、必要ならkill/joinしてから`recording_failed`と未確定の原因を報告する。
+完了markerを偽装せず、期限後に遅延writerが成功markerを書かない。pending/最終stateは不完全な証拠として残り得る。
+closeも最大2秒のpoll後に同じ回収を行い、無期限future/executor待ちを行わない。
+serviceは明示STOPの既存2秒に加え、通常Task終端のfinalizingから4秒と開始受付から実効wall＋4秒で所有workerを強制回収する。
+STOP完了応答は保存の成否確定後に返す。保存失敗は`recording_failed`を維持する。
 同期CLIは従来の同期記録を維持する。開始記録は開始command内の同期gateで、running周期へdisk waitを入れない。
 
 ## 有限CLIと検証境界

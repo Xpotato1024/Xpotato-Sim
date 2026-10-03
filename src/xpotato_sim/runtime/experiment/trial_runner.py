@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import json
 from math import isfinite
@@ -16,7 +15,7 @@ from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.experiment.trial_condition import (
     TrialLimits, resolve_trial_profile, semantic_parameters, freeze_condition,
 )
-from xpotato_sim.runtime.experiment.trial_record import TrialRecorder, TrialResult
+from xpotato_sim.runtime.experiment.trial_record import TrialRecorder, TrialResult, TerminalRecordingJob
 from xpotato_sim.runtime.scene.objects import canonical
 from xpotato_sim.schemas import parse_viewer_control_message_json
 
@@ -51,8 +50,8 @@ class TrialRunner:
         self._frame = 0
         self._error = None
         self._async_terminal_recording = async_terminal_recording
-        self._record_executor = None
-        self._record_future = None
+        self._record_deadline = None
+        self._record_job = None
         self._pending_terminal = None
 
     @contextmanager
@@ -226,6 +225,7 @@ class TrialRunner:
                         "started_monotonic_s": self._started,
                         "input_provenance": json.loads(provenance)})
                 self._input_accepting = self._now()
+                self._execution.runtime.runtime.accept_inputs_after(self._input_accepting)
                 self._status = "waiting_input"
             except Exception as exc:
                 self._recording_failed(exc)
@@ -422,10 +422,9 @@ class TrialRunner:
             "input_accepting_monotonic_s": self._input_accepting}
         try:
             if self._async_terminal_recording:
-                if self._record_executor is None:
-                    self._record_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trial-recorder")
                 self._pending_terminal = record
-                self._record_future = self._record_executor.submit(self._recorder.terminal, final_state=final_state, record=record)
+                self._record_deadline = min(self._last_now + 2, self._started + self._limits.wall_s + 2)
+                self._record_job = TerminalRecordingJob(self._recorder, final_state, record)
                 return None
             self._result = self._recorder.terminal(final_state=final_state, record=record)
             self._status = "terminal"
@@ -433,17 +432,30 @@ class TrialRunner:
             self._recording_failed(exc, record)
         return self._result
 
+    @property
+    def recording_pending(self):
+        return self._record_job is not None
+
     def _poll_recording(self):
-        """記録threadは不変snapshotだけを所有し、結果の採用はExecution ownerが行う。"""
-        if self._record_future is None or not self._record_future.done():
+        """期限内のstagingをownerが公開する。期限後はprocessを回収して未確定を報告する。"""
+        if self._record_job is None:
             return None
         try:
-            self._result = self._record_future.result()
-            self._status = "terminal"
+            if self._now() >= self._record_deadline:
+                raise TimeoutError("terminal recording deadline exceeded; completion unconfirmed")
+            result = self._record_job.poll()
+            if result is None:
+                return None
+            self._record_job.close()
+            self._record_job = None
+            self._recorder.commit_terminal()
+            self._result, self._status = result, "terminal"
         except Exception as exc:
+            if self._record_job is not None:
+                self._record_job.close()
+                self._record_job = None
             self._recording_failed(exc, self._pending_terminal)
-        finally:
-            self._record_future = self._pending_terminal = None
+        self._pending_terminal = None
         return self._result
 
     def close(self):
@@ -451,15 +463,17 @@ class TrialRunner:
         with self._mutating():
             if self._status in {"waiting_input", "running"}:
                 self._finish("operator_abort")
-            if self._record_future is not None:
-                try:
-                    self._record_future.result()
-                except Exception:
-                    pass
-                self._poll_recording()
-            if self._record_executor is not None:
-                self._record_executor.shutdown(wait=True)
-                self._record_executor = None
+            if self._record_job is not None:
+                from time import perf_counter, sleep
+                deadline = perf_counter() + 2
+                while self._record_job is not None and perf_counter() < deadline:
+                    self._poll_recording()
+                    if self._record_job is not None:
+                        sleep(.005)
+                if self._record_job is not None:
+                    self._record_job.close()
+                    self._record_job = None
+                    self._recording_failed(TimeoutError("close recording deadline exceeded; completion unconfirmed"), self._pending_terminal)
             self._stop()
             self._execution = None
             self._recorder = self._last_input = None

@@ -53,6 +53,8 @@ options_parser.add_argument("--capture-cpu-profile", action="store_true")
 options_parser.add_argument("--condition", type=Path)
 options_parser.add_argument("--normal-seconds", type=float, default=0)
 options_parser.add_argument("--retries", type=int, default=3)
+options_parser.add_argument("--source-revision", required=True)
+options_parser.add_argument("--synthetic-push", action="store_true")
 options=options_parser.parse_args(sys.argv[7:])
 if not 1 <= options.cpu_throttle <= 100:
     options_parser.error("cpu-throttle must be finite and within [1, 100]")
@@ -77,7 +79,7 @@ env={**os.environ,'PYTHONPATH':str(ROOT/'src')+';'+str(ROOT/'src/xpotato_sim/plu
  'PYTHONUTF8':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONUNBUFFERED':'1','TMP':str(TEMP),'TEMP':str(TEMP)}
 cap=secrets.token_urlsafe(32)
 args=[str(PY),'-c','from xpotato_sim.cli import main; main()','workbench','--temporary-root',str(TEMP),
- '--result-root',str(E/'trial-results'),'--software-revision',sys.argv[3],
+ '--result-root',str(E/'trial-results'),'--software-revision',options.source_revision,
  '--web-port',str(web_port),'--backend-port',str(backend_port),
  '--control-stdin','--ticks','6000','--input-wait-s','5','--wall-s','120']
 if not options.dev_server: args.extend(['--web-dist',sys.argv[2]])
@@ -94,6 +96,12 @@ browser=None;wire=None;counter=0;report={'software_fixture':True,'checks':[],'pe
     'condition_sha256':hashlib.sha256(options.condition.read_bytes()).hexdigest() if options.condition else None,
     'python_version':sys.version,'mujoco_version':importlib.metadata.version('mujoco'),
     'websockets_version':importlib.metadata.version('websockets'),
+    'source_revision':options.source_revision,'python_executable':sys.executable,
+    'clock_info':{name:vars(time.get_clock_info(name)) for name in ('monotonic','perf_counter')},
+    'lock_sha256':hashlib.sha256((ROOT/'uv.lock').read_bytes()).hexdigest(),
+    'source_files':{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((ROOT/'src').rglob('*.py'))},
+    'statistics_scope':{'hot_path':'last at most 600 commits in each status snapshot; not whole-trial quantiles','receipt_to_apply':'same host monotonic clock; resolution in clock_info','render':'48 measured synthetic changes per layout after four warmups','stop':'one explicit stop per retry','rtf':'committed simulation delta / running wall delta; backend window at most 10 s'},
+    'synthetic_trajectory':'left stick +/-0.16 during draw measurements, then neutral' if not options.synthetic_push else 'left stick draw measurements then explicit left-only push attempt; no contact checkpoint',
     'build_identity':json.loads((Path(sys.argv[2])/'workbench-build.json').read_text()) if (Path(sys.argv[2])/'workbench-build.json').exists() else None}
 def cdp(method,params=None):
  global counter
@@ -180,6 +188,9 @@ try:
  if options.capture_cpu_profile:
   (E/'renderer.cpuprofile').write_text(json.dumps(cdp('Profiler.stop')['profile']),encoding='utf-8')
  if options.normal_seconds:
+  if options.synthetic_push:
+   # 通常初期状態から片腕だけを動かす明示合成系列。contact到達はraw Task観測で確認する。
+   js("window.__qaPad.axes=[0,-.7,0,0];window.setTimeout(()=>{window.__qaPad.axes=[.7,0,0,0];window.setTimeout(()=>{window.__qaPad.axes=[0,0,0,0]},4000)},2000)")
   # 中立は実sample取得から送信する。欠測補完やphysics予算変更は行わない。
   deadline=time.monotonic()+options.normal_seconds*3+30
   while time.monotonic()<deadline:

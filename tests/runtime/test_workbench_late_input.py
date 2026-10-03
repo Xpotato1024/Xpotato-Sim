@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 
 import pytest
+from test_workbench_worker import owner_projection
+pytestmark=pytest.mark.usefixtures("owner_projection")
 
 from xpotato_sim.runtime.experiment.edited_condition import preset_condition
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
@@ -88,7 +90,7 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
                 return json.dumps(request)
             return json.dumps({"op": op, "id": op, "generation": generation})
 
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "608-regression",
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})

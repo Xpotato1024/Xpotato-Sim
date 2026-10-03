@@ -9,11 +9,12 @@ from xpotato_sim.runtime.application.workbench_worker import execution_worker
 @pytest.fixture
 def owner_projection(monkeypatch):
     """仮想時計testはhandoffまでを検査。実senderの待ち/closeは専用testで検査する。"""
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.perf_counter_ns",lambda:int(__import__("xpotato_sim.runtime.application.workbench_worker",fromlist=["monotonic"]).monotonic()*1e9))
     class ImmediateProjection:
         def __init__(self, wire): self.wire = wire
         def put(self, value): self.wire.send(json.dumps(value, allow_nan=False))
         def check(self): pass
-        def close(self): pass
+        def close(self, **kwargs): pass
     monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.ProjectionSender", ImmediateProjection)
     class ImmediateInbox:
         def __init__(self, wire):self.wire=wire
@@ -53,7 +54,7 @@ def test_worker_memory_profiling_is_explicit(tmp_path, monkeypatch, diagnostic):
         def recv(self, **kwargs):
             return '{"op":"close"}'
 
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *args, **kwargs: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *args, **kwargs: Wire())
     execution_worker("ws://test", {"result_root": str(tmp_path), "software_revision": "test",
                                    "diagnostic_memory": diagnostic})
     assert tracing == ([1] if diagnostic else [])
@@ -95,7 +96,7 @@ def test_worker_explicit_prepare_recovers_after_discard_or_reset_failure(tmp_pat
         def recv(self, **kwargs):
             return json.dumps(commands.pop(0))
 
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *args, **kwargs: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *args, **kwargs: Wire())
     execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 2,
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
@@ -145,7 +146,7 @@ def test_worker_retry_reuses_prepared_assets_after_terminal_or_stop(tmp_path, mo
                     raise TimeoutError
                 commands.pop(0)
             return json.dumps(commands.pop(0))
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(asset_root), "software_revision": "test", "ticks": 2,
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30,
@@ -197,7 +198,7 @@ def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_
                     now[0]+=.02;assert now[0]<12;raise TimeoutError
                 commands.pop(0)
             return json.dumps(commands.pop(0))
-    monkeypatch.setattr("websockets.sync.client.connect",lambda *a,**kw:Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection",lambda *a,**kw:Wire())
     execution_worker("ws://test",{"result_root":str(tmp_path/"results"),"asset_root":str(tmp_path/"assets"),
         "software_revision":"test","ticks":2,"input_wait_s":5,"wall_s":30,"prepare_s":.01,
         "fixture":str(Path(__file__).parents[1]/"fixtures/trial_gamepad/short-movement.json")})
@@ -227,7 +228,7 @@ def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypat
             command = commands.pop(0)
             if command is None: raise TimeoutError
             return json.dumps(command)
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *args, **kwargs: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *args, **kwargs: Wire())
     execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 2,
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
@@ -235,3 +236,29 @@ def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypat
     assert len(frames) == 2
     assert frames[0]["ticket"] != frames[1]["ticket"]
     assert frames[0]["payload"]["qpos"] == frames[1]["payload"]["qpos"]
+
+
+@pytest.mark.parametrize("failure",["sender failure","receiver closure","control FIFO overflow"])
+def test_worker_transport_failure_records_technical_invalid(tmp_path,monkeypatch,failure):
+    from xpotato_sim.runtime.application import workbench_worker as module
+    events=[];commands=[{"op":"prepare","generation":1,"profile_id":"dynamic-cube-push"},{"op":"start"}]
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY","test")
+    class Wire:
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def send(self,raw):events.append(json.loads(raw))
+        def recv(self,**kw):
+            if commands:return json.dumps(commands.pop(0))
+            raise OSError(failure)
+    monkeypatch.setattr(module,"AsyncWorkerConnection",lambda *a,**kw:Wire())
+    if failure != "receiver closure":
+        original=module.ProjectionSender
+        class BrokenSender(original):
+            def check(self):
+                if any(e.get("state",{}).get("phase")=="waiting_input" for e in events):raise OSError(failure)
+        monkeypatch.setattr(module,"ProjectionSender",BrokenSender)
+    with pytest.raises(OSError,match=failure):
+        module.execution_worker("ws://test",{"result_root":str(tmp_path/"results"),"asset_root":str(tmp_path/"assets"),"software_revision":"test","ticks":100,"input_wait_s":5,"wall_s":30,"prepare_s":30})
+    record=json.loads(next((tmp_path/"results").glob("*/terminal.json")).read_text())
+    assert record["runner_stop_reason"]=="technical_invalid"
+    assert failure in record["error"]
