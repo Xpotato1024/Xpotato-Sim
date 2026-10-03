@@ -222,6 +222,35 @@ def test_static_mode_requires_real_referenced_build_assets(tmp_path):
     assert "/assets/app.js" in build_asset_allowlist(tmp_path)
 
 
+def test_build_identity_rejects_missing_old_source_and_tampered_output(tmp_path):
+    from hashlib import sha256
+    from xpotato_sim.runtime.runners.workbench_web import verify_build_identity
+    workspace = tmp_path / "source"
+    app = workspace / "apps/mujoco-viewer"
+    app.mkdir(parents=True)
+    (app/"src").mkdir();(app/"tooling").mkdir()
+    names = ["index.html", "package-lock.json", "package.json", "src/main.ts", "tooling/test.ts", "vite.config.ts"]
+    for name in names:(app/name).write_bytes(name.encode())
+    root = tmp_path/"dist"
+    root.mkdir()
+    with pytest.raises(ValueError,match="固定buildがありません"):verify_build_identity(root, workspace)
+    (root/"apps/mujoco-viewer").mkdir(parents=True)
+    (root/"apps/mujoco-viewer/index.html").write_text('<script type="module" src="/assets/app.js"></script>')
+    (root/"assets").mkdir()
+    (root/"assets/app.js").write_bytes(b"export {};")
+    (root/"assets/mujoco.wasm").write_bytes(b"\x00asm\x01\x00\x00\x00")
+    source = sha256(b"".join(name.encode()+b"\0"+name.encode()+b"\0" for name in names)).hexdigest()
+    identity = {"schema_version":"workbench-build/v1","source_sha256":source,
+        "assets":{p.relative_to(root).as_posix():sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}}
+    (root/"workbench-build.json").write_text(json.dumps(identity))
+    verify_build_identity(root, workspace)
+    (app/"src/main.ts").write_bytes(b"changed source")
+    with pytest.raises(ValueError,match="現在source/lock"):verify_build_identity(root, workspace)
+    (app/"src/main.ts").write_bytes(b"src/main.ts")
+    (root/"assets/app.js").write_bytes(b"tampered")
+    with pytest.raises(ValueError,match="asset bytes"):verify_build_identity(root, workspace)
+
+
 def test_untrusted_peer_cannot_stop_owner_and_private_frame_exceeds_command_cap(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog", lambda: [])
 

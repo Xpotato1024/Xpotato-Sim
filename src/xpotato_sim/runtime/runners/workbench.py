@@ -40,6 +40,10 @@ def run_workbench(args):
         raise ValueError("Web/control portは分離してください")
     if args.run_once and (not args.profile or not args.fixture or args.startup_check or args.open_browser):
         raise ValueError("run-onceは明示profile/fixtureが必要で、startup-check/open-browserとは排他です")
+    if not args.run_once and not getattr(args, "dev_server", False):
+        from xpotato_sim.runtime.runners.workbench_web import verify_build_identity
+        args.web_dist = (args.web_dist or workspace / "apps/mujoco-viewer/dist").resolve()
+        verify_build_identity(args.web_dist, workspace)
     capability = sys.stdin.readline().strip() if args.control_stdin else None
     if capability is not None and not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", capability):
         raise ValueError("32..128文字の一時制御資格が必要です")

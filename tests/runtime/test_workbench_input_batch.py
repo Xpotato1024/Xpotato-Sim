@@ -5,6 +5,7 @@ from dataclasses import asdict
 import pytest
 
 from test_trial_runner import prepared, start, message
+from test_workbench_worker import owner_projection
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import message as trigger_message
 
 
@@ -199,7 +200,7 @@ def test_deferred_tick_still_enforces_wall_budget(tmp_path):
 
 @pytest.mark.parametrize("stop_queued", [False, True, "close"])
 @pytest.mark.parametrize("backlog_count", [15, 65])
-def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatch, stop_queued, backlog_count):
+def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatch, stop_queued, backlog_count, owner_projection):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     import xpotato_sim.runtime.application.workbench_worker as module
     now = [10.]
@@ -275,11 +276,32 @@ class _WorkerDeadlineExpired(TimeoutError):
     pass
 
 
+@pytest.mark.parametrize("source_gap", [False, True])
+def test_slow_display_sender_keeps_execution_and_real_source_gap_is_stale(tmp_path, monkeypatch, source_gap):
+    _exercise_stalled_worker(tmp_path, monkeypatch, .350, "slow_display", source_gap=source_gap)
+
+
 def _stalled_worker_process(url, config, stall, position, injected):
     """native実行ownerを専用processへ隔離し、親から期限付きで終了可能にする。"""
     from time import sleep
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     from xpotato_sim.runtime.application.workbench_worker import execution_worker
+    if position == "slow_display":
+        import websockets.sync.client as client
+        original_connect = client.connect
+        class SlowDisplay:
+            def __init__(self, *args, **kwargs):self.ws=original_connect(*args, **kwargs)
+            def __enter__(self):self.ws.__enter__();return self
+            def __exit__(self, *args):return self.ws.__exit__(*args)
+            def recv(self, **kwargs):return self.ws.recv(**kwargs)
+            def close(self):return self.ws.close()
+            def send(self, raw):
+                if json.loads(raw).get("type") == "frame":
+                    injected.set();sleep(stall)
+                self.ws.send(raw)
+        client.connect = SlowDisplay
+        execution_worker(url, config)
+        return
     original = TrialRunner.advance
     def advance(runner, ticket, **kwargs):
         inject = runner.tick_count == 5 and not injected.is_set()
@@ -488,7 +510,7 @@ def test_actual_worker_missing_close_is_bounded(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("limit", ["wall", "input_wait"])
-def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch, limit):
+def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch, limit, owner_projection):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     import xpotato_sim.runtime.application.workbench_worker as module
     now, runners, events, bursts = [10.], [], [], [0]

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from collections import deque
 import json
 import os
 from pathlib import Path
 import shutil
-from time import monotonic
+from time import monotonic, perf_counter_ns
+from xpotato_sim.runtime.application.workbench_projection import ProjectionSender, ExecutionInbox
 
 from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
@@ -25,7 +27,7 @@ def execution_worker(url, config):
     import tracemalloc
     if config.get("diagnostic_memory"):
         tracemalloc.start(1)
-    runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"])
+    runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True)
     fixture = load_trial_fixture(Path(config["fixture"])) if config.get("fixture") else None
     profile = None
     generation = 0
@@ -40,6 +42,16 @@ def execution_worker(url, config):
     last_status = 0.0
     retired_builds = 0
     deferred_raw = None
+    sender = None
+    inbox = None
+    pending_stop = None
+    running_origin_ns = None
+    running_origin_tick = 0
+    hot_samples = deque(maxlen=600)
+    lag_samples = deque(maxlen=600)
+    apply_samples = deque(maxlen=600)
+    rtf_window = deque()
+    timing = {"hot_path_ns": 0, "deadline_lag_ns": 0, "actual_rtf": None}
     input_diagnostics = {"batch_size": 0, "batch_limit_hit": False, "last_receipt_s": None,
                          "last_ingest_s": None, "processed_sequence": None, "tick_duration_s": None}
     def state():
@@ -50,13 +62,16 @@ def execution_worker(url, config):
             "condition": None if runner.condition is None else runner.condition.to_document(),
             "applied_condition": applied_condition,
             "worker_pid": os.getpid(),
+            "execution_timing": dict(timing),
+            "timing_samples_ns": {"hot_path": list(hot_samples), "deadline_lag": list(lag_samples), "receipt_to_apply": list(apply_samples)},
+            "input_accepting_monotonic_s": runner.input_accepting_monotonic_s,
             "input_diagnostics": {**input_diagnostics, **runner.processed_input_diagnostics},
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
     def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
-        ws.send(json.dumps({"type": "worker_status", "id": rid, "state": state(),
+        sender.put({"type": "worker_status", "id": rid, "state": state(),
                             "error": error, "completed_op": completed_op, "operation": operation,
-                            "generation": generation, "assets": assets}, allow_nan=False))
+                            "generation": generation, "assets": list(assets)})
     def pending_input():
         """advance入口で到着分を再確認する。STOPは次iterationの先頭へ戻す。"""
         nonlocal deferred_raw
@@ -65,7 +80,7 @@ def execution_worker(url, config):
         samples = []
         while len(samples) < 64:
             try:
-                raw = ws.recv(timeout=0)
+                raw = inbox.recv(timeout=0)
             except TimeoutError:
                 break
             cmd = json.loads(raw)
@@ -83,13 +98,17 @@ def execution_worker(url, config):
     try:
         with connect(url, proxy=None, max_size=2**20, max_queue=64) as ws:
             ws.send(json.dumps({"op": "worker", "capability": os.environ.pop("XPOTATO_WORKBENCH_WORKER_KEY")}))
+            sender = ProjectionSender(ws)
+            inbox = ExecutionInbox(ws)
             send_state(ws)
             while True:
+                hot_started_ns = None
+                sender.check()
                 try:
                     if deferred_raw is not None:
                         raw, deferred_raw = deferred_raw, None
                     else:
-                        raw = ws.recv(timeout=max(0.001, min(0.02, next_tick - monotonic())))
+                        raw = inbox.recv(timeout=max(0.001, min(0.02, next_tick - monotonic())))
                 except TimeoutError:
                     raw = None
                 if raw is not None:
@@ -101,7 +120,7 @@ def execution_worker(url, config):
                             and cmd.get("ticket") == asdict(runner.ticket) and cmd.get("id") is None):
                         while len(batch) < 64:
                             try:
-                                following = ws.recv(timeout=0)
+                                following = inbox.recv(timeout=0)
                             except TimeoutError:
                                 break
                             candidate = json.loads(following)
@@ -124,7 +143,7 @@ def execution_worker(url, config):
                             if runner.status in {"faulted", "recording_failed"}:
                                 retired_builds += runner.model_build_count
                                 runner.close()
-                                runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"])
+                                runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True)
                             if "condition" in cmd:
                                 profile, limits, candidate = resolve_condition(cmd["condition"])
                             else:
@@ -150,12 +169,18 @@ def execution_worker(url, config):
                             if not prepared_assets or runner.viewer_resources is not prepared_viewer:
                                 raise RuntimeError("retry model resources differ from prepared assets")
                             assets = list(prepared_assets)
+                            running_origin_ns = None
+                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None)
+                            hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                         elif op == "start":
                             runner.start(runner.ticket, input_provenance=fixture.identity() if fixture else {"source": "workbench-gamepad/v1"})
                             input_diagnostics.update(batch_size=0, batch_limit_hit=False, last_receipt_s=None,
                                 last_ingest_s=None, processed_sequence=None, tick_duration_s=None)
                             fixture_start, fixture_index = monotonic(), 0
                             next_tick = fixture_start
+                            running_origin_ns = None
+                            timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None)
+                            hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                         elif op == "input":
                             if fixture is not None:
                                 raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
@@ -187,7 +212,11 @@ def execution_worker(url, config):
                         else:
                             raise ValueError("未知worker operation")
                         if op != "input":
-                            send_state(ws, cmd.get("id"), completed_op=op)
+                            if op == "stop" and runner.status == "finalizing":
+                                pending_stop = cmd.get("id")
+                                send_state(ws)
+                            else:
+                                send_state(ws, cmd.get("id"), completed_op=op)
                     except Exception as exc:
                         if op in {"prepare", "retry"}:
                             assets = []
@@ -203,6 +232,8 @@ def execution_worker(url, config):
                         continue
                 now = monotonic()
                 if runner.status in ACTIVE and now >= next_tick:
+                    hot_started_ns = perf_counter_ns()
+                    timing["deadline_lag_ns"] = max(0, int((now - next_tick) * 1e9))
                     old_phase = runner.status
                     try:
                         if fixture is not None:
@@ -213,20 +244,55 @@ def execution_worker(url, config):
                         tick_started = monotonic()
                         runner.advance(runner.ticket, pending_input=None if fixture is not None else pending_input)
                         input_diagnostics["tick_duration_s"] = monotonic() - tick_started
+                        if runner.status == "running" and running_origin_ns is None:
+                            running_origin_ns, running_origin_tick = perf_counter_ns(), runner.tick_count
+                        if running_origin_ns is not None:
+                            measurement_ns = perf_counter_ns()
+                            rtf_window.append((measurement_ns, runner.tick_count))
+                            while len(rtf_window) > 1 and measurement_ns - rtf_window[1][0] >= 10_000_000_000:
+                                rtf_window.popleft()
+                            origin_ns, origin_tick = rtf_window[0]
+                            elapsed = (measurement_ns - origin_ns) / 1e9
+                            timing["actual_rtf"] = ((runner.tick_count - origin_tick) * profile.dt_s / elapsed) if elapsed > 0 else None
+                            receipt = runner.processed_input_diagnostics["processed_receipt_s"]
+                            if receipt is not None:
+                                apply_samples.append(max(0, int((monotonic() - receipt) * 1e9)))
                     except Exception as exc:
                         send_state(ws, error=str(exc))
-                    next_tick = max(next_tick + profile.dt_s, now)
+                    next_tick = max(next_tick + profile.dt_s, monotonic())
                     if runner.status != old_phase or now - last_status >= 0.5:
-                        send_state(ws)
+                        if pending_stop is not None and runner.status in {"terminal", "recording_failed"}:
+                            send_state(ws, pending_stop, error=runner.error if runner.status == "recording_failed" else None, completed_op="stop")
+                            pending_stop = None
+                        else:
+                            send_state(ws)
                         last_status = now
                 if assets and runner.status in {"ready", "waiting_input", "running", "terminal"} and runner.ticket and runner.viewer_resources is not None:
                     frame_key = (generation, runner.ticket, runner.status, runner.tick_count)
                     if frame_key == last_frame_key:
                         continue
-                    sample = runner.snapshot()
-                    ws.send(json.dumps({"type": "frame", "generation": generation,
-                        "ticket": asdict(runner.ticket), "payload": mujoco_state_to_payload(sample)}, allow_nan=False))
+                    sample = runner.take_committed_projection() or runner.snapshot()
+                    sender.put({"type": "frame", "generation": generation,
+                        "ticket": asdict(runner.ticket), "payload": mujoco_state_to_payload(sample)})
                     last_frame_key = frame_key
+                if runner.status in ACTIVE and hot_started_ns is not None:
+                    timing["hot_path_ns"] = perf_counter_ns() - hot_started_ns
+                    hot_samples.append(timing["hot_path_ns"])
+                    lag_samples.append(timing["deadline_lag_ns"])
+            runner.close()
+            sender.close()
+            sender = None
+            inbox.close()
+            inbox = None
+    except Exception as exc:
+        if runner.status in INPUT_ACTIVE:
+            runner.fail(runner.ticket, exc)
+        raise
     finally:
         runner.close()
-
+        try:
+            if sender is not None:
+                sender.close()
+        finally:
+            if inbox is not None:
+                inbox.close()

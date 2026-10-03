@@ -6,6 +6,31 @@ import pytest
 from xpotato_sim.runtime.application.workbench_worker import execution_worker
 
 
+@pytest.fixture
+def owner_projection(monkeypatch):
+    """仮想時計testはhandoffまでを検査。実senderの待ち/closeは専用testで検査する。"""
+    class ImmediateProjection:
+        def __init__(self, wire): self.wire = wire
+        def put(self, value): self.wire.send(json.dumps(value, allow_nan=False))
+        def check(self): pass
+        def close(self): pass
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.ProjectionSender", ImmediateProjection)
+    class ImmediateInbox:
+        def __init__(self, wire):self.wire=wire
+        def recv(self, timeout):return self.wire.recv(timeout=timeout)
+        def close(self):pass
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.ExecutionInbox", ImmediateInbox)
+    from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+    original = TrialRunner.__init__
+    def synchronous_init(self, **kwargs):
+        kwargs["async_terminal_recording"] = False
+        original(self, **kwargs)
+    monkeypatch.setattr(TrialRunner, "__init__", synchronous_init)
+
+
+pytestmark = pytest.mark.usefixtures("owner_projection")
+
+
 @pytest.mark.parametrize("diagnostic", [False, True])
 def test_worker_memory_profiling_is_explicit(tmp_path, monkeypatch, diagnostic):
     tracing = []

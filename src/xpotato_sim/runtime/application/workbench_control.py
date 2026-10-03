@@ -16,7 +16,7 @@ from xpotato_sim.schemas import parse_viewer_control_message_json
 
 ACTIVE = {"waiting_input", "running", "finalizing"}
 INPUT_ACTIVE = {"waiting_input", "running"}
-INPUT_FINISHED = {"terminal", "recording_failed"}
+INPUT_FINISHED = {"finalizing", "terminal", "recording_failed"}
 ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
@@ -304,4 +304,3 @@ class WorkbenchControl:
         result = self.state.get("result")
         if result and not any(x["trial_id"] == result["trial_id"] for x in self.results):
             self.results.append(result)
-

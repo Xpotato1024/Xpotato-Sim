@@ -70,8 +70,10 @@ $sourceIdentity = '<HEAD SHAと未commit差分のidentity>'
 .\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --open-browser
 ```
 
-`--web-dist`省略時はsourceのVite dev serverを使う。固定buildでの検証は明示的にbuildし、
-出力rootを`--web-dist`へ渡す。devからbuildへの自動fallbackはない。
+固定production buildが実験起動の既定である。`--web-dist`省略時は`apps/mujoco-viewer/dist`を使う。
+不在・source/lock不一致・出力byte不一致は起動前に拒否する。事前に以下でbuildして出力rootを渡し、
+試行中にbuildしない。開発は排他option `--dev-server`を明示する。古いbuildやdevへの自動fallbackはない。
+headlessの`--run-once`はWeb buildを要求しない。
 
 ```powershell
 $env:XPOTATO_VITE_CACHE = Join-Path $taskRoot 'vite-cache'
@@ -81,6 +83,9 @@ node apps/mujoco-viewer/node_modules/vite/bin/vite.js build --config apps/mujoco
 ```
 
 buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む必要がある。
+`workbench-build.json`はviewer src/tooling、index、Vite設定、package/lockのbyte digestと各出力assetの
+byte digestを持ち、現在sourceと照合する。callerの`software_revision`とは別の検査である。
+これはviewer source/buildの対応検査であり、署名や依存取得の認証ではない。
 静的serverは参照の存在・非空、WASM header、root内pathを検査し、欠落・外部URL・symlinkを拒否する。
 任意の代替HTMLをGUIとして生成しない。これは依存JS全体の完全性署名やbrowser動作保証ではない。
 
@@ -97,7 +102,7 @@ buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む
 | `--condition` | export済み展開条件JSON。profile/ticks/期限optionと排他。予算は条件内limitsを使用 |
 | `--backend-port` / `--web-port` | 8766 / 5173。異なるloopback portのみ |
 | `--ticks` | 省略時は選択profileのsteps。有限なcommit予算 |
-| `--input-wait-s` | 5秒。Start後の入力中立待ち |
+| `--input-wait-s` | 5秒。開始記録成立後の入力中立待ち。総wallはStart要求時刻から |
 | `--wall-s` | 360秒。Start後の総wall時間 |
 | `--prepare-s` | 30秒。runner準備上限、親の監督期限は追加2秒 |
 | `--diagnostic-memory` | 指定時だけtracemallocを開始。通常はPython heap未測定（null） |
@@ -157,7 +162,10 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | 資源 | 所有者・上限 | 破棄点 |
 | --- | --- | --- |
 | Web/process/job、worker、async service task | launcher / `OwnedApplicationWorkers` | アプリ終了、監督fault |
-| Python MjModel/MjData、Source/Mapping/Task/input/log | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
+| Python MjModel/MjData、Source/Mapping/Task/input | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
+| private socket取得、入力FIFO256、制御FIFO32、STOP専用slot | ExecutionInboxのreader | STOP/closeはFIFOより優先。通常要求は元順序を維持。overflow/切断はtechnical_invalid記録 |
+| 表示最新1slot、制御応答FIFO32、JSON整形/送信 | ProjectionSenderのsender | 制御遷移で旧表示slot失効。send/overflow障害は終了へ伝える |
+| immutable終端snapshotの排他的保存 | TrialRecorder専用thread、同時1件 | finalizingではphysics/入力/retry禁止。完了採用と失敗分類はExecution owner。closeでjoin |
 | asset file/allowlist | workerは現modelだけ生成、serviceが公開 | 次prepare/STOP/faultでallowlist無効化、アプリ終了でtask内directory削除 |
 | 結果と履歴 | service 32 / 128、永続結果はtrial別file | bounded listから退役。永続結果は消さない |
 | WASM module | browser loaderのPromise 1件 | ページ寿命。失敗したloadだけ再試行可能 |
@@ -264,5 +272,21 @@ worker/webのmodule起動名は従来entryへ明示固定し、stdin start gate�
 
 controlの認可後dispatchはeditor、input、lifecycleのprivate methodへ分ける。
 同じWorkbenchControl objectだけがrevision、履歴、次条件、STOP監督を保持し、mutable状態を複製しない。
-通信・停止監督とworkerの受信batch・command・projectionは、clock/recv/advanceとSTOPの順序を
-保つため同じloopに維持する。別のstate machineやcontext転送層は導入しない。
+`workbench_projection.py`はreader/senderと有界受渡しだけを所有する。ExecutionだけがMapping、全入力barrier、
+MuJoCo commit、Task観測を行う。readerは元receipt/session/sequenceを維持し、入力coalesceを行わない。
+Task観測で検査したcommit表示は`take_committed_projection()`で一度だけ渡し、入力、次advance、終端、新ticketで失効する。
+それ以外は明示再観測し、reset/live state/faultを隠す汎用cacheは作らない。
+message frameworkや第二の試行SoTは作らない。senderはthreadなのでGIL競合とowner上のsnapshot/payload変換負荷は残る。
+shared-memory snapshot専用processへの完全分離は未実装である。
+
+### 表示と計測
+
+sceneはReactを経ずrendererへ直接適用し、60Hz実Gamepad取得/送信はroot stateを更新しない。
+関節/Input計器は専用componentの10Hz、詳細は展開中だけ4Hzとする。Operate中はsetup editorと詳細JSXを生成しない。
+STOP/fault/epochの操作gateは即時statusで更新する。Single/Assist、camera、条件import/export、診断能力を維持する。
+
+`execution_timing`と最大600件の`timing_samples_ns`は`perf_counter_ns`でhot path/deadline lagを測る。
+hot pathはadvanceとcommit表示のowner処理までで、別threadの送信/保存CPUを含まない。
+RTFはrunning中の実commit simulation delta / 実wall delta（最大10秒窓）である。新Start/retryでresetする。
+receipt→applyは同じhost monotonic領域だけで測り、browser時計と引算しない。
+固定dtの一回commit後に期限を更新し、無限catchup、可変physics dt、表示時刻補正を行わない。

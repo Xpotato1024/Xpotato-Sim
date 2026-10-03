@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useRef, useState, type RefObject} from "react";
 import {createMujocoSceneRenderer, type MujocoSceneRenderer} from "../wasm-scene/mujocoSceneRenderer.js";
 import {createInitialProductViewerState} from "../wasm-scene/productViewerState.js";
 import {SceneContactPanel} from "./SceneContactPanel.js";
@@ -34,7 +34,7 @@ export function WorkbenchApp() {
   const interaction = useRef<HTMLDivElement>(null);
   const [screen,setScreen]=useState<"setup"|"operate">("setup");
   const [layout,setLayout]=useState<ViewLayout>("single");
-  const [raw,setRaw]=useState<BrowserGamepadDisplay|null>(null);
+  const rawMailbox=useRef<BrowserGamepadDisplay|null>(null);
   const receivedAt=useRef<number|null>(null);
   const [frameStale,setFrameStale]=useState(false);
   const renderer = useRef<MujocoSceneRenderer|null>(null);
@@ -64,7 +64,7 @@ export function WorkbenchApp() {
   const sendEditor=(pending:NonNullable<typeof editorPending.current>,op:string,extra:object={})=>
     send({op,request_id:pending.id,capability:capability.current,revision:pending.status.revision,ticket:pending.status.ticket,...extra});
   const editRequest=(op:string,extra:object={},exportFile=false)=>{const pending=beginEditor(exportFile);if(pending) sendEditor(pending,op,extra);};
-  const [state,setState] = useState(createInitialProductViewerState);
+  const stateMailbox=useRef(createInitialProductViewerState());
   const readyEpoch = useRef<string|null>(null);
   const preparing = useRef<Preparation|null>(null);
   const failedEpoch = useRef<string|null>(null);
@@ -83,7 +83,7 @@ export function WorkbenchApp() {
   useEffect(()=>{
     history.replaceState(null,"",location.pathname+location.search);
     let disposed=false;
-    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:setState,onError:e=>setError(e.message)});
+    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;},onError:e=>setError(e.message)});
     renderer.current=r;
     // 明示再接続は状態照会だけ。claimもStartも自動送信しない。
     const connect=()=>{
@@ -123,7 +123,7 @@ export function WorkbenchApp() {
           if(message.type==="condition_diff" && editorReply) {setChanges(message.changes);clearEditor();}
           if(message.type==="status") {
             if(message.ticket?.epoch!==current.current?.ticket?.epoch) setError("");
-            if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) setRaw(null);
+            if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) rawMailbox.current=null;
             if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
               || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
               r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
@@ -180,7 +180,7 @@ export function WorkbenchApp() {
         const s=current.current;if(!s?.ticket) return;
         const observed=browserGamepadDisplay(pads,performance.now());
         const session=message.metadata?.viewer_provider_session_id;
-        setRaw(observed&&typeof session==="string"?{...observed,sessionId:session}:null);
+        rawMailbox.current=observed&&typeof session==="string"?{...observed,sessionId:session}:null;
         send({op:"input",capability:capability.current,ticket:s.ticket,message:JSON.stringify(message)});
       }});
     gamepad.start();
@@ -196,9 +196,6 @@ export function WorkbenchApp() {
   const active=!!status && ["waiting_input","running","finalizing"].includes(status.phase);
   const notice=workbenchNotice(status,error);
   const busy=!!status?.busy;
-  const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
-  const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
-  const invalidJoint=!connected?"未接続":!ready?"別epoch / 準備待ち":frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
   return <main className="workbench operation-shell" data-screen={screen}>
     <header><h1>Xpotato-Sim 実験Workbench</h1><p>有限試行 · simulation-only · ロボット出力なし</p>
       <span>{connected?"接続中":"未接続"} / {owned?"操作権あり":"閲覧のみ"}</span>
@@ -219,7 +216,7 @@ export function WorkbenchApp() {
     </nav>
     {notice && <p className="operation-warning" role="alert">{notice}</p>}
     {error && error!==notice && <p role="alert">要求・接続の診断: {error}</p>}
-    <section className="workbench-controls" hidden={screen!=="setup"}>
+    {screen==="setup" && <section className="workbench-controls">
       <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
         <option value="">profileを選択してください</option>
         {status?.profiles.map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
@@ -230,14 +227,11 @@ export function WorkbenchApp() {
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       {notice && <p role="alert">{notice}</p>}
-    </section>
-    <div className="workbench-body"><div className="operation-workspace" data-left={!!left} data-right={!!right}>
-      {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalidJoint} terminal={status?.phase==="terminal"}/></aside>}
-      <SceneViewport canvas={canvas} interaction={interaction} renderer={renderer} layout={layout} visible={!!ready}/>
-      {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalidJoint} terminal={status?.phase==="terminal"}/></aside>}
-      <InputStrip state={state} raw={raw} selected="gamepad" live={connected&&!!ready&&!frameStale&&status?.phase!=="terminal"}/>
-    </div>
-      <aside className="setup-inspector" hidden={screen!=="setup"}><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
+    </section>}
+    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox}
+      connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase}
+      canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
+      {screen==="setup" && <aside className="setup-inspector"><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
         onError={setError} onValidate={()=>editRequest("edit",{condition:edited})} onImport={async file=>{
           const pending=beginEditor();if(!pending) return;
           const captured=pending.status;const ws=pending.socket;
@@ -253,11 +247,45 @@ export function WorkbenchApp() {
         onExport={()=>editRequest("edit",{condition:edited},true)}
         onDiff={()=>editRequest("diff",{condition:edited})}/>
         {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
-        <SceneContactPanel value={state.sceneContactPresentation} live={connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
-        <details><summary>入力・qpos診断</summary><GamepadDiagnosticDetails state={state} raw={raw} live={connected&&!!ready&&!frameStale&&status?.phase!=="terminal"}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre></details>
+        <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} connected={connected}
+          live={connected&&!!ready&&!frameStale&&status?.phase!=="terminal"}/>
         <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
-        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>
+        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>}
     </div>
   </main>;
+}
+
+type ViewerState = ReturnType<typeof createInitialProductViewerState>;
+type Telemetry = {stateMailbox:RefObject<ViewerState>;rawMailbox:RefObject<BrowserGamepadDisplay|null>};
+/** 計器だけが10Hzで購読し、setup/editorと入力送信を再描画しない。 */
+function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;phase?:string;
+  canvas:RefObject<HTMLCanvasElement|null>;interaction:RefObject<HTMLDivElement|null>;
+  renderer:RefObject<MujocoSceneRenderer|null>;layout:ViewLayout}) {
+  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current}));
+  useEffect(()=>{const timer=window.setInterval(()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current}),100);
+    return ()=>window.clearInterval(timer);},[]);
+  const {state,raw}=sample;
+  const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
+  const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
+  const invalid=!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
+  return <div className="operation-workspace" data-left={!!left} data-right={!!right}>
+    {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
+    {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <InputStrip state={state} raw={raw} selected="gamepad" live={props.connected&&!!props.ready&&!props.frameStale&&props.phase!=="terminal"}/>
+  </div>;
+}
+/** 展開中だけ4Hzで詳細を取得する。折り畳み時は詳細JSXも生成しない。 */
+function WorkbenchDetails(props:Telemetry & {connected:boolean;live:boolean}) {
+  const [open,setOpen]=useState(false);
+  const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current}));
+  useEffect(()=>{if(!open)return;
+    const update=()=>setSample({state:props.stateMailbox.current,raw:props.rawMailbox.current});update();
+    const timer=window.setInterval(update,250);return ()=>window.clearInterval(timer);},[open]);
+  const {state,raw}=sample;
+  return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>入力・qpos・接触・動力学診断</summary>{open&&<>
+    <SceneContactPanel value={state.sceneContactPresentation} live={props.connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
+    <GamepadDiagnosticDetails state={state} raw={raw} live={props.live}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre>
+  </>}</details>;
 }

@@ -16,7 +16,8 @@ related:
 
 `workbench --temporary-root <既存の絶対path> --result-root <保存先> --software-revision <source identity> --open-browser`
 は未選択で待機する。profile選択・prepare・renderer ACK・Startを分離し、trial終了後もアプリを保持する。
-`--web-dist <build root>`は明示固定build、省略時はVite dev server。`--run-once --profile <登録ID> --fixture <path>`は
+`--web-dist <build root>`は対応固定build、省略時は`apps/mujoco-viewer/dist`。source/lock/asset byteを起動前に照合する。
+開発用Vite serverは`--dev-server`を明示し、buildとの自動fallbackはない。`--run-once --profile <登録ID> --fixture <path>`は
 同じservice/TrialRunnerの有限headless実行である。詳細なPowerShell起動例、期限、復旧、権限は
 [Workbench契約](../contracts/workbench.md)を参照する。旧commandの引数・動作は維持する。
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import json
 from math import isfinite
@@ -30,7 +31,7 @@ class TrialTicket:
 
 class TrialRunner:
     """同期owner。callerがadvanceを継続し、wall/watchdogを監督する。"""
-    def __init__(self, *, result_root: Path, software_revision: str, clock=monotonic):
+    def __init__(self, *, result_root: Path, software_revision: str, clock=monotonic, async_terminal_recording=False):
         if not isinstance(software_revision, str) or not software_revision.strip():
             raise ValueError("explicit software revision required")
         if not callable(clock):
@@ -45,8 +46,14 @@ class TrialRunner:
         self._ticket = self._result = self._recorder = self._start_ref = None
         self._last_now = self._started = self._ingress_time = None
         self._last_input = None
+        self._input_accepting = None
+        self._committed_projection = None
         self._frame = 0
         self._error = None
+        self._async_terminal_recording = async_terminal_recording
+        self._record_executor = None
+        self._record_future = None
+        self._pending_terminal = None
 
     @contextmanager
     def _mutating(self):
@@ -89,6 +96,11 @@ class TrialRunner:
         return self._model_build_count
 
     @property
+    def input_accepting_monotonic_s(self):
+        """開始記録が成功し、入力待機を開始したhost時刻。"""
+        return self._input_accepting
+
+    @property
     def processed_input_sequence(self):
         """消費成功した最新sequenceだけを診断へ公開する。"""
         return None if self._last_input is None else self._last_input[1]
@@ -128,6 +140,8 @@ class TrialRunner:
         trial_id = uuid4().hex
         self._ticket = TrialTicket(trial_id, "trial-" + trial_id, self._condition.digest)
         self._recorder = self._start_ref = self._started = self._last_input = None
+        self._input_accepting = None
+        self._committed_projection = None
         self._frame = 0
 
     def _stop(self):
@@ -211,6 +225,7 @@ class TrialRunner:
                     record={"schema_version": "trial-start/v1", **self._identity(),
                         "started_monotonic_s": self._started,
                         "input_provenance": json.loads(provenance)})
+                self._input_accepting = self._now()
                 self._status = "waiting_input"
             except Exception as exc:
                 self._recording_failed(exc)
@@ -249,6 +264,7 @@ class TrialRunner:
                              f"received_at_s={self._last_input[3]:.6f}; now_s={self._last_now:.6f}")
 
     def _ingest_received(self, ticket, message, *, received_at_s, now):
+        self._committed_projection = None
         self._check_ticket(ticket)
         if self._status not in {"waiting_input", "running"}:
             raise RuntimeError("input requires an active trial")
@@ -261,6 +277,8 @@ class TrialRunner:
                           f"now_s={now:.6f}; trial_started_at_s={self._started:.6f}")
             if received_at_s < self._started:
                 raise ValueError(f"input_pre_trial: {diagnostic}")
+            if received_at_s < self._input_accepting:
+                raise ValueError(f"input_pre_recording: input_accepting_monotonic_s={self._input_accepting:.6f}; {diagnostic}")
             if age < 0:
                 raise ValueError(f"input_future: {diagnostic}")
             if type(message) is not str or len(message.encode("utf-8")) > 65536:
@@ -291,10 +309,19 @@ class TrialRunner:
                 return None
             return self._execution.sample(self._frame)
 
+    def take_committed_projection(self):
+        """直前commitでTaskが検査した表示を一度だけ渡す。可変操作後は再観測する。"""
+        with self._mutating():
+            value, self._committed_projection = self._committed_projection, None
+            return value
+
     def advance(self, ticket, *, pending_input=None):
         """実commitとTaskを同じ実行で進め、空入力でもwall監督を行う。"""
         with self._mutating():
             self._check_ticket(ticket)
+            self._committed_projection = None
+            if self._status == "finalizing":
+                return self._poll_recording()
             if self._status == "terminal":
                 return self._result
             if self._status not in {"waiting_input", "running"}:
@@ -303,7 +330,7 @@ class TrialRunner:
                 now = self._now()
                 if now - self._started >= self._limits.wall_s:
                     return self._finish("wall_timeout")
-                if self._status == "waiting_input" and now - self._started >= self._limits.input_wait_s:
+                if self._status == "waiting_input" and now - self._input_accepting >= self._limits.input_wait_s:
                     return self._finish("input_wait_timeout")
                 if pending_input is not None:
                     samples = pending_input()
@@ -330,7 +357,7 @@ class TrialRunner:
                 if self.tick_count > before:
                     self._frame += 1
                     exhausted = self.tick_count >= self._limits.max_ticks
-                    self._execution.sample(self._frame, advance_task=True, budget_exhausted=exhausted)
+                    self._committed_projection = self._execution.sample(self._frame, advance_task=True, budget_exhausted=exhausted)
                     task = self._execution.task_state
                     if task is not None and task.classification is not TaskTerminalClassification.RUNNING:
                         reason = ("task_success" if task.classification is TaskTerminalClassification.SUCCESS
@@ -347,9 +374,19 @@ class TrialRunner:
         """課題成功を作らず、operator停止を結果として確定する。"""
         with self._mutating():
             self._check_ticket(ticket)
+            if self._status == "finalizing":
+                return self._poll_recording()
             if self._status not in {"waiting_input", "running"}:
                 raise RuntimeError("abort requires active trial")
             return self._finish("operator_abort")
+
+    def fail(self, ticket, error):
+        """通信/有界受渡しの障害を、操作中止へ置換せず正式記録へ残す。"""
+        with self._mutating():
+            self._check_ticket(ticket)
+            if self._status not in {"waiting_input", "running"}:
+                raise RuntimeError("failure requires active trial")
+            return self._finish("technical_invalid", error=str(error))
 
     def _recording_failed(self, exc, record=None):
         self._stop()
@@ -360,6 +397,7 @@ class TrialRunner:
         self._result = TrialResult(canonical({**failed, "recording": "failed", "recording_error": str(exc)}))
 
     def _finish(self, reason, *, error=None):
+        self._committed_projection = None
         if self._status in {"terminal", "recording_failed"}:
             return self._result
         self._status = "finalizing"
@@ -380,12 +418,32 @@ class TrialRunner:
             "runner_stop_reason": reason, "error": error,
             "task_outcome": self._execution.task_view, "ticks": self.tick_count,
             "simulation_time_s": self.tick_count * self._execution.profile.dt_s,
-            "start_ref": self._start_ref, "terminal_monotonic_s": self._last_now}
+            "start_ref": self._start_ref, "terminal_monotonic_s": self._last_now,
+            "input_accepting_monotonic_s": self._input_accepting}
         try:
+            if self._async_terminal_recording:
+                if self._record_executor is None:
+                    self._record_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trial-recorder")
+                self._pending_terminal = record
+                self._record_future = self._record_executor.submit(self._recorder.terminal, final_state=final_state, record=record)
+                return None
             self._result = self._recorder.terminal(final_state=final_state, record=record)
             self._status = "terminal"
         except Exception as exc:
             self._recording_failed(exc, record)
+        return self._result
+
+    def _poll_recording(self):
+        """記録threadは不変snapshotだけを所有し、結果の採用はExecution ownerが行う。"""
+        if self._record_future is None or not self._record_future.done():
+            return None
+        try:
+            self._result = self._record_future.result()
+            self._status = "terminal"
+        except Exception as exc:
+            self._recording_failed(exc, self._pending_terminal)
+        finally:
+            self._record_future = self._pending_terminal = None
         return self._result
 
     def close(self):
@@ -393,6 +451,15 @@ class TrialRunner:
         with self._mutating():
             if self._status in {"waiting_input", "running"}:
                 self._finish("operator_abort")
+            if self._record_future is not None:
+                try:
+                    self._record_future.result()
+                except Exception:
+                    pass
+                self._poll_recording()
+            if self._record_executor is not None:
+                self._record_executor.shutdown(wait=True)
+                self._record_executor = None
             self._stop()
             self._execution = None
             self._recorder = self._last_input = None
