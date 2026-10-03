@@ -12,7 +12,7 @@ from xpotato_sim.runtime.experiment.edited_condition import (
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
 from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
 from xpotato_sim.runtime.runners.finite_trial import run_finite_trial
-from xpotato_sim.runtime.runners.workbench import WorkbenchControl
+from xpotato_sim.runtime.application.workbench_control import WorkbenchControl
 from xpotato_sim.runtime.scene.objects import canonical
 
 
@@ -122,7 +122,7 @@ def test_gui_preset_clones_preserve_launcher_budgets_and_correlation():
 
 def test_clone_path_is_rejected_before_filesystem_load(monkeypatch):
     def forbidden(*args):raise AssertionError("server filesystem must not be read")
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.load_launch_profile",forbidden)
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_control.load_launch_profile",forbidden)
     c=WorkbenchControl([],"key");c.owner="owner"
     with pytest.raises(ValueError,match="server path"):
         c.command("owner",{"op":"clone","capability":"key","revision":0,"ticket":None,
@@ -130,7 +130,7 @@ def test_clone_path_is_rejected_before_filesystem_load(monkeypatch):
 
 
 def test_accepted_condition_watchdog_matches_worker_limits_and_rejects_bad_requests():
-    from xpotato_sim.runtime.runners.workbench import prepare_watchdog_deadline
+    from xpotato_sim.runtime.application.workbench_service import prepare_watchdog_deadline
     d=condition();d["limits"]["prepare_s"]=17.
     c=WorkbenchControl([{"id":"dynamic-cube-drop","available":True}],"key");c.owner="owner"
     request={"op":"prepare","id":"budget","capability":"key","revision":0,"ticket":None,

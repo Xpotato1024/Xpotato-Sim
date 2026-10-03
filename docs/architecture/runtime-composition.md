@@ -29,6 +29,7 @@ related:
 | `contact/` | versioned contact manifest、backend-owned MuJoCo scene composition / reset、MuJoCo measured contact evidence、Task contractの共有型 |
 | `experiment/` | 6軸のexperiment plugin contract、registry、readiness composition、software-only trial lifecycle |
 | `evaluation/` | FK / endpoint metric、progress、evaluation manifest / freeze readiness |
+| `application/` | Workbenchの制御要求、通信・停止監督、専用worker、headless client、process memory診断 |
 | `runners/` | operational dry-run / smoke / publisherとexperimentのthin entry point |
 
 `runtime.__init__`は`RuntimeConfig`と既存catalog resolver 5件だけをlazy exportする。
@@ -46,8 +47,10 @@ provider identity、plugin identityはこの移動で変更しない。
 既存catalogとlaunch-profile decoderへ接続し、任意pathやcodeを含むGUI専用設定engineを作らない。
 descriptorで公開する型・値域は同じ入口の検証に使い、scene/Task/physicsの追加検証は既存ownerへ渡す。
 
-`runners/workbench.py`は待機アプリの制御/期限監督と専用workerへの接続を所有し、workerは同じTrialRunnerを呼ぶ。
-`workbench_web.py`は明示buildのlocal配信、`workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
+`application/workbench_control.py`は制御要求、`workbench_service.py`は通信/期限監督、
+`workbench_worker.py`は同じTrialRunnerへの接続、`workbench_client.py`はheadless制御を所有する。
+`runners/workbench.py`はCLIとworker/web起動だけを所有し、内部helperを再exportしない。
+`runners/workbench_web.py`は明示buildのlocal配信、`application/workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
 phase、Task判定、記録形式、physicsをこれらに再実装しない。詳細は[Workbench契約](../contracts/workbench.md)を参照する。
 
 #406で成立したexperiment lifecycle / runnerと、#407で追加したexecution trace / motion-log recorderのownerは

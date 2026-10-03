@@ -26,8 +26,8 @@ related:
 次のdirectory名を固定layer identifierとして使用する。
 
 - `schemas`
-- `input_sources`
-- `input_interpreters`
+- `plugins/input_sources`
+- `plugins/mappings`
 - `motion`
 - `kinematics`
 - `mujoco_backend`

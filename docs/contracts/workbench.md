@@ -250,3 +250,19 @@ service receiptだけ先行し、processed receipt/sequenceが止まる場合は
 browser主threadの長時間停止など、tick時の最新actual receiptが0.2秒超のstaleなら試行は引き続き`technical_invalid`となる。
 simulation一時停止による操作継続、明示resumeと再中立、wall budgetや実験有効性の扱いは別のpolicy判断を要し、
 本修正は自動resumeやformal evaluation変更を導入しない。
+
+
+## 実装owner
+
+Workbench固有の制御要求は`runtime/application/workbench_control.py`、通信と停止監督は
+`workbench_service.py`、単一processのTrialRunner接続は`workbench_worker.py`、headless制御は
+`workbench_client.py`、process memory診断は`workbench_metrics.py`が所有する。
+`runtime/runners/workbench.py`はCLIとworker/web process起動を所有する。
+worker/webのmodule起動名は従来entryへ明示固定し、stdin start gateとjob参加順序を維持する。
+外部CLI、wire/log/condition、入力・停止・physicsの契約はこの配置変更で変更しない。
+
+
+controlの認可後dispatchはeditor、input、lifecycleのprivate methodへ分ける。
+同じWorkbenchControl objectだけがrevision、履歴、次条件、STOP監督を保持し、mutable状態を複製しない。
+通信・停止監督とworkerの受信batch・command・projectionは、clock/recv/advanceとSTOPの順序を
+保つため同じloopに維持する。別のstate machineやcontext転送層は導入しない。
