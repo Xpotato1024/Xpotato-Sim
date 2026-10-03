@@ -94,19 +94,47 @@ def stage_terminal_process(recorder, final_state, record, reply):
         reply.close()
 
 
+def prepared_terminal_process(recorder, connection, stage):
+    """Start gateで起動確認し、一試行の終端snapshotを待つ。"""
+    import pickle
+    try:
+        connection.send("ready")
+        final_state, record = pickle.loads(connection.recv_bytes(65536))
+        stage(recorder, final_state, record, connection)
+    finally:
+        connection.close()
+
+
 class TerminalRecordingJob:
     """保存期限を超えたprocessを終了確認し、後からmarkerを公開させない。"""
-    def __init__(self, recorder, final_state, record):
+    def __init__(self, recorder):
         from multiprocessing import get_context
         context = get_context("spawn")
-        self.reply, child = context.Pipe(duplex=False)
-        self.process = context.Process(target=stage_terminal_process, args=(recorder, final_state, record, child), name="trial-recorder")
+        self.reply, child = context.Pipe(duplex=True)
+        self.process = context.Process(target=prepared_terminal_process, args=(recorder, child, stage_terminal_process), name="trial-recorder")
         try:
             self.process.start()
         except BaseException:
             self.reply.close(); child.close()
             raise
         child.close()
+        if not self.reply.poll(2):
+            self.close()
+            raise TimeoutError("terminal recorder startup deadline exceeded")
+        try:
+            if self.reply.recv() != "ready":
+                raise RuntimeError("terminal recorder startup rejected")
+        except BaseException:
+            self.close()
+            raise
+
+    def submit(self, final_state, record):
+        """内部の不変snapshotだけを有界IPCへ渡す。pickleは外部入力入口ではない。"""
+        import pickle
+        value = pickle.dumps((final_state, record), protocol=5)
+        if len(value) > 65536:
+            raise ValueError("terminal snapshot exceeds bounded IPC size")
+        self.reply.send_bytes(value)
 
     def poll(self):
         if self.reply.poll():

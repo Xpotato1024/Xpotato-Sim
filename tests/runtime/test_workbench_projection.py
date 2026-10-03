@@ -166,6 +166,19 @@ def test_required_ready_and_terminal_frames_use_ordered_fifo():
     assert [(v["type"],v["phase"]) for v in sent]==[("worker_status","ready"),("frame","ready"),("worker_status","terminal"),("frame","terminal")]
 
 
+def test_async_connection_startup_failure_leaves_no_io_thread():
+    import socket
+    from threading import enumerate as threads
+    from xpotato_sim.runtime.application.workbench_projection import AsyncWorkerConnection
+    before={thread.ident for thread in threads() if thread.name=="workbench-async-io"}
+    with socket.socket() as reserved:
+        reserved.bind(("127.0.0.1",0))
+        # listenしない予約socketへの接続は拒否される。
+        with pytest.raises(RuntimeError,match="connection failed"):
+            AsyncWorkerConnection(f"ws://127.0.0.1:{reserved.getsockname()[1]}",proxy=None)
+    assert {thread.ident for thread in threads() if thread.name=="workbench-async-io"}==before
+
+
 def backpressured_native_worker(url, config, blocked):
     import asyncio
     from xpotato_sim.runtime.application import workbench_worker as module

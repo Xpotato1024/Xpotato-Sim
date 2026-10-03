@@ -100,8 +100,9 @@ browser=None;wire=None;counter=0;report={'software_fixture':True,'checks':[],'pe
     'clock_info':{name:vars(time.get_clock_info(name)) for name in ('monotonic','perf_counter')},
     'lock_sha256':hashlib.sha256((ROOT/'uv.lock').read_bytes()).hexdigest(),
     'source_files':{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((ROOT/'src').rglob('*.py'))},
-    'statistics_scope':{'hot_path':'last at most 600 commits in each status snapshot; not whole-trial quantiles','receipt_to_apply':'same host monotonic clock; resolution in clock_info','render':'48 measured synthetic changes per layout after four warmups','stop':'one explicit stop per retry','rtf':'committed simulation delta / running wall delta; backend window at most 10 s'},
-    'synthetic_trajectory':'left stick +/-0.16 during draw measurements, then neutral' if not options.synthetic_push else 'left stick draw measurements then explicit left-only push attempt; no contact checkpoint',
+    'statistics_scope':{'hot_path':'last at most 600 owner iterations in each status snapshot; not whole-trial quantiles','receipt_to_apply':'same host monotonic clock; resolution in clock_info','render':'48 measured synthetic changes per layout after four warmups','stop':'one explicit stop per retry','rtf':'committed simulation delta / running wall delta; backend window at most 10 s'},
+    'synthetic_trajectory':'left stick +/-0.16 during draw measurements, then neutral' if not options.synthetic_push else 'left stick draw measurements then raw axes [0,-0.7,0,0] for 3 s then neutral; left-only push attempt from ordinary initial state',
+    'contact_checkpoint':False,
     'build_identity':json.loads((Path(sys.argv[2])/'workbench-build.json').read_text()) if (Path(sys.argv[2])/'workbench-build.json').exists() else None}
 def cdp(method,params=None):
  global counter
@@ -190,7 +191,7 @@ try:
  if options.normal_seconds:
   if options.synthetic_push:
    # 通常初期状態から片腕だけを動かす明示合成系列。contact到達はraw Task観測で確認する。
-   js("window.__qaPad.axes=[0,-.7,0,0];window.setTimeout(()=>{window.__qaPad.axes=[.7,0,0,0];window.setTimeout(()=>{window.__qaPad.axes=[0,0,0,0]},4000)},2000)")
+   js("window.__qaPad.axes=[0,-.7,0,0];window.setTimeout(()=>{window.__qaPad.axes=[0,0,0,0]},3000)")
   # 中立は実sample取得から送信する。欠測補完やphysics予算変更は行わない。
   deadline=time.monotonic()+options.normal_seconds*3+30
   while time.monotonic()<deadline:

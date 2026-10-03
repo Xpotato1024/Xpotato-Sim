@@ -224,6 +224,8 @@ class TrialRunner:
                     record={"schema_version": "trial-start/v1", **self._identity(),
                         "started_monotonic_s": self._started,
                         "input_provenance": json.loads(provenance)})
+                if self._async_terminal_recording:
+                    self._record_job = TerminalRecordingJob(self._recorder)
                 self._input_accepting = self._now()
                 self._execution.runtime.runtime.accept_inputs_after(self._input_accepting)
                 self._status = "waiting_input"
@@ -424,7 +426,7 @@ class TrialRunner:
             if self._async_terminal_recording:
                 self._pending_terminal = record
                 self._record_deadline = min(self._last_now + 2, self._started + self._limits.wall_s + 2)
-                self._record_job = TerminalRecordingJob(self._recorder, final_state, record)
+                self._record_job.submit(final_state, record)
                 return None
             self._result = self._recorder.terminal(final_state=final_state, record=record)
             self._status = "terminal"
@@ -434,7 +436,7 @@ class TrialRunner:
 
     @property
     def recording_pending(self):
-        return self._record_job is not None
+        return self._pending_terminal is not None
 
     def _poll_recording(self):
         """期限内のstagingをownerが公開する。期限後はprocessを回収して未確定を報告する。"""
@@ -463,6 +465,10 @@ class TrialRunner:
         with self._mutating():
             if self._status in {"waiting_input", "running"}:
                 self._finish("operator_abort")
+            if self._record_job is not None:
+                if self._pending_terminal is None:
+                    self._record_job.close()
+                    self._record_job = None
             if self._record_job is not None:
                 from time import perf_counter, sleep
                 deadline = perf_counter() + 2

@@ -66,6 +66,24 @@ def test_commit_projection_is_one_shot_and_invalidated_by_input_and_stop(tmp_pat
         runner.close()
 
 
+def test_post_recording_receipt_and_neutral_use_same_acceptance_boundary(tmp_path,monkeypatch):
+    runner,ticket,clock=prepared(tmp_path,ticks=100)
+    original=TrialRecorder.start
+    def delayed(recorder,**kwargs):
+        result=original(recorder,**kwargs);clock.now+=7;return result
+    monkeypatch.setattr(TrialRecorder,"start",delayed)
+    try:
+        runner.start(ticket,input_provenance={"synthetic":True})
+        assert runner._execution.runtime.runtime._minimum_received_at_s==runner.input_accepting_monotonic_s==17
+        runner.ingest(ticket,message(),received_at_s=17)
+        runner.ingest(ticket,message(1,(.25,0,0,0)),received_at_s=17)
+        runner.advance(ticket)
+        assert runner.status=="running" and runner.tick_count==0
+        runner.advance(ticket)
+        assert runner.tick_count==1
+    finally:runner.close()
+
+
 def delayed_stage(recorder, final_state, record, reply, entered, release, failed):
     entered.set()
     release.wait()
@@ -123,14 +141,23 @@ def test_async_recording_gate_does_not_block_execution_owner(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("via_close",[False,True])
-def test_recording_hang_is_reclaimed_without_late_terminal(tmp_path,monkeypatch,via_close):
+@pytest.mark.parametrize("task_terminal",[False,True])
+def test_recording_hang_is_reclaimed_without_late_terminal(tmp_path,monkeypatch,via_close,task_terminal):
     from multiprocessing import get_context
     context=get_context("spawn");entered,release=context.Event(),context.Event()
     recording_factory(monkeypatch,entered,release)
     clock=Clock();runner=TrialRunner(result_root=tmp_path,software_revision="test",clock=clock,async_terminal_recording=True)
-    ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
+    if task_terminal:
+        from xpotato_sim.runtime.experiment.edited_condition import preset_condition,resolve_condition
+        condition=preset_condition("dynamic-cube-drop")
+        condition["task"]["parameters"]["duration_s"]=.016
+        profile,limits,_=resolve_condition(condition)
+        ticket=runner.prepare(profile,limits)
+    else:
+        ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
     try:
         start(runner,ticket,clock);runner.advance(ticket);assert entered.wait(1)
+        if task_terminal:assert runner._pending_terminal["runner_stop_reason"]=="task_success"
         job=runner._record_job;process=job.process
         if via_close:runner.close()
         else:clock.now+=2;runner.advance(ticket)
@@ -144,3 +171,25 @@ def test_recording_hang_is_reclaimed_without_late_terminal(tmp_path,monkeypatch,
     finally:
         if runner._record_job is not None:release.set()
         runner.close()
+
+
+def hung_recording_start(recorder,connection,stage):
+    from time import sleep
+    sleep(3600)
+
+
+def test_recording_startup_hang_is_reclaimed_before_input_acceptance(tmp_path,monkeypatch):
+    from multiprocessing import active_children
+    from xpotato_sim.runtime.experiment import trial_record
+    monkeypatch.setattr(trial_record,"prepared_terminal_process",hung_recording_start)
+    runner=TrialRunner(result_root=tmp_path,software_revision="test",async_terminal_recording=True)
+    ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
+    try:
+        with pytest.raises(TimeoutError,match="startup deadline"):
+            runner.start(ticket,input_provenance={"synthetic":True})
+        assert runner.status=="recording_failed"
+        assert runner.input_accepting_monotonic_s is None
+        assert runner.tick_count==0
+        assert not any(child.name=="trial-recorder" for child in active_children())
+        assert not (tmp_path/ticket.trial_id/"terminal.json").exists()
+    finally:runner.close()

@@ -87,6 +87,8 @@ stateはmodel identityと全MuJoCo integration stateを保存し、描画用関�
 OS crash耐久性、改竄防止、完全metric、全frame replayの保証ではない。per-frame fileは生成しない。
 
 Workbenchの終端保存は専用spawn processへimmutable final snapshotだけを渡し、ownerは`finalizing`で停止する。
+保存processは開始記録成立後のStart gateで起動し、最大2秒でreadyを確認してから入力受付境界を設定する。
+終端では準備済みprocessへ最大64 KiBの内部snapshotを渡す。外部pickle入力を受け付けない。
 保存processは検証済みpendingまで作り、期限内にownerが結果を採用した時だけ`terminal.json`を公開する。
 `advance`は保存結果をpollし、physicsを進めない。結果確定前はretryを許可しない。
 保存期限は終端処理開始から2秒、かつ開始要求からwall予算＋2秒以内で、既存STOP監督の2秒に対応する。

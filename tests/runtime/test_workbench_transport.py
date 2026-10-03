@@ -55,6 +55,34 @@ async def until(ws, predicate):
                 return event
 
 
+def test_parent_reclaims_finalizing_worker_without_operator_stop(tmp_path,monkeypatch):
+    now=[10.]
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.monotonic",lambda:now[0])
+    async def scenario():
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1",0));port=reservation.getsockname()[1]
+        worker=Worker();worker.url=f"ws://127.0.0.1:{port}/control"
+        service=asyncio.create_task(serve_workbench({"port":port,"web_port":port+1,"prepare_s":10,
+            "result_root":str(tmp_path),"asset_root":str(tmp_path)},worker,tmp_path,capability="test-capability"))
+        try:
+            await asyncio.wait_for(worker.connected.wait(),5)
+            async with connect(worker.url,proxy=None) as viewer:
+                await viewer.send('{"op":"status"}')
+                await until(viewer,lambda e:e["type"]=="status")
+                await worker.status(0,"finalizing")
+                await until(viewer,lambda e:e["type"]=="status" and e["phase"]=="finalizing")
+                now[0]=13.9;await asyncio.sleep(.1)
+                assert worker.close_count==0
+                now[0]=14.
+                state=await until(viewer,lambda e:e["type"]=="status" and e["phase"]=="faulted")
+                assert worker.close_count==1
+                assert state.get("result") is None and not state["renderer_ready"]
+        finally:
+            service.cancel();await asyncio.gather(service,return_exceptions=True)
+            worker.task.cancel();await asyncio.gather(worker.task,return_exceptions=True)
+    asyncio.run(scenario())
+
+
 def test_terminal_input_and_worker_rejection_preserve_authoritative_reason(tmp_path):
     from test_workbench_late_input import neutral
 
