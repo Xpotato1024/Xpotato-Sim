@@ -1,5 +1,5 @@
-"""当該worktreeの固定buildをsoftware fixtureで確認する。実device受入ではない。"""
-import base64,json,os,secrets,signal,subprocess,time,urllib.request,sys,tempfile
+"""固定build/開発serverの操作遅延と同条件再試行を合成入力で測る。実device受入ではない。"""
+import argparse,base64,json,os,secrets,signal,socket,subprocess,time,urllib.request,sys,tempfile
 from urllib.parse import urlsplit
 from pathlib import Path
 from websockets.sync.client import connect
@@ -43,6 +43,14 @@ def _owned_debugger_tab(browser, profile_dir: Path, timeout_s: float = 10.0):
     raise RuntimeError("owned Chromium CDP discovery timeout")
 
 
+options_parser=argparse.ArgumentParser(description="Browser operation reproduction options")
+options_parser.add_argument("--dev-server", action="store_true")
+options_parser.add_argument("--profile", default="dynamic-cube-drop")
+options_parser.add_argument("--cpu-throttle", type=float, default=1.0)
+options_parser.add_argument("--capture-cpu-profile", action="store_true")
+options=options_parser.parse_args(sys.argv[7:])
+if not 1 <= options.cpu_throttle <= 100:
+    options_parser.error("cpu-throttle must be finite and within [1, 100]")
 ROOT=Path(sys.argv[1])
 BASE=Path(sys.argv[4])
 E=BASE/('latency-'+sys.argv[3])
@@ -50,17 +58,31 @@ E.mkdir(exist_ok=True)
 TEMP=Path(sys.argv[5])/('latency-'+sys.argv[3])
 TEMP.mkdir(parents=True,exist_ok=True)
 PY=Path(sys.executable)
+def unused_loopback_port():
+    """既存serviceへ接続せず、起動用の空portをOSから取得する。bind競合時は起動失敗とする。"""
+    with socket.socket() as listener:
+        listener.bind(('127.0.0.1', 0))
+        return listener.getsockname()[1]
+
+web_port=unused_loopback_port()
+backend_port=unused_loopback_port()
+while backend_port == web_port:
+    backend_port=unused_loopback_port()
 env={**os.environ,'PYTHONPATH':str(ROOT/'src')+';'+str(ROOT/'src/xpotato_sim/plugins/robots/fast_arm/core/src'),
  'PYTHONUTF8':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONUNBUFFERED':'1','TMP':str(TEMP),'TEMP':str(TEMP)}
 cap=secrets.token_urlsafe(32)
 args=[str(PY),'-c','from xpotato_sim.cli import main; main()','workbench','--temporary-root',str(TEMP),
- '--result-root',str(E/'trial-results'),'--software-revision','610-parent-latency-'+sys.argv[3],
- '--web-dist',sys.argv[2],'--web-port','5396','--backend-port','8986',
- '--control-stdin','--ticks','6000','--input-wait-s','15','--wall-s','120']
+ '--result-root',str(E/'trial-results'),'--software-revision',sys.argv[3],
+ '--web-port',str(web_port),'--backend-port',str(backend_port),
+ '--control-stdin','--ticks','6000','--input-wait-s','5','--wall-s','120']
+if not options.dev_server: args.extend(['--web-dist',sys.argv[2]])
 log=(E/'browser-app.log').open('w',encoding='utf-8')
 app=subprocess.Popen(args,cwd=ROOT,env=env,stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
 app.stdin.write((cap+'\n').encode());app.stdin.close()
-browser=None;wire=None;counter=0;report={'software_fixture':True,'checks':[],'performance':[]}
+browser=None;wire=None;counter=0;report={'software_fixture':True,'checks':[],'performance':[],
+    'ports':{'web':web_port,'backend':backend_port},'retry_cycles':[],
+    'dev_server':options.dev_server,'profile':options.profile,'cpu_throttle':options.cpu_throttle,
+    'cpu_profile_enabled':options.capture_cpu_profile}
 def cdp(method,params=None):
  global counter
  report['last_cdp_method']=method
@@ -95,7 +117,7 @@ def geometry():
 try:
  for _ in range(150):
   if app.poll() is not None:raise RuntimeError('app exit '+str(app.returncode))
-  try:urllib.request.urlopen('http://127.0.0.1:5396/apps/mujoco-viewer/',timeout=1);break
+  try:urllib.request.urlopen(f'http://127.0.0.1:{web_port}/apps/mujoco-viewer/',timeout=1);break
   except Exception:time.sleep(.1)
  else:raise RuntimeError('server startup timeout')
  # 新規profileとOS選択portを使い、既存CDPへ接続・Browser.closeしない。
@@ -106,19 +128,25 @@ try:
  report['browser_ownership']={'method':'fresh profile / DevToolsActivePort / matching browser endpoint','pid':browser.pid,'profile':str(browser_profile),'page_endpoint':tab['webSocketDebuggerUrl']}
  wire=connect(tab['webSocketDebuggerUrl'],proxy=None,max_size=32*2**20)
  cdp('Page.enable');cdp('Runtime.enable');size(1440,900)
+ if options.cpu_throttle != 1: cdp('Emulation.setCPUThrottlingRate',{'rate':options.cpu_throttle})
  cdp('Page.addScriptToEvaluateOnNewDocument',{'source':"window.__qaPad={mapping:'standard',id:'software-standard-pad',index:0,connected:true,axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,touched:false,value:0})),get timestamp(){return performance.now()}};window.__qaDeviceVisible=false;Object.defineProperty(navigator,'getGamepads',{value:()=>{return window.__qaDeviceVisible?[window.__qaPad,null,null,null]:[null,null,null,null]}});window.__qaLastFrame=null;const NativeWebSocket=WebSocket;window.WebSocket=class extends NativeWebSocket{send(value){try{const m=JSON.parse(value);if(m.op==='input'){window.__qaLastInput=m;window.__qaControl=this;if(window.__latencyPending&&!window.__latencyPending.sequence){const s=JSON.parse(m.message);if(s.gamepad.raw_axes[0]===window.__latencyPending.value)window.__latencyPending.sequence=s.sequence;}}}catch{}super.send(value)}constructor(...args){super(...args);this.addEventListener('message',e=>{try{const m=JSON.parse(e.data);if(m.type==='frame')window.__qaLastFrame=m;}catch{}})}};"})
  cdp('Emulation.setFocusEmulationEnabled',{'enabled':True})
- cdp('Page.navigate',{'url':f'http://127.0.0.1:5396/apps/mujoco-viewer/?workbench=8986#capability={cap}'})
+ cdp('Page.addScriptToEvaluateOnNewDocument',{'source':"window.__qaStatus=null;window.__qaInputTrace=[];const PriorSocket=WebSocket;window.WebSocket=class extends PriorSocket{send(value){try{const m=JSON.parse(value);if(m.op==='input'){const s=JSON.parse(m.message);window.__qaInputTrace.push({at_ms:performance.now(),epoch:m.ticket.epoch,sequence:s.sequence,timestamp_s:s.timestamp_s,session:s.metadata.viewer_provider_session_id});if(window.__qaInputTrace.length>256)window.__qaInputTrace.shift();}}catch{}super.send(value)}constructor(...args){super(...args);this.addEventListener('message',e=>{try{const m=JSON.parse(e.data);if(m.type==='status')window.__qaStatus=m;}catch{}})}};"})
+ cdp('Page.navigate',{'url':f'http://127.0.0.1:{web_port}/apps/mujoco-viewer/?workbench={backend_port}#capability={cap}'})
  wait("[...document.querySelectorAll('button')].some(b=>b.textContent==='操作権を取得')")
  click('操作権を取得');wait("document.body.innerText.includes('操作権あり')")
- js("(()=>{const s=document.querySelector('[aria-label=\"次の条件\"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'dynamic-cube-drop');s.dispatchEvent(new Event('change',{bubbles:true}))})()")
+ js("(()=>{const s=document.querySelector('[aria-label=\"次の条件\"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,PROFILE_REPRODUCTION);s.dispatchEvent(new Event('change',{bubbles:true}))})()".replace("PROFILE_REPRODUCTION",json.dumps(options.profile)))
  wait("[...document.querySelectorAll('button')].some(b=>b.textContent==='検証・準備'&&!b.disabled)")
  click('検証・準備');wait("[...document.querySelectorAll('button')].some(b=>b.textContent==='操作画面へ'&&!b.disabled)")
  assert js("[...document.querySelectorAll('button')].find(b=>b.textContent==='開始').disabled")
 
  click('操作画面へ');click('Assist');click('操作視点')
  wait("document.querySelectorAll('[data-scene-pane]').length===3")
- click('開始');js('window.__qaDeviceVisible=true')
+ # profilerの開始負荷をactive trialへ注入しない。
+ if options.capture_cpu_profile:
+  cdp('Profiler.enable');cdp('Profiler.start')
+ # Start前から接続済みの実取得可能な中立padを全retryで維持する。
+ js('window.__qaDeviceVisible=true');click('開始')
  wait("document.body.innerText.includes('実行中') && window.__workbenchCounters().renderedInputSequence!==null")
  report['method']='Synthetic input change to matching sequence CPU draw submission; not GPU completion or physical gamepad latency'
  report['source']=str(ROOT);report['dist']=sys.argv[2]
@@ -136,13 +164,35 @@ try:
   valid=rows[4:];values=sorted(r['latency_ms'] for r in valid)
   report['performance'].append({'layout':layout,'samples':len(values),'median_ms':values[len(values)//2],'p95_ms':values[int((len(values)-1)*.95)],'max_ms':max(values),'raw':valid})
   assert js("document.body.innerText.includes('実行中')"),js('document.body.innerText')
+ if options.capture_cpu_profile:
+  (E/'renderer.cpuprofile').write_text(json.dumps(cdp('Profiler.stop')['profile']),encoding='utf-8')
  click('停止を要求');wait("document.body.innerText.includes('結果保存済み')")
+ for cycle in range(3):
+  previous=js('window.__qaStatus.ticket.epoch')
+  click('同じ条件で再試行')
+  wait("window.__qaStatus?.phase==='ready' && !window.__qaStatus.busy && window.__qaStatus.renderer_ready && [...document.querySelectorAll('button')].some(b=>b.textContent==='開始'&&!b.disabled)")
+  prepared=js('window.__qaStatus.ticket.epoch')
+  assert prepared != previous, 'retry must issue a new epoch'
+  assert js('window.__qaDeviceVisible && window.__qaPad.axes.every(v=>v===0)'), 'connected neutral pad preserved'
+  started=time.perf_counter();click('開始')
+  wait("window.__qaStatus?.phase==='running' && window.__qaStatus.ticks>0",seconds=20)
+  running=js('({status:window.__qaStatus,trace:window.__qaInputTrace.filter(x=>x.epoch===window.__qaStatus.ticket.epoch)})')
+  assert running['trace'] and running['trace'][0]['sequence']==0, running
+  report['retry_cycles'].append({'cycle':cycle+1,'start_to_observed_tick_ms':1000*(time.perf_counter()-started),**running})
+  click('停止を要求');wait("window.__qaStatus?.phase==='terminal' && !window.__qaStatus.busy")
+  assert js("window.__qaStatus.result.runner_stop_reason==='operator_abort'"),js('window.__qaStatus')
  report['result']='PASS'
  print(json.dumps({k:v for k,v in report.items() if k not in ['checks']},ensure_ascii=False),flush=True)
 
 except Exception as error:
  report['result']='FAIL';report['error']=str(error);raise
 finally:
+ if wire and options.capture_cpu_profile and not (E/'renderer.cpuprofile').exists():
+  try:(E/'renderer.cpuprofile').write_text(json.dumps(cdp('Profiler.stop')['profile']),encoding='utf-8')
+  except Exception as error:report['cpu_profile_capture_error']=str(error)
+ if wire:
+  try:report['final_browser_state']=js('({status:window.__qaStatus,trace:window.__qaInputTrace})')
+  except Exception as error:report['final_state_capture_error']=str(error)
  (E/'browser-validation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
  if wire:
   try:cdp('Browser.close')
