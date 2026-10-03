@@ -78,3 +78,15 @@ export function workbenchNotice(status: {phase:string; error:string|null;
   }
   return requestError;
 }
+
+
+/** backendの実commit由来RTFだけを表示し、未計測と終了時値を区別する。 */
+export function workbenchTimingLabel(status: {phase: string; execution_timing?: {actual_rtf: number|null; rtf_window_s: number|null}}|null): string {
+  if (!status || !["running", "finalizing", "terminal", "recording_failed", "faulted", "closed"].includes(status.phase)) return "実行RTF 未計測";
+  const label = status.phase === "running" ? "実行RTF" : "終了時RTF";
+  const value = status.execution_timing?.actual_rtf;
+  if (value == null || !Number.isFinite(value) || value < 0) return `${label} 未計測`;
+  const window = status.execution_timing?.rtf_window_s;
+  const scope = window != null && Number.isFinite(window) && window > 0 ? `${window.toFixed(1)} s` : "未計測";
+  return `${label} ${value.toFixed(3)}（窓 ${scope}）`;
+}

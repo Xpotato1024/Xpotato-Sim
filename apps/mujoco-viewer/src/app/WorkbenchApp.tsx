@@ -14,7 +14,7 @@ import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
 import "./workbench.css";
 import "../ui/operation.css";
-import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, type Preparation} from "./workbenchLifecycle.js";
+import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
@@ -214,6 +214,7 @@ export function WorkbenchApp() {
       <button aria-pressed={layout==="single"} onClick={()=>setLayout("single")}>Single</button>
       <button aria-pressed={layout==="assist"} onClick={()=>setLayout("assist")}>Assist</button>
       <span>{status?.busy_operation==="stop"?"停止要求中":status?.phase==="finalizing"?"保存中":phases[status?.phase??"unselected"]??status?.phase} · simulation {status?.simulation_time_s?.toFixed(2)??"—"} s</span>
+      <span aria-label="実行速度">{workbenchTimingLabel(status)}</span>
       </div>
       <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
     </nav>

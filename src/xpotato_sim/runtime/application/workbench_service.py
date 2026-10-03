@@ -37,11 +37,24 @@ class Peer:
     def put(self, value):
         if self.closing:
             return
-        if value["type"] == "frame":
+        if value["type"] == "frame" and not value.get("required"):
             self.frame = value
         else:
+            self.frame = None
             self.control.put_nowait(value)
         self.wake.set()
+
+    def invalidate_frames(self):
+        """Drop queued displays on STOP/fault, retaining ordered control replies."""
+        self.frame = None
+        retained = asyncio.Queue(maxsize=self.control.maxsize)
+        while not self.control.empty():
+            value = self.control.get_nowait()
+            if value["type"] != "frame":
+                retained.put_nowait(value)
+        self.control = retained
+        if not self.control.empty():
+            self.wake.set()
 
     async def send(self):
         while True:
@@ -93,7 +106,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
             return
         allowed_assets, latest_frame, prepare_deadline = set(), None, None
         for peer in peers:
-            peer.frame = None
+            peer.invalidate_frames()
         while not pending.empty():
             cancelled = pending.get_nowait()
             control.complete(cancelled.get("id"), "停止要求により未実行のまま取り消しました")
@@ -269,7 +282,7 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     allowed_assets = set()
                     latest_frame = None
                     for peer in peers:
-                        peer.frame = None
+                        peer.invalidate_frames()
                     broadcast(control.status())
                     # venv redirectorだけをkillしない。job/process group全体を閉じる。
                     await asyncio.to_thread(workers.close)

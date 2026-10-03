@@ -193,3 +193,37 @@ def test_recording_startup_hang_is_reclaimed_before_input_acceptance(tmp_path,mo
         assert not any(child.name=="trial-recorder" for child in active_children())
         assert not (tmp_path/ticket.trial_id/"terminal.json").exists()
     finally:runner.close()
+
+
+@pytest.mark.parametrize("boundary", ["poll", "close"])
+def test_recording_deadline_rechecked_after_result_and_writer_reclaim(tmp_path, boundary):
+    from xpotato_sim.runtime.experiment.trial_record import TrialResult
+    clock = Clock()
+    runner = TrialRunner(result_root=tmp_path, software_revision="deadline-race", clock=clock)
+    recorder = TrialRecorder(tmp_path, "a" * 32)
+    pending = recorder.directory / "terminal.json.pending"
+    pending.write_bytes(b'{"recording":"complete"}')
+    class CompletedJob:
+        closed = False
+        def poll(self):
+            if boundary == "poll": clock.now += 2
+            return TrialResult(b'{"recording":"complete"}')
+        def close(self):
+            self.closed = True
+            if boundary == "close": clock.now += 2
+    job = CompletedJob()
+    runner._status = "finalizing"
+    runner._recorder = recorder
+    runner._record_job = job
+    runner._record_deadline = clock.now + 1
+    runner._pending_terminal = {"schema_version": "trial-terminal/v1", "runner_stop_reason": "operator_abort"}
+    try:
+        runner._poll_recording()
+        assert job.closed and runner._record_job is None
+        assert runner.status == "recording_failed"
+        assert "deadline" in runner.error
+        assert runner.result.to_document()["recording"] == "failed"
+        assert not (recorder.directory / "terminal.json").exists()
+        assert pending.exists()
+    finally:
+        runner.close()

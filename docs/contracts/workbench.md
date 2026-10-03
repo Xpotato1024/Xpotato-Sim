@@ -117,7 +117,7 @@ byte digestを持ち、現在sourceと照合する。callerの`software_revision
 再接続は状態照会だけで、操作権取得とStartは自動化しない。
 
 command ID・期待revision・trial ticket・generationを検査する。dedup履歴128件はacceptedとcompleted/errorを
-保持する。最新結果32件、peer最大8、pending要求32、peer制御FIFO32、描画は最新1frameだけとする。
+保持する。最新結果32件、peer最大8、pending要求32、peer必須FIFO32（制御応答とready/terminal frame）、通常描画は最新1frameだけとする。
 private worker/frame輸送は1 MiB、外部commandは64 KiBとして分離する。大きすぎるprivate frameも無制限にはしない。
 phase変化と実行中最大0.5秒間隔のstatusでtick・simulation時間を更新し、描画sampleの時間と区別する。
 
@@ -221,7 +221,7 @@ live Gamepad取得は描画fpsから独立した約60Hz（`1000 / 60` ms）のti
 hidden/disconnect/error時の停止通知、button/trigger、中立、source/session/sequence、
 元受信時刻と0.2秒gateは従来どおり扱う。意味保存を伴わないlatest-only化は行わない。
 workerはticket・phase・成功commitによるtick数の変化後にframeを公開する。
-ready/terminalの同じ状態をtimerで繰り返し生成しない。peer最新1frame slotと制御FIFOは維持する。
+ready/terminalの同じ状態をtimerで繰り返し生成しない。通常描画の最新1frame slotと、制御応答・必須frameのFIFOを維持する。
 表示sampleはreset/commitでforward済みのnative stateを読み、追加の`mj_forward`を呼ばない。
 表示頻度でwarmstartやTask進行が変わらないことを回帰testで照合する。
 
@@ -278,7 +278,9 @@ Task観測で検査したcommit表示は`take_committed_projection()`で一度�
 それ以外は明示再観測し、reset/live state/faultを隠す汎用cacheは作らない。
 同じworker接続を専用IO thread上の公開async WebSocket APIで送受信し、sendのflow-control待ち中にも受信taskが進む。
 sync WebSocketのprotocol mutexを共有しない。IO入口256件、Execution入力256件・制御32件・専用STOP、sender制御32件と最新frameを有界にする。
-ready初期frameとterminal最終frameは必須FIFOへ入れ、同じ接続でstatus→対応frameを順序保証する。
+ready初期frameとterminal最終frameはworkerとbrowser中継Peerの両方で制御応答と同じ必須FIFOへ入れ、
+同じ接続でstatus→対応frameを順序保証する。通常frameだけを最新slotへ置換する。
+STOP/fault時はFIFO内を含む未送信frameだけを失効し、制御応答・完了eventの順序と配送は維持する。
 旧generation/ticketとSTOP後frameはserviceで拒否する。IDなしのvalid late入力は検査・棄却し、制御応答を毎sample生成しない。
 送受信・overflow障害はactive試行を`technical_invalid`として原因とともに記録してから資源を回収する。
 message frameworkや第二の試行SoTは作らない。senderはthreadなのでGIL競合とowner上のsnapshot/payload変換負荷は残る。
@@ -290,7 +292,9 @@ sceneはReactを経ずrendererへ直接適用し、60Hz実Gamepad取得/送信�
 関節/Input計器は専用componentの10Hz、詳細は展開中だけ4Hzとする。Operate中はsetup editorと詳細JSXを生成しない。
 STOP/fault/epochの操作gateは即時statusで更新する。Single/Assist、camera、条件import/export、診断能力を維持する。
 計器・詳細のsampleはgeneration/epochへ束縛し、STOP要求・fault・切断・新epochで即時無効にする。
-Setupの展開診断にbackend実行RTFと窓秒数、実commit tick、処理時間、host receipt/ageを表示する。nullは未計測である。
+Operateの状態帯にもbackend実行RTFと観測窓秒数を既存status周期で表示する。
+未計測と終了時値を区別し、browser時刻から補間しない。
+Setupの展開診断には実commit tick、処理時間、host receipt/ageも表示する。nullは未計測である。
 
 `execution_timing`と最大600件の`timing_samples_ns`は`perf_counter_ns`でhot path/deadline lagを測る。
 hot pathはadvanceとcommit表示のowner処理までで、別threadの送信/保存CPUを含まない。

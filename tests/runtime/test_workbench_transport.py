@@ -355,3 +355,60 @@ def test_run_once_prepare_error_finishes_without_hanging(tmp_path, monkeypatch):
                 await asyncio.gather(worker.task, return_exceptions=True)
 
     asyncio.run(scenario())
+
+
+def test_slow_browser_keeps_required_terminal_then_retry_frames_in_order():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        entered, release, complete = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        sent = []
+        class SlowWire:
+            async def send(self, raw):
+                entered.set()
+                await release.wait()
+                sent.append(json.loads(raw))
+                if len(sent) == 5: complete.set()
+        peer = Peer(SlowWire())
+        terminal = {"type": "status", "phase": "terminal", "ticket": "old"}
+        final_frame = {"type": "frame", "required": True, "ticket": "old"}
+        ready = {"type": "status", "phase": "ready", "ticket": "new"}
+        first_frame = {"type": "frame", "required": True, "ticket": "new"}
+        latest = {"type": "frame", "ticket": "new", "tick": 2}
+        peer.put(terminal)
+        sender = asyncio.create_task(peer.send())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            for value in (final_frame, ready, first_frame, {**latest, "tick": 1}, latest): peer.put(value)
+            release.set()
+            await asyncio.wait_for(complete.wait(), 2)
+            assert sent == [terminal, final_frame, ready, first_frame, latest]
+        finally:
+            release.set(); sender.cancel()
+            await asyncio.gather(sender, return_exceptions=True)
+    asyncio.run(scenario())
+
+
+def test_browser_required_frames_share_bounded_control_fifo():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        peer = Peer(None)
+        for i in range(32): peer.put({"type": "frame", "required": True, "tick": i})
+        with pytest.raises(asyncio.QueueFull): peer.put({"type": "frame", "required": True, "tick": 32})
+    asyncio.run(scenario())
+
+
+def test_browser_stop_invalidates_required_frames_but_keeps_control_replies():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        peer = Peer(None)
+        status = {"type": "status", "generation": 1}
+        completed = {"type": "completed", "id": "request"}
+        peer.put(status)
+        peer.put({"type": "frame", "required": True, "generation": 1})
+        peer.put(completed)
+        peer.put({"type": "frame", "generation": 1, "tick": 2})
+        peer.invalidate_frames()
+        assert peer.frame is None
+        assert [peer.control.get_nowait(), peer.control.get_nowait()] == [status, completed]
+        assert peer.control.empty()
+    asyncio.run(scenario())

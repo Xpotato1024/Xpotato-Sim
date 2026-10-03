@@ -454,6 +454,9 @@ class TrialRunner:
                 return None
             self._record_job.close()
             self._record_job = None
+            # Result transfer and process reclamation may cross the recording deadline.
+            if self._now() >= self._record_deadline:
+                raise TimeoutError("terminal recording deadline exceeded before publication; completion unconfirmed")
             self._recorder.commit_terminal()
             self._result, self._status = result, "terminal"
         except Exception as exc:

@@ -95,6 +95,8 @@ Workbenchの終端保存は専用spawn processへimmutable final snapshotだけ�
 `advance`は保存結果をpollし、physicsを進めない。結果確定前はretryを許可しない。
 保存期限は終端処理開始から2秒、かつ開始要求からwall予算＋2秒以内で、既存STOP監督の2秒に対応する。
 期限超過は保存processをterminate/joinし、必要ならkill/joinしてから`recording_failed`と未確定の原因を報告する。
+結果取得前だけでなく、writerの終了確認後・完了marker公開直前にも保存期限を再確認する。
+結果取得や回収中に期限を超えた場合も公開せず、recording_failedとする。
 完了markerを偽装せず、期限後に遅延writerが成功markerを書かない。pending/最終stateは不完全な証拠として残り得る。
 closeも最大2秒のpoll後に同じ回収を行い、無期限future/executor待ちを行わない。
 serviceは明示STOPの既存2秒に加え、通常Task終端のfinalizingから4秒と開始受付から実効wall＋4秒で所有workerを強制回収する。

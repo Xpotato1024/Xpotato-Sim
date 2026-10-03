@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {canConnect, createWorkbenchGamepadMessages, preparationIsCurrent} from "../src/app/workbenchLifecycle.js";
+import {canConnect, createWorkbenchGamepadMessages, preparationIsCurrent, workbenchTimingLabel} from "../src/app/workbenchLifecycle.js";
 import {exportedHeapBytes} from "../src/wasm-scene/exportedHeap.js";
 import {sampleViewerGamepadSnapshot, buildViewerGamepadControlMessage} from "../src/input/gamepadInput.js";
 
@@ -99,3 +99,12 @@ assert.equal(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"faulted
 assert.notEqual(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"ready"}),telemetryNew);
 const afterReconnect=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"},1);
 assert.equal(telemetryIsCurrent(telemetryNew,afterReconnect,afterReconnect,true),false);
+
+
+const halfSpeed = {phase:"running", execution_timing:{actual_rtf:0.5, rtf_window_s:10}};
+assert.equal(workbenchTimingLabel(halfSpeed), "実行RTF 0.500（窓 10.0 s）");
+assert.equal(workbenchTimingLabel({...halfSpeed, phase:"terminal"}), "終了時RTF 0.500（窓 10.0 s）");
+assert.equal(workbenchTimingLabel({...halfSpeed, phase:"ready"}), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel(null), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel({phase:"running", execution_timing:{actual_rtf:NaN,rtf_window_s:10}}), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel({phase:"running", execution_timing:{actual_rtf:0,rtf_window_s:10}}), "実行RTF 0.000（窓 10.0 s）");
