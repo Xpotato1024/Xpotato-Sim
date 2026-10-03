@@ -184,13 +184,13 @@ def backpressured_native_worker(url, config, blocked):
     from xpotato_sim.runtime.application import workbench_worker as module
     original=module.AsyncWorkerConnection
     class SaturatedDisplay(original):
-        def __enter__(self):
+        def __init__(self,*args,**kwargs):
+            super().__init__(*args,**kwargs)
             async def observe():
                 while True:
                     if self.ws.transport.get_write_buffer_size()>65536:blocked.set()
                     await asyncio.sleep(.005)
             asyncio.run_coroutine_threadsafe(observe(),self.loop)
-            return self
         def send(self,raw):
             value=json.loads(raw)
             if value.get("type")=="frame" and value["payload"]["metadata"].get("motion_status")=="running":

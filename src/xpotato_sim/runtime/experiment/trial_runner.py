@@ -431,7 +431,11 @@ class TrialRunner:
             self._result = self._recorder.terminal(final_state=final_state, record=record)
             self._status = "terminal"
         except Exception as exc:
+            if self._record_job is not None:
+                self._record_job.close()
+                self._record_job = None
             self._recording_failed(exc, record)
+            self._pending_terminal = None
         return self._result
 
     @property

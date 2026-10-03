@@ -97,3 +97,5 @@ assert.equal(telemetryIsCurrent(telemetryNew,null,telemetryNew,true),false);
 assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,false),false);
 assert.equal(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"faulted"}),null);
 assert.notEqual(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"ready"}),telemetryNew);
+const afterReconnect=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"},1);
+assert.equal(telemetryIsCurrent(telemetryNew,afterReconnect,afterReconnect,true),false);

@@ -2,8 +2,8 @@ import {createViewerGamepadLifecycle, type ViewerGamepadLifecycleOptions} from "
 import {buildViewerGamepadControlMessage, sampleViewerGamepadSnapshot, type ViewerGamepadLike} from "../input/gamepadInput.js";
 
 /** 計器sampleを試行世代へ束縛し、停止・切断・新epochで即時失効する。 */
-export function telemetryIdentity(status:{ticket:{epoch:string}|null;generation:number;phase:string}|null):string|null {
-  return status?.ticket&&["ready","waiting_input","running","terminal"].includes(status.phase)?`${status.generation}:${status.ticket.epoch}`:null;
+export function telemetryIdentity(status:{ticket:{epoch:string}|null;generation:number;phase:string}|null,invalidation=0):string|null {
+  return status?.ticket&&["ready","waiting_input","running","terminal"].includes(status.phase)?`${status.generation}:${status.ticket.epoch}:${invalidation}`:null;
 }
 export function telemetryIsCurrent(sample:string|null,mailbox:string|null,current:string|null,connected:boolean):boolean {
   return connected&&current!==null&&sample===current&&mailbox===current;

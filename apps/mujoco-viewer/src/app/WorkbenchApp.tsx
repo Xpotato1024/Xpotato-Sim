@@ -66,6 +66,7 @@ export function WorkbenchApp() {
   const editRequest=(op:string,extra:object={},exportFile=false)=>{const pending=beginEditor(exportFile);if(pending) sendEditor(pending,op,extra);};
   const stateMailbox=useRef(createInitialProductViewerState());
   const identityMailbox=useRef<string|null>(null);
+  const telemetryInvalidation=useRef(0);
   const readyEpoch = useRef<string|null>(null);
   const preparing = useRef<Preparation|null>(null);
   const failedEpoch = useRef<string|null>(null);
@@ -73,7 +74,7 @@ export function WorkbenchApp() {
   const command = (op:string, extra:object={}) => {
     const s=current.current;
     if(!s) return;
-    if(op==="stop"){identityMailbox.current=null;rawMailbox.current=null;setReady(null);renderer.current?.invalidateWorkbench();}
+    if(op==="stop"){telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;setReady(null);renderer.current?.invalidateWorkbench();}
     send({op, id:crypto.randomUUID(), revision:s.revision, ticket:s.ticket, capability:capability.current,...extra});
   };
   useEffect(()=>{
@@ -85,7 +86,7 @@ export function WorkbenchApp() {
   useEffect(()=>{
     history.replaceState(null,"",location.pathname+location.search);
     let disposed=false;
-    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;identityMailbox.current=telemetryIdentity(current.current);},onError:e=>setError(e.message)});
+    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;identityMailbox.current=telemetryIdentity(current.current,telemetryInvalidation.current);},onError:e=>setError(e.message)});
     renderer.current=r;
     // 明示再接続は状態照会だけ。claimもStartも自動送信しない。
     const connect=()=>{
@@ -98,7 +99,7 @@ export function WorkbenchApp() {
       ws.onopen=()=>{if(!isCurrent()) return;setConnected(true);send({op:"status"});};
       ws.onclose=()=>{if(!isCurrent()) return;claimed.current=false;setOwned(false);setConnected(false);
         clearEditor();
-        identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
+        telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
       ws.onerror=()=>{if(isCurrent()) setError("制御接続を確認してください");};
       ws.onmessage=async event=>{
         if(disposed || socket.current!==ws) return;
@@ -128,7 +129,7 @@ export function WorkbenchApp() {
             if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) rawMailbox.current=null;
             if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
               || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
-              identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
+              telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
             }
             if(editorPending.current && !conditionReadIsCurrent(editorPending.current.socket,editorPending.current.status,ws,message)) clearEditor();
             current.current=message;setStatus(message);
@@ -230,7 +231,7 @@ export function WorkbenchApp() {
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       {notice && <p role="alert">{notice}</p>}
     </section>}
-    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status)}
+    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)}
       connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase}
       canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
       {screen==="setup" && <aside className="setup-inspector"><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
@@ -249,7 +250,7 @@ export function WorkbenchApp() {
         onExport={()=>editRequest("edit",{condition:edited},true)}
         onDiff={()=>editRequest("diff",{condition:edited})}/>
         {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
-        <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status)} connected={connected}
+        <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)} connected={connected}
           live={connected&&!!ready&&!frameStale&&["waiting_input","running"].includes(status?.phase??"")} status={status}/>
         <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
@@ -271,7 +272,7 @@ function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|
   const state=valid?sample.state:createInitialProductViewerState(),raw=valid?sample.raw:null;
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
-  const invalid=!valid?"?epoch / ??":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
+  const invalid=!valid?"別epoch / 無効":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
   return <div className="operation-workspace" data-left={!!left} data-right={!!right}>
     {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>

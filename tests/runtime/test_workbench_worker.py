@@ -17,7 +17,9 @@ def owner_projection(monkeypatch):
         def close(self, **kwargs): pass
     monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.ProjectionSender", ImmediateProjection)
     class ImmediateInbox:
-        def __init__(self, wire):self.wire=wire
+        def __init__(self, wire):
+            self.wire=wire
+            if not hasattr(wire,"close"):wire.close=lambda:None
         def recv(self, timeout):return self.wire.recv(timeout=timeout)
         def close(self):pass
     monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.ExecutionInbox", ImmediateInbox)
@@ -262,3 +264,24 @@ def test_worker_transport_failure_records_technical_invalid(tmp_path,monkeypatch
     record=json.loads(next((tmp_path/"results").glob("*/terminal.json")).read_text())
     assert record["runner_stop_reason"]=="technical_invalid"
     assert failure in record["error"]
+
+
+@pytest.mark.parametrize("failure",["handshake","runner_close"])
+def test_worker_releases_connection_even_before_inbox_or_after_close_exception(tmp_path,monkeypatch,failure):
+    from xpotato_sim.runtime.application import workbench_worker as module
+    from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+    closed=[]
+    class Wire:
+        def send(self,raw):
+            if failure=="handshake":raise OSError("handshake failure")
+        def recv(self,**kwargs):return '{"op":"close"}'
+        def close(self):closed.append(True)
+    if failure=="runner_close":
+        original=TrialRunner.close
+        def broken(runner):original(runner);raise OSError("runner_close failure")
+        monkeypatch.setattr(TrialRunner,"close",broken)
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY","test")
+    monkeypatch.setattr(module,"AsyncWorkerConnection",lambda *a,**kw:Wire())
+    with pytest.raises(OSError,match=failure):
+        module.execution_worker("ws://test",{"result_root":str(tmp_path/"results"),"asset_root":str(tmp_path/"assets"),"software_revision":"test","input_wait_s":5,"wall_s":30,"prepare_s":30})
+    assert closed
