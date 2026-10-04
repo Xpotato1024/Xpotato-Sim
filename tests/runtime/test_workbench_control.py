@@ -112,15 +112,37 @@ def test_frame_coalescing_never_overwrites_control():
     p = Peer(None)
     for i in range(1000):
         p.put({"type": "frame", "index": i})
-    p.put({"type": "completed", "id": "end"})
-    p.put({"type": "status", "phase": "terminal"})
     assert p.frame == {"type": "frame", "index": 999}
-    assert p.control.get_nowait()["id"] == "end"
-    assert p.control.get_nowait()["phase"] == "terminal"
+    assert p.control.empty()
+    p.put({"type": "completed", "id": "end"})
+    # 制御遷移より前の通常表示は失効し、終端通知より後へ持ち越さない。
+    assert p.frame is None
+    p.put({"type": "status", "phase": "terminal"})
+    assert p.frame is None
+    assert p.control.get_nowait() == {"type": "completed", "id": "end"}
+    assert p.control.get_nowait() == {"type": "status", "phase": "terminal"}
+    assert p.control.empty()
     for i in range(32):
         p.put({"type": "completed", "id": i})
     with pytest.raises(asyncio.QueueFull):
         p.put({"type": "completed", "id": "overflow"})
+
+
+@pytest.mark.parametrize("phase", ["ready", "terminal"])
+def test_required_frame_and_status_survive_ordinary_frame_coalescing(phase):
+    """必須表示と制御応答は通常表示1000件にも上書きされずFIFOへ残る。"""
+    p = Peer(None)
+    status = {"type": "status", "phase": phase}
+    required = {"type": "frame", "required": True, "phase": phase, "index": -1}
+    p.put(status)
+    p.put(required)
+    for i in range(1000):
+        p.put({"type": "frame", "index": i})
+    assert p.frame == {"type": "frame", "index": 999}
+    assert p.control.qsize() == 2
+    assert p.control.get_nowait() == status
+    assert p.control.get_nowait() == required
+    assert p.control.empty()
 
 
 def test_stop_has_unique_deadline_and_only_verified_completion_clears_it():
