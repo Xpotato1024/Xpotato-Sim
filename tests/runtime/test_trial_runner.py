@@ -72,6 +72,44 @@ def test_unselected_and_ready_are_not_physics(tmp_path):
     runner.close()
 
 
+def test_trial_ingress_hands_the_validated_message_to_execution_once(tmp_path, monkeypatch):
+    from xpotato_sim.runtime.experiment import trial_runner
+    from xpotato_sim.runtime.execution import model_execution
+    parses = []
+    original = trial_runner.parse_viewer_control_message_json
+    def counted(wire):
+        parsed = original(wire)
+        parses.append(parsed)
+        return parsed
+    monkeypatch.setattr(trial_runner, "parse_viewer_control_message_json", counted)
+    monkeypatch.setattr(model_execution, "parse_viewer_control_message_json", counted)
+    runner, ticket, clock = prepared(tmp_path)
+    runner.start(ticket, input_provenance=load_trial_fixture(FIXTURE).identity())
+    for sequence in range(3):
+        runner.ingest(ticket, message(sequence), received_at_s=clock())
+        assert len(parses) == sequence + 1
+        assert runner._execution.runtime.source.last_control_message is parses[-1]
+    with pytest.raises(ValueError, match="duplicate"):
+        runner.ingest(ticket, message(2), received_at_s=clock())
+    assert runner._last_input[1] == 2
+    assert runner._execution.runtime.source.last_control_message is parses[-2]
+    runner.close()
+
+
+def test_execution_wire_ingress_still_validates_and_faults(tmp_path):
+    runner, ticket, clock = prepared(tmp_path)
+    runner.start(ticket, input_provenance=load_trial_fixture(FIXTURE).identity())
+    execution = runner._execution
+    execution.ingest(message())
+    assert execution.runtime.source.last_control_message.gamepad.connected
+    invalid = json.loads(message(1))
+    invalid["gamepad"]["axes"][0] = float("nan")
+    with pytest.raises(ValueError, match="finite"):
+        execution.ingest(json.dumps(invalid))
+    assert execution.runtime.runtime.state == "faulted"
+    runner.close()
+
+
 @pytest.mark.parametrize("name", ["fast-arm-single-gamepad", "fast-arm-left-gamepad",
     "fast-arm-right-gamepad", "fast-arm-bimanual-gamepad",
     "contact-debug-single", "contact-debug-left", "contact-debug-right", "contact-debug-bimanual",

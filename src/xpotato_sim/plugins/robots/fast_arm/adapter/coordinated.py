@@ -117,14 +117,18 @@ class FastArmAssemblyMotionProvider:
         return None
 
     def _check_data(self, data) -> None:
-        if not all(np.isfinite(a).all() for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
+        qpos, qvel, ctrl, sites = data.qpos, data.qvel, data.ctrl, data.site_xpos
+        if not (np.isfinite(qpos).all() and np.isfinite(qvel).all()
+                and np.isfinite(ctrl).all() and np.isfinite(sites).all()):
             raise ValueError("nonfinite assembly state")
         if (data.warning.number > 0).any():
             raise ValueError("MuJoCo warning in candidate state")
+        # 全native配列のfinite検査後、同じlive限界を直接照合する。
+        # 違反一覧用DTOと二重のtuple/float変換を毎substepで生成しない。
         for arm in self.addresses:
-            q = tuple(float(data.qpos[i]) for i in arm.qpos_addresses)
-            if self.limits.violations_for_qpos(q):
-                raise ValueError(f"joint_limit_violation:{arm.arm_id}")
+            for index, limit in zip(arm.qpos_addresses, self.limits.joints, strict=True):
+                if not limit.lower_rad <= float(qpos[index]) <= limit.upper_rad:
+                    raise ValueError(f"joint_limit_violation:{arm.arm_id}")
 
     def preflight(self) -> bool:
         with self._lock:

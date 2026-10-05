@@ -56,12 +56,16 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
         super()._check_data(data)
         if not np.isfinite(data.qacc).all() or not np.isfinite(data.actuator_force).all():
             raise ValueError("nonfinite dynamic state")
+        qvel, ctrl, qpos = data.qvel, data.ctrl, data.qpos
+        max_speed = self.settings.max_joint_speed_rad_s
+        max_error = self.settings.max_tracking_error_rad
         for arm in self.addresses:
-            if any(abs(float(data.qvel[i]))>self.settings.max_joint_speed_rad_s for i in arm.dof_addresses):
-                raise ValueError("dynamic joint speed budget exceeded")
-            if any(abs(float(data.ctrl[a])-float(data.qpos[q]))>self.settings.max_tracking_error_rad
-                   for a,q in zip(arm.actuator_ids,arm.qpos_addresses,strict=True)):
-                raise ValueError("dynamic tracking error budget exceeded")
+            for index in arm.dof_addresses:
+                if abs(float(qvel[index])) > max_speed:
+                    raise ValueError("dynamic joint speed budget exceeded")
+            for actuator, index in zip(arm.actuator_ids, arm.qpos_addresses, strict=True):
+                if abs(float(ctrl[actuator])-float(qpos[index])) > max_error:
+                    raise ValueError("dynamic tracking error budget exceeded")
 
     def _integrate_candidate(self,base,candidates,dt_s):
         substeps=self.settings.substeps(dt_s)

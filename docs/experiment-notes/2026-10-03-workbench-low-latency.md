@@ -178,3 +178,83 @@ source cadenceの切り分け用であり、通常browser60Hzの代替受入・�
 この回帰は待ち要求の欠陥を証明するもので、実PCの改善率やOSの待ち精度は証明しない。
 新しい区間別分布はwall経過時間・区間ごとの末尾標本であり、CPU時間や60秒全体の分位点ではない。
 実操作受入は引き続き未達として扱い、UI表示時刻、物理dt、鮮度上限を変えて帳尻を合わせない。
+
+## 2026-10-05: advanceと外側入力のCPU仕事量の局所削減
+
+新しい利用者報告は各600標本で、receive waitの中央値/p95/最大が0.02/0.07/0.50ms、
+outer inputが3.46/7.86/12.55ms、advanceが20.79/26.32/34.25ms、projectionが0.16/0.36/1.39ms、
+statusが3.07/4.79/7.12msだった。control周期は16.67ms。利用者環境はPython 3.12.12、
+NumPy 2.4.6、MuJoCo 3.9.0、Windows 11、logical CPU 8、tracemalloc無効と報告されている。
+最終raw axesは`[.5207,0,1,.1808]`であり、このrunを無操作とは断定しない。
+最後のtool接触がなくてもtable接触4件があり、接触観測のCPU仕事は残る。
+これらの区間値はwall時間で、CPU時間やsource clockとは別である。
+
+baselineはPR615の`907780aee3626ccfd84fe723f0483c6e444f5324`を`git archive`で固定した。
+mainや旧PRへ切り替えず、専用archiveを別sourceとして読んだ。候補は同HEADから本節の製品5file差分。
+archive SHA-256は`7e0cba6e93788d0a055ba7da5448c05555bab4368b6ea09e74c57187160d3688`、
+共通benchmark SHA-256は`9021dc0c19bd0b556d1b0580eced4773c04566d8e3a2dcef429c3f32aa2d4aff`。
+測定前後の全5fileのbyte hash、import source、lock hashは`comparison-summary.json`と各runの`measurements.json`に保存した。
+
+製品変更は3箇所の処理に限定した。
+runnerのstrict wire検証後は同じ`ViewerControlMessage`をprivate typed経路へ渡し、Executionの再JSON parseを除去した。
+既存publisherのwire入口とSource/Mapping境界の検証は維持した。
+毎substepの関節限界検査は、全native配列のfinite検査後にliveの限界を直接照合し、
+違反DTO用の二重tuple/float変換とgeneratorを減らした。native配列と設定は呼出内のlocal参照に限り、
+substep間ではcacheしない。接触frameは`rtol=0, atol=1e-8`の全要素比較を直接行い、
+NaN/Inf・右手系拒否を維持して汎用`allclose`の仕事を除いた。world変換、力符号、単位は不変である。
+declaration/digest/metadataのcache、別IK、`mj_step(nstep)`、物理条件・gain・鮮度変更は採用していない。
+
+指定venv executableの実体はLLM-01のPython **3.12.13**、NumPy 2.4.6、MuJoCo 3.9.0、
+Windows 11 build 26200、logical CPU 8だった。既存環境を変更せず、OpenBLAS/OMP thread設定も追加していない。
+同じ添付条件のraw SHA、control 1/60 s、physics 1/600 s、solver/iterations/gain、age 0.2 sを維持した。
+benchmarkにはprofiler/tracemallocを使わず、全取得入力を順次消費して毎tickのTask観測・記録を維持した。
+receiptとsource timestampは決定的な合成clockの別fieldで、計測には`perf_counter_ns`と`process_time_ns`を使った。
+実device、WebSocket、browser、status準備を含む全外側loopや実時間pacingは測っていない。
+
+中立と両腕非ゼロの有界系列を各341入力/340commitとし、最初の41入力を除いた300標本を採った。
+各系列のsimulation時間は約5.667秒で、60秒全試行の受入測定ではない。支持面接触は初期0件から4件となり、
+これらの系列でtool接触には到達していない。二側tool接触は後述の別checkpointで比較した。
+非ゼロはraw axes`[±.25,0,±.25,0]`を25入力ごとに反転し、先頭のfresh neutralから開始した。
+同じbenchmarkをbefore→after→before→afterで順次実行し、他のtest/buildは同時実行していない。
+下表は最終source hash付き`before-3 / after-3 / before-4 / after-4`の2反復、各600標本のwall中央値/p95。
+先行の反復1/2は別rawとして保持し、最終表へ混ぜていない。
+
+| 合成系列・区間 | before 中央値 / p95 (ms) | after 中央値 / p95 (ms) |
+| --- | --- | --- |
+| 中立 ingest | 0.388 / 0.428 | 0.343 / 0.387 |
+| 中立 advance（Task・同一sampleを含む） | 2.416 / 2.613 | 2.071 / 2.310 |
+| 中立 committed projection取得・payload/JSON | 0.240 / 0.255 | 0.238 / 0.257 |
+| 両腕非ゼロ ingest | 0.392 / 0.443 | 0.348 / 0.405 |
+| 両腕非ゼロ advance（Task・同一sampleを含む） | 2.768 / 3.057 | 2.447 / 2.792 |
+| 両腕非ゼロ committed projection取得・payload/JSON | 0.245 / 0.262 | 0.245 / 0.268 |
+
+Windowsのprocess CPU計測は約15.625ms刻みで、単一tickの中央値0をCPU仕事量0とは扱わない。
+上記3区間のCPU積算値は中立1828.125→1546.875ms、非ゼロ2093.750→1890.625ms（各600標本）だった。
+中立の反復別は875.000→750.000ms / 953.125→796.875ms、非ゼロは1031.250→968.750ms /
+1062.500→921.875ms。これは計測対象のowner process区間だけであり、全process・全試行のCPU削減率ではない。
+粗いCPU時計の区間間配分や小さい差を厳密な区間別比率に読み替えない。projectionのp95は改善していない。
+
+既存`pinch-checkpoint.json`も別比較に使用した。100mm cubeの二側接触、`dynamic-cube-drop`、
+毎回同じqpos/ctrlからの独立中立tickであり、正式条件の初期状態や元操作の再現ではない。
+20 warmup後200標本×2反復、観測接触数は各2件。prepare+commitの中央値/p95は
+1.175/1.215→0.978/1.040ms、native sampleは0.675/0.744→0.614/0.720ms、
+両区間のCPU積算は734.375→656.250ms（400標本）だった。
+
+最終4runの全採取値を比較し、epoch UUIDだけを固定文字列へ正規化したpayload/metadata、
+qpos/qvel/ctrl/time、Task state/evidence、入力・trigger離散状態、qacc/warmstart/actuator/constraint force、
+接触幾何とdynamicsが全て一致した。正式条件の各系列は341frame、独立pinchは220frameで照合した。
+同じwire・receiptによるmalformed、unknown field、NaN軸、stale/disconnect、provider/session、重複・逆順、
+pre-trial/future/stale receiptの12拒否ケースもerror literal・停止状態・入力stateが一致した。
+対応回帰はbaselineの二重parseをredで検出し、候補のtyped同一object受渡しでgreenとなった。
+各substepのfinite/warning/関節限界/速度/tracking error、inclusive境界とlive設定、
+live/candidate改変検知、STOP、FIFO順次消費・鮮度、contact consumerを含む関連632件が成功した。
+NaN/Inf拒否試験で既存world変換が出すRuntimeWarning 2件は記録し、testをskip・弱体化していない。
+
+rawと再現scriptはユーザー指定evidenceの`benchmark_hotpath.py`、`rejection_probe.py`、
+`comparison-summary.json`、`before-3 / after-3 / before-4 / after-4`に保持する。
+再現入口は指定Pythonで`benchmark_hotpath.py <pinned source root> <new output directory>`を呼び、
+`PYTHONPATH`へ各sourceの`src`と内包coreの`src`を明示する。bytecode/cacheはtask temporary配下へ隔離する。
+本節はLLM-01でPython検証・parse・接触観測の実仕事を削減できた証拠である。
+利用者端末のadvance 20.79msやRTF 0.607の解消、全外側input/statusの削減、実device/participant受入は未確認。
+対象製品5fileの独立read-onlyレビューで確認範囲にP0/P1/P2の指摘はなかった。レビュー前後と測定対象のbyte hashは一致した。
+全件CIと利用者端末での等速性受入は別に確認し、限定比較の成功で代替しない。

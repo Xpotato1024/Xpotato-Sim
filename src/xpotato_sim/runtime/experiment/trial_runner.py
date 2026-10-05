@@ -298,7 +298,7 @@ class TrialRunner:
                         or parsed.timestamp_s < old[2] or received_at_s < old[3]):
                     raise ValueError("duplicate, changed-source, or out-of-order input")
             self._ingress_time = float(received_at_s)
-            self._execution.ingest(message)
+            self._execution._ingest_parsed(parsed)
             self._execution.runtime.consume_received_input()
             self._last_input = identity
         finally:

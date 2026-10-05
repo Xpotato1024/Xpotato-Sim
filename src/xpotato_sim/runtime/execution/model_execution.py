@@ -9,7 +9,7 @@ from xpotato_sim.runtime.composition.coordinated_input import CoordinatedInputRu
 from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.scene.task import GeometryTaskObservation
-from xpotato_sim.schemas import parse_viewer_control_message_json
+from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_message_json
 
 
 class ModelExecution:
@@ -64,6 +64,18 @@ class ModelExecution:
             return
         try:
             parsed = parse_viewer_control_message_json(message)
+        except Exception as exc:
+            self.runtime.runtime.fail(f"source_ingress_failed:{type(exc).__name__}:{exc}")
+            raise
+        self._ingest_parsed(parsed)
+
+    def _ingest_parsed(self, parsed: ViewerControlMessage):
+        """wire検証を終えたownerから同じtyped sampleを受け取り、再decodeしない。"""
+        if self.runtime.runtime.state in {"faulted", "stopped"}:
+            return
+        try:
+            if type(parsed) is not ViewerControlMessage:
+                raise TypeError("validated ViewerControlMessage required")
             if (parsed.source_kind != "gamepad" or parsed.provider_id != "gamepad/v1"
                     or parsed.provider_schema != "viewer_gamepad_sample/v1"):
                 raise ValueError("coordinated viewer requires explicit gamepad/v1 input")
