@@ -258,3 +258,66 @@ rawと再現scriptはユーザー指定evidenceの`benchmark_hotpath.py`、`reje
 利用者端末のadvance 20.79msやRTF 0.607の解消、全外側input/statusの削減、実device/participant受入は未確認。
 対象製品5fileの独立read-onlyレビューで確認範囲にP0/P1/P2の指摘はなかった。レビュー前後と測定対象のbyte hashは一致した。
 全件CIと利用者端末での等速性受入は別に確認し、限定比較の成功で代替しない。
+
+## 2026-10-05: 両腕操作の追加報告と最適化候補の不採用
+
+利用者は製品版`c825976`でかなり改善し、片腕操作はRTF 0.9以上、両腕同時操作では0.5台へ低下すると報告した。
+貼付された最後の10秒窓はRTF 0.763、advanceの末尾600標本は中央値18.11ms、p95 21.82ms、最大30.22ms。
+外側入力は2.43/5.76/9.43ms、受信待ちは0.02/0.08/0.57msだった。
+この表は片腕・両腕の混合区間であり、最後のaxesが0でも右sign/triggerが押されているため中立とは扱わない。
+端末はPython3.12.12、NumPy2.4.6、MuJoCo3.9.0、Win11 build26200、logical8と報告されている。
+接続できた検証端末は別のLLM-01（i7-9700K、Python3.12.13）。利用者端末のCPU型番と関数別profileは未確認。
+
+基準は`c8259761f6b04bfceb7802c0cf06f5f29e8b67ec`、添付条件raw SHAは
+`445a954184604c4735e8755302a65d72912b847e35682465a1755eff185f5b10`を維持した。
+物理刻み、制御周期、solver/gain、Task、入力順序・元receipt・鮮度上限0.2秒を変更していない。
+
+### 有限差分FK共有候補
+
+中立・左のみ・右のみ・両腕をXY/Z別に分け、Mapping後の非ゼロ腕数で入力系列を確認した。
+基準の単体advance中央値は片腕約2.24ms、両腕約2.46msで、利用者の急落は再現しなかった。
+同じbase FKの再利用、solver寿命の整理、独立kinematic chainの有限差分FK共有を実装・比較した。
+出力を維持できた候補でも通常時の短縮は小さく、同processのJSON loopback負荷下では安定した改善を確認できなかった。
+このloopbackは最大throughputの探索負荷で、利用者の通常負荷や厳密な同一仕事量の旧新比較ではない。
+複雑性を増やす根拠として不十分と判断し、この候補は採用しなかった。`fk-candidate-3.patch`へ残し製品差分は戻した。
+analytic Jacobianへの切替、有限差分epsilon/damping変更、physicsの省略は行わなかった。
+
+### 表示JSONの別process化候補
+
+既存の通常frame最新slot、required/control FIFOと送信順序を維持し、JSON生成だけを親専用socketにつながる
+単一spawn childへ移す実装を作成した。入力readerとphysics ownerはencoderの応答を待たない構成とした。
+公開peerからpickleを受け取る経路は設けず、physics/Taskの別worldも作らなかった。
+JSON文字列の一致、不正値、startup/response/partial-I/O/hang、STOP・receipt、親終了を対象に検証した。
+独立レビューでProcess.closeとcheckの競合により元障害を隠すP2が1件見つかり、同じlock下の回収開始通知へ補修した。
+補完read-onlyレビューでは当該P2の静的閉鎖を確認した。これは性能の改善や実Gamepad受入の認定ではない。
+
+公平な比較は所有loopbackの実worker/native MuJoCoへ、同じ60Hz・同じ241個のraw入力を送って行った。
+XYとZ各約4秒を同じworkerで明示Start/STOP/retryし、before/afterを交互に2反復した。
+Zはtrigger releaseを挟んだ符号変更を実装し、Mapping後の0/2腕とZ符号-1/0/+1を全runで確認した。
+`worker-before-4 / worker-after-4 / worker-before-5 / worker-after-5`だけを以下の集計へ使った。
+入力hash、bytes、頻度、benchmark hashが一致し、各runは正常終了・cleanupを確認した。
+
+| 両腕系列 | before advance 中央値 / p95 (ms) | candidate 中央値 / p95 (ms) | before owner CPU積算 (ms) | candidate owner + encoder CPU概算 (ms) |
+| --- | --- | --- | --- | --- |
+| XY | 2.808 / 3.000 | 2.862 / 3.038 | 1984.375 | 2203.125 |
+| Z | 2.837 / 3.107 | 2.789 / 2.977 | 2031.250 | 2281.250 |
+
+CPU値は各系列2反復の合計。encoder CPUはactive区間近傍の標本差による概算で、別peer・GPU・機械全体は含まない。
+Windowsのprocess CPU時計は粗いため、単一advanceのCPU中央値0を仕事量0とは扱わない。
+XY/Zの親子CPU概算はそれぞれ約11%/12%増加した。startupはsender threadのみ約0.17msに対し、child版約140/145msだった。
+受信側で観測したrunning frameは両方式とも約59.6frame/s、receiptからpeer受信までの中央値は約16ms、p95は約31ms。
+これはCPU描画提出や画面の発光までの遅延ではない。RTFは各約4秒のactive窓でbefore/candidateとも約0.98～1.00だった。
+短期の合成試験であり、利用者の持続両腕操作・60秒実時間比・実Gamepad・実機・参加者受入ではない。
+
+### 採否と残る確認
+
+通常負荷で一貫した短縮がなくCPU総量と起動costが増えたため、serializerの別process化も今回の既定経路へは採用しない。
+補修済み候補と追加testはevidenceの`serializer-candidate`とpatchへ保存し、製品sourceとtestsは基準へ戻した。
+製品を軽量化した新commitではない。実操作で改善が確認された`c825976`の製品codeを維持し、
+最新報告を既存のLLM-01のgreenで否定しない。main、実験環境、依存lock、Viewerは変更していない。
+
+探索途中のworker同期/終了の不成立、固定projection負荷harnessの未完了、親からの中断は独立に保存し、成功比較へ混ぜていない。
+固定600Hz重負荷の効果を今回の採否根拠には用いない。研究用の等速性は引き続き未受入である。
+次に必要なのは、利用者端末で片腕/両腕の同じ入力系列を使い、制御計算のCPU実行と実行待ちを区別する計測である。
+別機械の短期平均からGIL、MuJoCo、OpenBLAS、CPU機種のいずれかを原因と断定しない。
+raw、再現script、候補patch、reviewはtask evidence `xpll-bimanual-20261005`に保持する。
