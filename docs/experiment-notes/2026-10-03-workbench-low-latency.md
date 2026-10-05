@@ -159,3 +159,22 @@ CPUはrenderer主threadだけで、worker・GPU・全processの削減率では�
 元の半速化・0.906秒staleはbaselineでも未再現で、恒久解消の証明には使わない。
 rawは`latency-final312-3ba2320/browser-validation.json`と同試行のterminal/final-state、親集計`parent-final-summary.json`に保持した。
 主な検証fixtureと再現入口はrepository内、機械依存のraw/build/環境は既存task evidence rootに保持し、製品sourceへ混ぜない。
+
+
+## 2026-10-05: 利用者の等速性受入未達と受信待ちの検証
+
+利用者報告はRTF 0.607（最後の10秒窓）、直前advance 22.16ms、3601 ticks、Sim約60秒に手元約90秒である。
+無操作でも約16秒遅れる。これらは利用者が貼付した診断/観察値であり、こちらの機械での新たな再現値ではない。
+最終Task観測はleft–cube接触を含むが、Taskのsuccessは観測窓完了であり、等速性受入を意味しない。
+
+baselineはPR615の`6f4913a132dc7737a8715a34fba908733972385a`。LLM-01/Python3.12.13、同じ添付条件、
+実private WebSocket/native workerへ接続した合成中立入力を60/30/20Hzで各約8秒供給した。
+各最後のhost RTFは0.99927/1.00114/0.99947、operator_abort、最大receipt gapは31/47/63msだった。
+source cadenceの切り分け用であり、通常browser60Hzの代替受入・元発生環境の再現・接触操作の再現ではない。
+物理刻みと鮮度上限を維持した。rawはtask evidenceのdeadline-before/report.jsonに保持する。
+
+別の決定的回帰では実workerに22ms/advanceの仮想経過時間を与え、周期超過後にも4回すべてtimeout=0.001が
+指定されることを変更前に検出した（5commit自体は成立）。候補は期限到来後timeout=0、inactive20msへ変更する。
+この回帰は待ち要求の欠陥を証明するもので、実PCの改善率やOSの待ち精度は証明しない。
+新しい区間別分布はwall経過時間・区間ごとの末尾標本であり、CPU時間や60秒全体の分位点ではない。
+実操作受入は引き続き未達として扱い、UI表示時刻、物理dt、鮮度上限を変えて帳尻を合わせない。

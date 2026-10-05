@@ -17,6 +17,8 @@ import "../ui/operation.css";
 import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 
+type TimingStage = {count:number;observed:number;last_ns:number|null;mean_ns:number|null;p50_ns:number|null;p95_ns:number|null;p99_ns:number|null;max_ns:number|null};
+type RuntimeEnvironment = {python:string;platform:string;logical_cpus:number|null;mujoco:string;numpy:string;websockets:string;diagnostic_memory:boolean;thread_settings:Record<string,string|null>};
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
 type Status = {phase: string; revision: number; generation: number; busy: string|null; busy_operation?:string|null;
   ticket: Ticket|null; profile_id: string|null; ticks: number; simulation_time_s:number; error: string|null;
@@ -24,7 +26,7 @@ type Status = {phase: string; revision: number; generation: number; busy: string
   profiles: {id:string; available:boolean; reason:string|null}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
-  rss_bytes?:number; private_bytes?:number; execution_timing?:{actual_rtf:number|null;rtf_window_s:number|null;hot_path_ns:number;deadline_lag_ns:number}; timing_sample_scope?:string; input_diagnostics?:{processed_receipt_s?:number|null;processed_age_s?:number|null;tick_duration_s?:number|null}};
+  rss_bytes?:number; private_bytes?:number; execution_timing?:{actual_rtf:number|null;rtf_window_s:number|null;hot_path_ns:number;deadline_lag_ns:number}; control_period_s?:number|null; timing_breakdown?:Record<string,TimingStage>; runtime_environment?:RuntimeEnvironment; timing_sample_scope?:string; input_diagnostics?:{processed_receipt_s?:number|null;processed_age_s?:number|null;tick_duration_s?:number|null}};
 const phases: Record<string,string> = {unselected:"未選択・待機",ready:"開始待ち",waiting_input:"新しい中立入力を待機",
   running:"実行中",finalizing:"保存中",terminal:"停止確認・結果保存済み",faulted:"停止・障害",recording_failed:"記録失敗",closed:"終了"};
 
@@ -292,7 +294,17 @@ function WorkbenchDetails(props:Telemetry & {connected:boolean;live:boolean;stat
   const state=valid?sample.state:createInitialProductViewerState(),raw=valid?sample.raw:null;
   return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>入力・qpos・接触・動力学診断</summary>{open&&<>
     <p>実行RTF: {props.status?.execution_timing?.actual_rtf?.toFixed(3)??"未計測"} / 窓 {props.status?.execution_timing?.rtf_window_s?.toFixed(1)??"未計測"} s / 実commit {props.status?.ticks??"未計測"} ticks</p>
-    <p>処理時間: {props.status?.input_diagnostics?.tick_duration_s==null?"未計測":(props.status.input_diagnostics.tick_duration_s*1000).toFixed(2)+" ms"} / 分布範囲 {props.status?.timing_sample_scope??"未計測"}</p>
+    <p>直前のadvance: {props.status?.input_diagnostics?.tick_duration_s==null?"未計測":(props.status.input_diagnostics.tick_duration_s*1000).toFixed(2)+" ms"} / 制御周期 {props.status?.control_period_s==null?"未計測":(props.status.control_period_s*1000).toFixed(2)+" ms"}</p>
+    <p>以下は区間別の末尾最大600標本（経過時間、CPU時間ではありません）。区間ごとに標本数が異なり、分位点の合計は周期時間ではありません。終端後は終了時の値です。</p>
+    <table aria-label="実行処理の区間別時間"><thead><tr><th>区間</th><th>標本数</th><th>中央値 ms</th><th>95%点 ms</th><th>最大 ms</th></tr></thead><tbody>
+      {([["receive_wait","受信待ち"],["input_dispatch","外側入力処理"],["advance","advance（再受信確認・物理・Task）"],["projection","表示データ生成・受渡し"],["status","状態通知の準備"]] as const).map(([key,label])=>{
+        const value=props.status?.timing_breakdown?.[key];
+        const ms=(n:number|null|undefined)=>n==null?"未計測":(n/1e6).toFixed(2);
+        return <tr key={key}><th>{label}</th><td>{value?.count??0}</td><td>{ms(value?.p50_ns)}</td><td>{ms(value?.p95_ns)}</td><td>{ms(value?.max_ns)}</td></tr>;
+      })}
+    </tbody></table>
+    <p>実行環境: Python {props.status?.runtime_environment?.python??"未計測"} / NumPy {props.status?.runtime_environment?.numpy??"未計測"} / MuJoCo {props.status?.runtime_environment?.mujoco??"未計測"} / 論理CPU {props.status?.runtime_environment?.logical_cpus??"未計測"} / memory profiling {props.status?.runtime_environment==null?"未計測":props.status.runtime_environment.diagnostic_memory?"有効":"無効"}</p>
+    <p>OS: {props.status?.runtime_environment?.platform??"未計測"} / OPENBLAS_NUM_THREADS: {props.status?.runtime_environment?.thread_settings.OPENBLAS_NUM_THREADS??"未指定（実スレッド数ではありません）"}</p>
     <p>host receipt: {props.status?.input_diagnostics?.processed_receipt_s?.toFixed(3)??"未計測"} s / host input age: {props.status?.input_diagnostics?.processed_age_s?.toFixed(2)??"未計測"} s（host monotonic、browser時計との減算なし）</p>
     <SceneContactPanel value={state.sceneContactPresentation} live={props.connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
     <GamepadDiagnosticDetails state={state} raw={raw} live={props.live}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre>

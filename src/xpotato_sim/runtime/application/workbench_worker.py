@@ -14,7 +14,7 @@ from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
 from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition
-from xpotato_sim.runtime.application.workbench_metrics import process_memory
+from xpotato_sim.runtime.application.workbench_metrics import process_memory, StageTimings
 from xpotato_sim.transport import mujoco_state_to_payload
 
 from xpotato_sim.runtime.application.workbench_control import ACTIVE, INPUT_ACTIVE, INPUT_FINISHED, validate_late_input
@@ -28,6 +28,14 @@ def execution_worker(url, config):
         tracemalloc.start(1)
     runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True)
     fixture = load_trial_fixture(Path(config["fixture"])) if config.get("fixture") else None
+    import platform
+    import sys
+    from importlib.metadata import version
+    environment = {"python": sys.version.split()[0], "platform": platform.platform(),
+        "logical_cpus": os.cpu_count(), "mujoco": version("mujoco"), "numpy": version("numpy"),
+        "websockets": version("websockets"), "diagnostic_memory": tracemalloc.is_tracing(),
+        "thread_settings": {key: os.environ.get(key) for key in
+            ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")}}
     profile = None
     generation = 0
     assets = []
@@ -47,6 +55,7 @@ def execution_worker(url, config):
     pending_stop = None
     running_origin_ns = None
     running_origin_tick = 0
+    stages = StageTimings()
     hot_samples = deque(maxlen=600)
     lag_samples = deque(maxlen=600)
     apply_samples = deque(maxlen=600)
@@ -63,6 +72,9 @@ def execution_worker(url, config):
             "applied_condition": applied_condition,
             "worker_pid": os.getpid(),
             "execution_timing": dict(timing),
+            "control_period_s": None if profile is None else profile.dt_s,
+            "timing_breakdown": stages.snapshot(),
+            "runtime_environment": environment,
             "timing_sample_scope": "last-at-most-600-owner-iterations",
             "timing_samples_ns": {"hot_path": list(hot_samples), "deadline_lag": list(lag_samples), "receipt_to_apply": list(apply_samples)},
             "input_accepting_monotonic_s": runner.input_accepting_monotonic_s,
@@ -71,9 +83,13 @@ def execution_worker(url, config):
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
     def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
+        started_ns = perf_counter_ns()
+        measuring = runner.status in INPUT_ACTIVE
         sender.put({"type": "worker_status", "id": rid, "state": state(),
                             "error": error, "completed_op": completed_op, "operation": operation,
                             "generation": generation, "assets": list(assets)})
+        if measuring:
+            stages.observe("status", perf_counter_ns() - started_ns)
     def pending_input():
         """advance入口で到着分を再確認する。STOPは次iterationの先頭へ戻す。"""
         nonlocal deferred_raw
@@ -105,14 +121,23 @@ def execution_worker(url, config):
         send_state(ws)
         while True:
             hot_started_ns = None
+            measuring = runner.status in INPUT_ACTIVE
+            wait_started_ns = perf_counter_ns()
             try:
                 if deferred_raw is not None:
                     raw, deferred_raw = deferred_raw, None
                 else:
-                    raw = inbox.recv(timeout=max(0.001, min(0.02, (next_tick - perf_counter_ns()) / 1e9)))
+                    # 期限到来後は入力/STOPを非blockingで確認し、空queueの待ちを足さない。
+                    # inactive時は過去deadlineを使わず、空回りを避ける。
+                    timeout = (max(0., min(.02, (next_tick - perf_counter_ns()) / 1e9))
+                               if runner.status in ACTIVE else .02)
+                    raw = inbox.recv(timeout=timeout)
             except TimeoutError:
                 raw = None
+            if measuring:
+                stages.observe("receive_wait", perf_counter_ns() - wait_started_ns)
             if raw is not None:
+                input_started_ns = perf_counter_ns()
                 cmd = json.loads(raw)
                 op = cmd["op"]
                 batch = [cmd] if op == "input" else []
@@ -140,6 +165,7 @@ def execution_worker(url, config):
                 try:
                     if op == "prepare":
                         running_origin_ns = None
+                        stages.clear()
                         timing.update(hot_path_ns=0,deadline_lag_ns=0,actual_rtf=None,rtf_window_s=None)
                         hot_samples.clear();lag_samples.clear();apply_samples.clear();rtf_window.clear()
                         generation = cmd["generation"]
@@ -175,6 +201,7 @@ def execution_worker(url, config):
                             raise RuntimeError("retry model resources differ from prepared assets")
                         assets = list(prepared_assets)
                         running_origin_ns = None
+                        stages.clear()
                         timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                         hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                     elif op == "start":
@@ -184,6 +211,7 @@ def execution_worker(url, config):
                         fixture_start, fixture_index = monotonic(), 0
                         next_tick = perf_counter_ns()
                         running_origin_ns = None
+                        stages.clear()
                         timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                         hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                     elif op == "input":
@@ -231,8 +259,15 @@ def execution_worker(url, config):
                         assets = []
                         profile = None
                     send_state(ws, cmd.get("id"), str(exc), operation=op)
+                if measuring and op == "input":
+                    stages.observe("input_dispatch", perf_counter_ns() - input_started_ns)
                 if len(batch) == 64 and runner.status in ACTIVE:
+                    tick_started = perf_counter_ns()
                     runner.advance(runner.ticket, pending_input=lambda: None)
+                    elapsed_ns = perf_counter_ns() - tick_started
+                    input_diagnostics["tick_duration_s"] = elapsed_ns / 1e9
+                    if measuring:
+                        stages.observe("advance", elapsed_ns)
                     if runner.status not in ACTIVE:
                         send_state(ws)
                     continue
@@ -250,7 +285,10 @@ def execution_worker(url, config):
                             fixture_index += 1
                     tick_started = perf_counter_ns()
                     runner.advance(runner.ticket, pending_input=None if fixture is not None else pending_input)
-                    input_diagnostics["tick_duration_s"] = (perf_counter_ns() - tick_started) / 1e9
+                    elapsed_ns = perf_counter_ns() - tick_started
+                    input_diagnostics["tick_duration_s"] = elapsed_ns / 1e9
+                    if old_phase in INPUT_ACTIVE:
+                        stages.observe("advance", elapsed_ns)
                     if runner.status == "running" and running_origin_ns is None:
                         running_origin_ns, running_origin_tick = perf_counter_ns(), runner.tick_count
                     if running_origin_ns is not None and (runner.status == "running" or old_phase == "running"):
@@ -279,10 +317,13 @@ def execution_worker(url, config):
                 frame_key = (generation, runner.ticket, runner.status, runner.tick_count)
                 if frame_key == last_frame_key:
                     continue
+                projection_started_ns = perf_counter_ns()
                 sample = runner.take_committed_projection() or runner.snapshot()
                 sender.put({"type": "frame", "generation": generation,
                     "ticket": asdict(runner.ticket), "required": runner.status != "running", "payload": mujoco_state_to_payload(sample)})
                 last_frame_key = frame_key
+                if runner.status in INPUT_ACTIVE:
+                    stages.observe("projection", perf_counter_ns() - projection_started_ns)
             if runner.status in ACTIVE and hot_started_ns is not None:
                 timing["hot_path_ns"] = perf_counter_ns() - hot_started_ns
                 hot_samples.append(timing["hot_path_ns"])

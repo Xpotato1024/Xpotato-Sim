@@ -304,3 +304,25 @@ receipt→applyは同じhost monotonic領域だけで測り、browser時計と�
 Python 3.12 Windowsのmonotonicは15.625ms分解能の場合があり、receipt差のns表現はns精度を意味しない。
 hot path/receipt→applyのraw列は末尾最大600件で、全試行quantileではない。`timing_sample_scope`に範囲を明示する。
 固定dtの一回commit後に期限を更新し、無限catchup、可変physics dt、表示時刻補正を行わない。
+
+
+### 期限超過時の待ちと区間別診断（2026-10-05）
+
+activeなworkerで周期deadlineが到来済みなら、受信はtimeout 0で有界に確認する。
+入力/STOP確認を飛ばさず、空queueに最低1msの待ちを加えない。期限前は残り時間を最大20msまで待つ。
+inactive時は過去のdeadlineに依存せず20msの有界待ちとし、busy pollingを作らない。
+固定dt、実commit数、wall/input-wait監督、元receipt、0.2秒鮮度判定、既存のcatchup制限は変更しない。
+この修正は計算そのものの高速化でも、任意PCでの等速保証でもない。
+
+`timing_breakdown`はreceive_wait、input_dispatch、advance、projection、statusを区間ごとに最大600件保持する。
+countは保持標本数、observedはリセット後の測定数。last/mean/p50/p95/p99/maxはns単位で、未測定はnull。
+分位点はnearest-rank。区間ごとの標本数と時点が異なるため分位点を合算して周期時間にしない。
+receive_waitはinbox呼出しの経過時間で、待ちだけでなく復帰遅延を含む。input_dispatchは外側input処理、
+advanceは内部の再受信・鮮度確認、Mapping、physics、観測、Taskを含む。projectionは表示sampleとpayload変換・
+senderへの受渡し、statusは状態通知準備までであり、別threadのJSON化・socket送信時間ではない。
+いずれもwall経過時間でCPU占有時間ではない。新prepare/retry/Startでリセットし、終端後は終了時の標本を保持する。
+既存のtick_duration_sは直前advance一回の時間で、平均・95%点・physics単独時間ではない。
+
+詳細画面に上記分布と制御周期を表示する。`runtime_environment`にはPython/OS/論理CPU数、主要library version、
+memory profilingの有効性、限定したBLAS thread環境変数だけを出す。全環境変数・hostname・認証情報は出さない。
+環境変数未指定をsingle-thread動作と解釈しない。実験設定やプロセスのthread数はこの診断で変更しない。

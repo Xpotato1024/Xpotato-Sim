@@ -325,7 +325,7 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                              acknowledge_stop=True, deadline_s=None, source_gap=False):
     from multiprocessing import get_context
     from threading import Thread, Event
-    from time import monotonic
+    from time import monotonic, perf_counter
     import os
     from websockets.sync.server import serve
     events, errors, supply, connections, producers = [], [], [], [], []
@@ -366,14 +366,18 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                         try:
                             # fixture I/O・検証は供給開始前に一度だけ行う。
                             template = json.loads(message())
-                            began = monotonic()
+                            began = perf_counter()
                             diagnostics = {"samples": 0, "max_receipt_gap_s": 0.,
                                            "max_send_duration_s": 0., "last_receipt_s": None}
                             supply.append(diagnostics)
                             for i in range(sample_count):
                                 if source_gap and i == 30:
                                     if cancel.wait(.350): return
-                                if cancel.wait(max(0, began + i / 60 - monotonic())):
+                                # 供給周期/所要時間は高分解能時計。元receiptはmonotonicを維持する。
+                                while (delay := began + i / 60 - perf_counter()) > 0:
+                                    if cancel.wait(delay):
+                                        return
+                                if cancel.is_set():
                                     return
                                 remaining()
                                 axes = (0, 0, 0, 0) if i == 0 else (.15 if (i // 30) % 2 else -.15, 0, 0, 0)
@@ -387,7 +391,7 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                                 ws.send(json.dumps({"op": "input", "ticket": ticket,
                                     "message": json.dumps(template), "received_at_s": receipt}))
                                 diagnostics["max_send_duration_s"] = max(diagnostics["max_send_duration_s"], monotonic() - receipt)
-                            diagnostics["duration_s"] = monotonic() - began
+                            diagnostics["duration_s"] = perf_counter() - began
                             ws.send(json.dumps({"op": "stop", "id": "stop", "generation": 2}))
                         except Exception as exc:
                             errors.append(exc)
@@ -546,5 +550,7 @@ def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch
     terminal = next(e["state"] for e in events if e.get("state", {}).get("phase") == "terminal")
     assert terminal["result"]["runner_stop_reason"] == limit + "_timeout"
     assert terminal["ticks"] == 0 and bursts[0] >= 3
+    assert terminal["input_diagnostics"]["tick_duration_s"] is not None
+    assert terminal["timing_breakdown"]["advance"]["observed"] >= bursts[0]
     print(json.dumps({"full_batches": bursts[0], "supervision": limit,
                       "processed_sequence": terminal["input_diagnostics"]["processed_sequence"]}))

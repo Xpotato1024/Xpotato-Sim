@@ -285,3 +285,104 @@ def test_worker_releases_connection_even_before_inbox_or_after_close_exception(t
     with pytest.raises(OSError,match=failure):
         module.execution_worker("ws://test",{"result_root":str(tmp_path/"results"),"asset_root":str(tmp_path/"assets"),"software_revision":"test","input_wait_s":5,"wall_s":30,"prepare_s":30})
     assert closed
+
+
+def test_overdue_worker_polls_input_without_adding_another_wait(tmp_path, monkeypatch):
+    """周期超過後も入力/STOPを確認するが、存在しない入力の待ちを追加しない。"""
+    from pathlib import Path
+    from xpotato_sim.runtime.application import workbench_worker as module
+    from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+    clock = [10.0]
+    runners, events, overdue_timeouts = [], [], []
+    commands = [
+        {"op": "prepare", "id": "prepare", "generation": 1, "profile_id": "dynamic-cube-drop"},
+        {"op": "start", "id": "start", "generation": 1},
+    ]
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
+    monkeypatch.setattr(module, "monotonic", lambda: clock[0])
+    def create_runner(**kwargs):
+        runner = TrialRunner(**kwargs, clock=lambda: clock[0])
+        runners.append(runner)
+        return runner
+    monkeypatch.setattr(module, "TrialRunner", create_runner)
+    original = TrialRunner.advance
+    def slow_advance(runner, ticket, **kwargs):
+        result = original(runner, ticket, **kwargs)
+        clock[0] += .022  # 16.67 ms周期を超える処理を決定的に模擬する。
+        return result
+    monkeypatch.setattr(TrialRunner, "advance", slow_advance)
+    class Wire:
+        def send(self, raw): events.append(json.loads(raw))
+        def recv(self, timeout):
+            if commands:
+                return json.dumps(commands.pop(0))
+            runner = runners[0]
+            if runner.status == "terminal":
+                return '{"op":"close"}'
+            if runner.tick_count > 0:
+                overdue_timeouts.append(timeout)
+            clock[0] += timeout
+            assert clock[0] < 11.0, "bounded trial failed to complete"
+            raise TimeoutError
+    monkeypatch.setattr(module, "AsyncWorkerConnection", lambda *args, **kwargs: Wire())
+    module.execution_worker("ws://test", {
+        "result_root": str(tmp_path / "results"), "asset_root": str(tmp_path / "assets"),
+        "software_revision": "overdue-regression", "ticks": 5,
+        "input_wait_s": 5, "wall_s": 30, "prepare_s": 30,
+        "fixture": str(Path(__file__).parents[1] / "fixtures/trial_gamepad/short-movement.json"),
+    })
+    record = json.loads(next((tmp_path / "results").glob("*/terminal.json")).read_text())
+    assert record["ticks"] == 5 and record["runner_stop_reason"] == "simulation_budget"
+    assert overdue_timeouts and all(timeout == 0 for timeout in overdue_timeouts)
+
+
+def test_inactive_worker_uses_bounded_wait_not_expired_deadline(tmp_path, monkeypatch):
+    """未選択・readyでは古いtick期限によるbusy pollingを作らない。"""
+    from xpotato_sim.runtime.application import workbench_worker as module
+    commands = [{"op": "prepare", "id": "p", "generation": 1,
+                 "profile_id": "dynamic-cube-drop"}, None, None, {"op": "close"}]
+    timeouts = []
+    monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
+    monkeypatch.setattr(module, "monotonic", lambda: 10.)
+    class Wire:
+        def send(self, raw): pass
+        def recv(self, timeout):
+            timeouts.append(timeout)
+            command = commands.pop(0)
+            if command is None:
+                raise TimeoutError
+            return json.dumps(command)
+    monkeypatch.setattr(module, "AsyncWorkerConnection", lambda *args, **kwargs: Wire())
+    module.execution_worker("ws://test", {
+        "result_root": str(tmp_path / "results"), "asset_root": str(tmp_path / "assets"),
+        "software_revision": "inactive-wait", "ticks": 5,
+        "input_wait_s": 5, "wall_s": 30, "prepare_s": 30,
+    })
+    assert timeouts == [.02, .02, .02, .02]
+    assert not (tmp_path / "results").exists()
+
+
+def test_stage_timings_are_bounded_independent_and_resettable():
+    from xpotato_sim.runtime.application.workbench_metrics import StageTimings
+    stages = StageTimings(capacity=3)
+    assert stages.snapshot()["advance"]["p95_ns"] is None
+    for value in (1, 2, 3, 4, 5):
+        stages.observe("advance", value)
+    stages.observe("receive_wait", 0)
+    snapshot = stages.snapshot()
+    assert snapshot["advance"] == {"count": 3, "observed": 5, "last_ns": 5,
+        "mean_ns": 4., "p50_ns": 4, "p95_ns": 5, "p99_ns": 5, "max_ns": 5}
+    assert snapshot["receive_wait"]["count"] == 1
+    assert snapshot["receive_wait"]["p95_ns"] == 0
+    assert snapshot["projection"]["p95_ns"] is None
+    stages.clear()
+    assert all(row["count"] == 0 and row["observed"] == 0 and row["max_ns"] is None
+               for row in stages.snapshot().values())
+    assert snapshot["advance"]["count"] == 3  # 過去の通知snapshotを書き換えない。
+
+
+@pytest.mark.parametrize("capacity", [0, -1, True, 1.5])
+def test_stage_timings_reject_invalid_capacity(capacity):
+    from xpotato_sim.runtime.application.workbench_metrics import StageTimings
+    with pytest.raises(ValueError):
+        StageTimings(capacity=capacity)
