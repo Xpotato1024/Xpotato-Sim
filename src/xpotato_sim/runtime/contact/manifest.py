@@ -8,13 +8,14 @@ frames so that unavailable values cannot be replaced by an implicit default.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal, overload
 
 from xpotato_sim.runtime.experiment.contracts import (
     EnvironmentRole,
@@ -84,6 +85,17 @@ def _finite(
     return 0.0 if result == 0.0 else result
 
 
+# 長さは既存の実行時検査で確定する。数値検査・許容差・変換順は変更しない。
+@overload
+def _vector(name: str, value: object, *, length: Literal[3], positive: bool = False) -> tuple[float, float, float]: ...
+
+@overload
+def _vector(name: str, value: object, *, length: Literal[4], positive: bool = False) -> tuple[float, float, float, float]: ...
+
+@overload
+def _vector(name: str, value: object, *, length: int, positive: bool = False) -> tuple[float, ...]: ...
+
+
 def _vector(name: str, value: object, *, length: int, positive: bool = False) -> tuple[float, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
         raise ContactManifestError(f"{name} must be a numeric array")
@@ -100,7 +112,7 @@ def _unit_vector(name: str, value: object) -> tuple[float, float, float]:
     norm = math.sqrt(sum(component * component for component in result))
     if not math.isfinite(norm) or norm <= 0.0 or abs(norm - 1.0) > 1e-12:
         raise ContactManifestError(f"{name} must be a unit vector")
-    return result  # type: ignore[return-value]
+    return result
 
 
 def _unit_quaternion(name: str, value: object) -> tuple[float, float, float, float]:
@@ -108,7 +120,7 @@ def _unit_quaternion(name: str, value: object) -> tuple[float, float, float, flo
     norm = math.sqrt(sum(component * component for component in result))
     if not math.isfinite(norm) or norm <= 0.0 or abs(norm - 1.0) > 1e-12:
         raise ContactManifestError(f"{name} must be a unit quaternion")
-    return result  # type: ignore[return-value]
+    return result
 
 
 def _identity(name: str, value: object) -> VersionedIdentity:
@@ -151,7 +163,7 @@ class ContactMaterial:
         rgba = _vector("material.rgba", self.rgba, length=4)
         if any(component < 0.0 or component > 1.0 for component in rgba):
             raise ContactManifestError("material.rgba components must be within [0, 1]")
-        object.__setattr__(self, "rgba", rgba)  # type: ignore[arg-type]
+        object.__setattr__(self, "rgba", rgba)
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +210,7 @@ class ContactCubeObject:
             raise ContactManifestError(
                 "object.friction must be non-negative with positive sliding friction"
             )
-        object.__setattr__(self, "friction", friction)  # type: ignore[arg-type]
+        object.__setattr__(self, "friction", friction)
         _stable_identifier("object.body_name", self.body_name)
         _stable_identifier("object.geom_name", self.geom_name)
         if type(self.enabled) is not bool:
@@ -506,7 +518,7 @@ class ContactTaskManifest:
     def task_identity(self) -> VersionedIdentity:
         return VersionedIdentity(self.task.plugin_id, self.task.contract_version)
 
-    def to_document(self) -> dict[str, object]:
+    def to_document(self) -> dict[str, builtins.object]:
         return _manifest_document(self)
 
 
@@ -689,7 +701,8 @@ def _as_role_requirement(value: object, name: str) -> SemanticRoleRequirement:
         object_kind = mapping["object_kind"]
         frame = mapping["frame"]
         unit = mapping["unit"]
-        if not all(isinstance(item, str) for item in (role_name, object_kind, frame, unit)):
+        if (not isinstance(role_name, str) or not isinstance(object_kind, str)
+                or not isinstance(frame, str) or not isinstance(unit, str)):
             raise ContactManifestDecodeError(f"{name} fields must be strings")
         return SemanticRoleRequirement(
             role=SemanticRole(role_name),
@@ -735,6 +748,12 @@ def _json_document(value: bytes | str | Mapping[str, object]) -> Mapping[str, ob
     except (json.JSONDecodeError, UnicodeError) as exc:
         raise ContactManifestDecodeError(f"manifest JSON decode failed: {exc}") from exc
     return _require_mapping(decoded, "manifest")
+
+
+def _enumerate_objects(value: object) -> Iterator[tuple[int, object]]:
+    """未検証collectionを従来どおり列挙し、各要素は呼出側のdecoderへ渡す。"""
+    # 型を保証するcastではない。非iterableのTypeErrorは既存decoder境界で変換する。
+    return enumerate(value)  # type: ignore[arg-type]
 
 
 def decode_contact_manifest(value: bytes | str | Mapping[str, object]) -> ContactTaskManifest:
@@ -887,15 +906,11 @@ def decode_contact_manifest(value: bytes | str | Mapping[str, object]) -> Contac
             ),
             required_capabilities=frozenset(
                 _as_identity(item, f"manifest.scene.required_capabilities[{index}]")
-                for index, item in enumerate(
-                    scene_root["required_capabilities"]  # type: ignore[union-attr]
-                )
+                for index, item in _enumerate_objects(scene_root["required_capabilities"])
             ),
             required_robot_roles=frozenset(
                 _as_role_requirement(item, f"manifest.scene.required_robot_roles[{index}]")
-                for index, item in enumerate(
-                    scene_root["required_robot_roles"]  # type: ignore[union-attr]
-                )
+                for index, item in _enumerate_objects(scene_root["required_robot_roles"])
             ),
             presentation=ScenePresentationIdentity(
                 camera_identity=presentation_root["camera_identity"],  # type: ignore[arg-type]

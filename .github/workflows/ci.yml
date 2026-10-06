@@ -40,6 +40,11 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           uv run python scripts/repository/validate_markdown_docs.py --base-ref "$BASE_SHA" --strict-map --strict-links
+      - name: Check Python types and correctness
+        if: matrix.shard == 'general'
+        run: |
+          uv run mypy
+          uv run ruff check src tests scripts .github
       - name: Run tests
         shell: bash
         env:
