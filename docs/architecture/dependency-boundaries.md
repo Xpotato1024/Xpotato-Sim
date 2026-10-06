@@ -220,8 +220,8 @@ transport             -> runtime
 同じ変更で更新する。
 
 `apps/mujoco-viewer/src`は`tests/architecture/test_layer_import_boundaries.py`で
-検査する。`wasm-scene`だけは既存guardがMuJoCo WASMを許可し、受信qposの`mj_forward`と
-scene描画に限定する。独立した`mj_step`によるphysics進行、入力からの独立IK/FK制御、backend
+検査する。`wasm-scene`だけはMuJoCo WASMを許可し、初期・受信qposの`mj_fwdKinematics`と
+scene描画に限定する。`mj_forward`による衝突・制約・反力の再評価、独立した`mj_step`によるphysics進行、入力からの独立IK/FK制御、backend
 stateの第二SoT、Rapierは許可しない。他のviewer領域にこの例外を広げない。
 
 ## Input Source public compatibility retirement (#474)
