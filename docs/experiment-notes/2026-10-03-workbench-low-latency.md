@@ -377,3 +377,54 @@ primaryの最終対象検証は461件および193件、独立review補修後の�
 rawとscriptは両端末のtask evidence xpll-observation-20261006へ保存し、laptopのfinal-laptop-comparison.jsonに
 source/script/conditionと成功・部分失敗の対応を残した。動作中の既存実験appへ入力していない。
 検証scratchの削除は実行審査に拒否されたため残存manifestを保持し、迂回削除はしない。
+
+
+## 2026-10-06: 持続接触の修正計画とViewer描画専用更新
+
+### 修正計画と保持する境界
+
+利用者のAC接続下の反復観察は、無操作約0.98、腕だけの60秒運動約0.975、単発の持上げ・落下後の非接触運動約0.972に対し、双腕の接触保持では低下するというものだった。接触履歴だけや腕数だけでなく、持続接触中の反復処理を対象にする。操作時の終盤RTF約0.742は未解決として維持する。
+
+1. Viewerが受信qposに対して毎回行っていた前向き動力学を、描画値だけの更新に置き換える。body/site/geom、camera/light、tendon/flexの同等性と、backend由来の接触・反力表示を保つ。
+2. AC接続を確認したMIYU-LAPTOP-1で、同じ保持状態・表示・条件による60 Sim秒の比較を行う。瞬間RTF、末尾10秒窓、全体の経過時間を分ける。原試行の初期状態からの実操作と、保存状態からの診断的継続を混同しない。
+3. 修正後も持続接触で低下する場合、native solverの実反復数・接触観測・実行待ちを比較して次の変更を選ぶ。短いWASM計算の倍率だけでアプリ全体の原因を認定しない。
+
+基準は`80c4784ce0388b41857f758df970b4b70f178759`、製品修正は`09716fd9eb9400b7768e30bd85f9adb6f2276ccf`。backend、物理刻み1/600秒、制御1/60秒、Newtonの反復上限50・許容値1e-10、Mapping、鮮度0.2秒、Task60秒は変更していない。Viewerは同じMuJoCo 3.9.0の`mj_fwdKinematics`で運動学・COM・camera/light・flex・tendonを更新する。衝突・制約・反力・sensorの再計算をしない。Three.jsの独自FKとfull-forwardへの暗黙fallbackは作らない。
+
+### 正しさの検証
+
+実installed WASMの7回帰で、非接触・片側接触・両側接触の保持と解放、自由物体の並進/回転、camera/light、tendon/flex/mesh、FastArmのhomeと公開30姿勢、fixture model切替を確認した。描画に使うnative配列は57姿勢でbyte一致、mjvSceneのgeomとThree.js行列も一致した。qvel/ctrl/timeを進めず、candidateのcontact/constraint/solver統計は未実行のままである。これはbrowser全描画のpixel一致や元Gamepad系列の再現を意味しない。
+
+Viewerの未計算値から作る接触・制約・sensor等の装飾は無効化し、接触・反力はbackend overlayのまま維持する。新旧比較は同じ描画用optionを使う。旧defaultとの差分のrangefinder表示は、既存FastArm/公開fixtureにsensorがないことを独立reviewでも確認した。任意の追加sensorの描画互換性は今回の保証対象ではない。
+
+Viewer31実行入口、typecheck、固定build、architecture48件、文書検査が成功。独立read-only reviewで追加P0/P1/P2指摘はない。APIのsingle WASMを実行し、MTは宣言のみ確認した。最終CIとsource対応はPRで記録する。
+
+### 実操作で保存された姿勢による局所比較
+
+実験端末の既存結果を読取り、同じmodel digestの38終端状態を別MjDataで復元して分類した。元結果は変更していない。model SHA256は`37de10998d14bfdaa422b54838003f596bfd9ea28d27ca9890cd740e101665e4`、条件raw SHA256は`445a954184604c4735e8755302a65d72912b847e35682465a1755eff185f5b10`。
+
+非接触、単腕接触、3個の双腕接触状態について同じmodel/qposをNodeの実WASMへ与え、old/newを交互4pass、各50warmup後600回、計2400標本ずつ測った。描画に必要な14配列が完全一致した。双腕の3状態で旧pose更新中央値は0.0199/0.0176/0.0309ms、新経路は0.0022/0.0022/0.0050msだった。状態間の比較はJIT・端末状態の差を含むため行わない。browserの描画や入力、native workerのRTFを含まない局所値であり、数十µsの短縮を0.742の低RTFの原因確定に用いない。
+
+通常providerの手先速度だけで初期状態から保持姿勢を作る最初の探索は、片側接触を作った後にcubeの横ずれで接触が外れ、25秒までに双腕保持へ到達しなかった。成功した保持検証には含めない。
+
+### AC接続での保存済み双腕保持状態の60秒継続比較
+
+既存実操作の終端状態（SHA256 `576387b808488710fd7803dd543d14001c1198c4cc6be04324f3bfc5eec78635`）を選んだ。名前解決で左右toolとcubeの有効な接触を確認した状態である。元checkoutと元結果は読取りだけとし、別source copyの診断hookにより、同じmodelのintegration stateを開始時に復元し時刻原点だけ0へ戻した。初期配置からのGamepad実操作の再演ではなく、保存状態からの診断的継続である。正式な実験結果や原試行の再現に昇格しない。
+
+旧版・候補のbackendは同一で、復元hookのbytesも同一。両方とも新規の専用Edge、Assist、1440×900 CSS px、DPR1、合成中立Gamepad、固定buildで実行した。AC接続は両試行の前後で確認した。候補の依存は同一lockから隔離checkout内に準備し、ユーザーのnode_modules・固定build・電源設定を変更していない。
+
+| 指標 | 旧80c4784 | 候補09716fd |
+| --- | --- | --- |
+| 実commit | 3601 tick / 60.0167 Sim秒 | 3601 tick / 60.0167 Sim秒 |
+| 終了時の約10秒窓RTF | 0.96961 | 0.96793 |
+| 約10秒窓の中央値 / 最小 | 0.96162 / 0.92807 | 0.97281 / 0.92567 |
+| 終端で保持したadvance p50 / p95 | 9.421 / 14.106 ms | 9.413 / 13.627 ms |
+| renderer主thread CPU積算 | 31.337 s | 28.711 s |
+| running確認後からterminal確認まで | 62.591 s | 62.533 s |
+| 双腕接触が有効だった採取標本 | 125 / 125 | 125 / 125 |
+
+両試行のnative final-state.jsonはbyte一致し、SHA256は`925f12a5d2abb148a917e8cbcbcca1c0c392ad23f5304a9646a359a267ea2b0b`だった。接触標本は約0.5秒間隔であり、全tickでの外部採取を意味しない。各104個の約10秒窓は重複窓であり、独立104反復ではない。経過時間はボタン押下からの総所要時間ではない。renderer CPUはGPU・worker・PC全体を含まない。
+
+一対の比較ではrendererの仕事量削減と描画・保存状態の維持を確認できたが、RTFの有意な改善は認定しない。旧版でも0.742への低下はこの保持状態では再現していない。ユーザーの実測を否定するものではなく、持続接触の幾何状態・押付け指令・到達履歴・通常画面条件などの差が残る。目標0.98への全区間適合と、元症状の解消は未達。
+
+実験のscript・raw・元状態hashは各端末の`xpll-contact-render-20261006`に保持した。候補配布の一括scriptと自然保持系列の追加scriptは実行審査に拒否されたため適用しなかった。候補の準備は共有ディレクトリへのjunctionを作らず、独立checkoutと固定lockによる通常buildを使用した。実装担当の一時cache等の削除も拒否され、122個の残存pathのmanifestを保持している。main・実験checkoutの変更、merge、実機操作は行っていない。
