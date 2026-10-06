@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-03
+last_verified: 2026-10-07
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -59,6 +59,22 @@ GUIと`--run-once`は同じ制御service、worker、TrialRunnerを使用する�
 trialの終端でWeb/backendは終了しない。アプリはoperatorのCtrl+Cで終了し、所有process/jobを閉じる。
 
 ## 起動
+
+引継ぎ時の通常入口はrepository rootから`just run`である。初回は`just init`でGit管理外のroot `.env`を
+生成し、保存先を確認して`just setup`で専用Python 3.12環境と固定buildを準備する。
+justなしの同等入口・全運用キー・コード更新後の手順は[root README](../../README.md)を参照する。
+ランチャー`scripts/workbench_local.py`はuvのroot `.env`明示読込みと正式CLIの組立てだけを所有する。
+通常起動は準備済み環境を検査し、同期・npm・build・lock変更・venv再作成を行わない。
+revisionはGit HEADから自動取得し、未commit差分と未追跡fileのbyte digestを含む場合は
+`HEAD-dirty-<SHA-256>`を使用する。`.env`にrevisionを固定しない。
+build欠落・source／lock／asset不一致は`just build`へ、環境不一致は`just setup`へ誘導する。
+`just dev`だけがdev-serverを明示し、`just doctor`はread-only検査でappを起動しない。
+Webのpackage.json／package-lock／npm管理情報はsetup成功時のdigestと照合する。
+build/dev時の不一致はsetupへ誘導し、古いnode_modulesで新lockを満たすbuildとして公開しない。
+このdigestはローカル準備の整合検査であり、全依存fileの完全性署名ではない。
+固定buildは一時rootで作成・既存検査ownerで照合してから、このランチャーが所有する出力だけを置換する。
+repositoryやresultと重なるbuild先、未所有出力は拒否し、build失敗で旧buildや結果を消さない。
+この入口は未選択待機までで、profile準備、試行開始、hardware操作を追加しない。以下の直接CLIも維持する。
 
 依存がinstall済みのrepository rootからPowerShellで実行する。保存先は永続成果物、
 temporary rootは事前に用意した絶対directoryを指定する。以下の値を実際の絶対pathとsource identityへ置き換える。

@@ -11,5 +11,7 @@ dist/
 build/
 *.egg-info/
 .env.local
+.env
+.venv/
 
 .hypothesis/

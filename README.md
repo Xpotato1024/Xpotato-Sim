@@ -1,25 +1,78 @@
 # Xpotato-Sim
 
-MuJoCoを物理状態の正本とするロボット実験環境です。Workbenchで条件を編集し、初期状態を確認して有限試行を反復できます。以下はWindows PowerShell用です。初回は保存先directoryから始め、clone後はリポジトリrootで実行します。既にclone済みなら最初の2行を省略してください。
+MuJoCoを物理状態の正本とするロボット実験環境です。Workbenchで条件を編集し、初期状態を確認して有限試行を反復できます。以下はrepository rootで実行します。
 
-## 初回セットアップと起動
+## 初回の準備
 
-Python **3.11以上**、uv、Git、Node.js **20.xの20.19以上、または22.12以上（21.x／22.0〜22.11は対象外）**、npm、WebGL2対応ブラウザを用意します。依存versionの正本は`pyproject.toml`／`uv.lock`と`apps/mujoco-viewer/package-lock.json`です。以下のcommandで固定依存と同梱`fast-arm-core`をインストールします。
+ローカルランチャーにはPython **3.12**、uv、Git、Node.js **20.xの20.19以上、または22.12以上（21.x／22.0〜22.11は対象外）**、npm、WebGL2対応ブラウザを用意します。既存の直接CLIのPython対応範囲は`pyproject.toml`を維持します。依存versionの正本は`uv.lock`と`apps/mujoco-viewer/package-lock.json`です。
+
+標準ユーティリティのjustは[公式マニュアルのuv経路](https://just.systems/man/en/packages.html)で導入します。runtime依存ではありません。
+
+```powershell
+uv tool install --python 3.12 rust-just==1.58.0
+uv tool update-shell
+```
+
+新しいterminalを開いて`just --version`を確認します。既にclone済みなら次の最初の2行は省略します。
 
 ```powershell
 git clone https://github.com/Xpotato1024/Xpotato-Sim.git
 Set-Location Xpotato-Sim
-uv sync --frozen --group dev
-npm.cmd --prefix apps/mujoco-viewer ci --no-audit --no-fund
-$workbenchTemp = Join-Path $env:TEMP 'xpotato-workbench'
-$results = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/results'
-New-Item -ItemType Directory -Force -Path $workbenchTemp, $results | Out-Null
-$revision = git rev-parse HEAD
-$env:XPOTATO_VITE_CACHE = Join-Path $workbenchTemp 'vite-cache'
-$viewerBuild = Join-Path $workbenchTemp 'viewer-dist'
-node apps/mujoco-viewer/node_modules/vite/bin/vite.js build --config apps/mujoco-viewer/vite.config.ts --configLoader runner --outDir $viewerBuild
-uv run xpotato-sim workbench --temporary-root $workbenchTemp --result-root $results --software-revision $revision --web-dist $viewerBuild --open-browser
+just init
+# root .envの保存先・port・browser設定を確認してから準備する
+just setup
+just doctor
 ```
+
+`init`はWindows／macOS／Linuxに適した保存先と、一時directory配下のbuild先をroot `.env`へ生成します。既存`.env`は決して上書きしません。設定はGit管理外、追跡するキーと汎用例は[.env.example](.env.example)です。`.env.local`の既存ignoreも維持します。uvがroot `.env`を明示読込みし、親directoryを探索しません。just独自dotenvや手書きparserは使いません。shellに同じキーをexportしている場合はuvの規則に従いshell値が優先します。
+
+| キー | 用途 |
+| --- | --- |
+| `XPOTATO_TEMP_ROOT` | 一時資産・導出cacheのroot |
+| `XPOTATO_RESULT_ROOT` | trial結果の永続保存先 |
+| `XPOTATO_WEB_DIST` | 固定buildの出力先（repository外、resultと分離） |
+| `XPOTATO_OPEN_BROWSER` | 操作browserを開くか、`true`／`false` |
+| `XPOTATO_WEB_PORT`, `XPOTATO_BACKEND_PORT` | 異なるloopback port、1〜65535 |
+| `XPOTATO_PYTHON` | `3.12`、`3.12.x`または既存Python 3.12の絶対実行file |
+
+相対pathはrepository root基準です。空白・日本語はdotenvの引用で扱い、Windows絶対pathはforward slashで記載できます。drive相対pathは拒否します。不明な`XPOTATO_`キーは誤字として拒否し、エラーで設定値・秘密・`.env`全体を表示しません。運用キーを`VITE_`公開変数へ置きません。buildとtempを同じvolumeへ置いてください。未所有directoryはbuild先に流用できません。
+
+`setup`は専用`.venv`を指定Python 3.12・固定lockで同期し、directoryを準備してnpm依存と固定production buildを作ります。appや試行は開始しません。自動Pythonダウンロードは行わないため、指定Pythonを先に用意してください。
+
+## 通常の起動
+
+```powershell
+just run
+```
+
+`run`は既存の専用Pythonだけを使います。同期、ダウンロード、npm、build、lock変更、venvの再作成を行いません。設定／lockと準備済み環境の対応をmarkerと`uv sync --check --locked --offline`で検査します。不一致は`just setup`、欠落・古い・不正な固定buildは`just build`で起動前に止まります。devへの自動fallbackはありません。revisionはGit HEADから取得し、未commit差分・未追跡sourceを含む場合は`HEAD-dirty-<SHA-256>`として記録します。clean SHAと偽りません。
+
+問題を調べるには`just doctor`を使います。日本語で設定、tool、Python／依存、build／source、directory、portを検査し、appは起動しません。just自体は検査対象runtime依存に含めません。
+
+## コード更新後
+
+Viewer sourceだけを更新した場合は`just build`で固定buildを作り直します。Python設定／pyproject／uv.lock、またはWebのpackage.json／package-lock／依存が変わった場合は`just setup`を実行します。buildとdevは準備時のWeb設定・lock・npm管理情報との一致も検査し、古いnode_modulesで新しいlockに対応したbuildを作ったことにしません。その後`just doctor`、`just run`です。buildは新しい出力を一時rootで検証してから所有済みbuildを置換し、失敗時は以前のbuildと結果を保持します。sourceと以前のbuildが不一致なら、保持された旧buildでも起動は拒否します。
+
+## 開発とjustなしの同等入口
+
+```powershell
+just dev
+```
+
+`dev`だけが明示dev-serverを使います。準備済み環境を検査し、自動同期は行いません。WindowsはPowerShell、Unixはshから同じPythonランチャーを呼びます。justfileへ設定値やpathをshell文字列として埋め込みません。
+
+justがなくても、全6操作は同じランチャーで実行できます。次の末尾を`init`／`setup`／`build`／`run`／`dev`／`doctor`へ置き換えます。bootstrapはproject同期を避け、既存Python 3.12だけを選びます。
+
+```powershell
+uv run --no-project --no-config --no-cache --no-env-file --offline --no-python-downloads --python 3.12 python scripts/workbench_local.py run
+# 準備済みの専用Pythonを直接使う場合（Windows）
+.\.venv\Scripts\python.exe -B scripts/workbench_local.py run
+# Unixは .venv/bin/python -B scripts/workbench_local.py run
+```
+
+既存の`xpotato-sim workbench`などの直接CLIも維持します。直接CLIでは保存先・source identityを操作者が明示します。ローカルランチャーはprepare／Start／hardware操作を自動送信しません。
+
+## Workbenchでの操作
 
 Workbenchは未選択・無入力・無physics stepで待機します。`--open-browser`が自動で開いた操作ページで「操作権を取得」し、presetを選択してください。端末に表示されるURLは閲覧専用で、操作資格は印字しません。自動で開いた操作URLの一時資格は他人へ共有しません。資格なしのURLは表示できても試行を操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。
 
@@ -58,6 +111,10 @@ exportしたfileを、次のコマンドが使用する`$env:LOCALAPPDATA/Xpotat
 
 ```powershell
 $condition = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/condition.json'
+$workbenchTemp = Join-Path $env:TEMP 'xpotato-workbench-headless'
+$results = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/results'
+New-Item -ItemType Directory -Force -Path $workbenchTemp, $results | Out-Null
+$revision = git rev-parse HEAD # この直接CLI例は実行sourceに未commit変更がない場合
 uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/trial_gamepad/short-movement.json --run-once --temporary-root $workbenchTemp --result-root $results --software-revision $revision
 ```
 
