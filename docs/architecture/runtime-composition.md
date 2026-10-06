@@ -429,5 +429,14 @@ Robot dynamic providerは既存共同prepare/commitへ実行hookで接続し、�
 `runtime/scene/world.py`は世界条件、`execution/physics.py`は数値条件、`scene/world_composition.py`はnative MJCF投影、
 `schemas/scene_state.py`はpure coordinate layout、`mujoco_backend/state_layout.py`はnative address解決を所有する。
 `scene/dynamics_observation.py`は同じlocked dataからRobot指令/実状態・物体状態・native接触力を取得する。
+Viewer bundleは構築時に宣言digestとresource pathを確定する。metadataの可変containerは取得ごとに生成し、
+宣言を置換したbundleはidentityを再計算する。providerはmodel lifetimeのbody/site名と力学観測の物体・geom役割・
+joint addressをimmutableなplanへ準備し、resetをまたいでもpose、速度、ctrl、gravity、contact、force、timeを
+毎回同じlocked live dataから取得する。力学観測のscene/settings/arm bindingを置換した場合はplanを再構築し、
+snapshotのplanへ別modelを渡した場合は拒否する。physics substepの検査や観測項目は省略しない。
+`ModelExecution.sample()`は同一snapshotを照合してTaskを更新後、metadataを一回だけ合成する。
+snapshotの入力metadataとTask/bindingの可変containerはconsumerから切り離し、前の表示や入力・Task状態を
+consumerの変更で書き換えない。Mappingの検証済みtrigger表示はJSON用containerへコピーし、表示取得のための
+encode/decodeを行わない。wireと保存結果のfield・値・分類は維持する。
 同一frameのGUIは既存publisher/rendererを使い、別のphysics service・device取得・hardware出力を増やさない。
 設計比較と停止意味は[設計記録](../design/adr/2026-09-28-scene-dynamics-ownership.md)を参照する。

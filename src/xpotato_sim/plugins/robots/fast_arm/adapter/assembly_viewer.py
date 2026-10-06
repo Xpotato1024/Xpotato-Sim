@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import re
@@ -100,19 +100,26 @@ class FastArmAssemblyViewerBundle:
     built: FastArmAssemblyModel
     declaration: ViewerRobotDeclaration
     resources: Mapping[str, bytes]
+    _declaration_digest: str = field(init=False, repr=False, compare=False)
+    _declaration_resource_path: str = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        """固定resource集合を所有し、宣言のidentityをbundle構築時に確定する。"""
+        resources = MappingProxyType(dict(self.resources))
+        matches = tuple(path for path in resources if path.endswith("/viewer-profile.json"))
+        if len(matches) != 1:
+            raise RuntimeError("assembly viewer bundle has ambiguous declaration resource")
+        object.__setattr__(self, "resources", resources)
+        object.__setattr__(self, "_declaration_resource_path", matches[0])
+        object.__setattr__(self, "_declaration_digest", viewer_robot_declaration_digest(self.declaration))
 
     @property
     def declaration_digest(self) -> str:
-        return viewer_robot_declaration_digest(self.declaration)
+        return self._declaration_digest
 
     @property
     def declaration_resource_path(self) -> str:
-        matches = tuple(
-            path for path in self.resources if path.endswith("/viewer-profile.json")
-        )
-        if len(matches) != 1:
-            raise RuntimeError("assembly viewer bundle has ambiguous declaration resource")
-        return matches[0]
+        return self._declaration_resource_path
 
     @property
     def declaration_url(self) -> str:

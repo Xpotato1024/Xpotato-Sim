@@ -7,7 +7,7 @@ import numpy as np
 from fast_arm_core.assembly import FastArmAssembly, resolve_assembly_addresses
 from fast_arm_core.assembly_model import FastArmAssemblyModel, build_fast_arm_assembly_model
 from xpotato_sim.motion import LocalEndpointMotionGenerator
-from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state
+from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state, _SnapshotLayout
 from xpotato_sim.schemas import InputIntent, MuJoCoState
 from xpotato_sim.schemas.command import JointPositionCommand
 from xpotato_sim.schemas.coordinated import CoordinatedSnapshot, EndpointObservation, EndpointVelocity, number
@@ -56,6 +56,7 @@ class FastArmAssemblyMotionProvider:
         self.assembly = assembly
         self.model = mujoco.MjModel.from_xml_string(self.built.xml.decode(), dict(self.built.assets))
         self.addresses = resolve_assembly_addresses(self.model, assembly)
+        self._snapshot_layout = _SnapshotLayout.prepare(self.model)
         self.endpoint_ids = assembly.arm_ids
         self.limits = parse_fast_arm_joint_limit_config(default_fast_arm_joint_limits_path())
         self._data = mujoco.MjData(self.model)
@@ -107,7 +108,8 @@ class FastArmAssemblyMotionProvider:
             raise ValueError("invalid sample frame/metadata")
         with self._lock:
             geometry = None if self._scene_observer is None else self._scene_observer.observe(self._data,frame_index=frame_index)
-            state = _read_synchronized_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
+            state = _read_synchronized_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata,
+                layout=self._snapshot_layout)
             return ModelStateSample(self.snapshot(),state,
                 tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry,
                 self._dynamics_observation(frame_index))

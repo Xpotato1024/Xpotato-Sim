@@ -1,5 +1,5 @@
 """同じmodel/dataから全物体の幾何接触を観測する。力の推定は行わない。"""
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from .objects import number, vector, identifier
 import re
 
@@ -83,4 +83,10 @@ class SceneGeometryObservation:
         return {"schema_version":"scene-contact-geometry/v2" if self.dynamic else "scene-contact-geometry/v1", "scene_digest":self.scene_digest,
             "model_sha256":self.model_sha256,"frame_index":self.frame_index,"simulation_time_s":self.simulation_time_s,
             "status":"observed", "scope":"tool_object_geometry", "force_status":"separate_dynamics_evidence" if self.dynamic else "not_evaluated_kinematic",
-            "force_n":None, "objects":[asdict(o) for o in self.objects],"contacts":[asdict(c) for c in self.contacts]}
+            "force_n":None, "objects":[{"instance_id":o.instance_id,"position_m":o.position_m,
+                "orientation_wxyz":o.orientation_wxyz} for o in self.objects],
+            "contacts":[{"endpoint_id":c.endpoint_id,"object_id":c.object_id,
+                "tool_geom_name":c.tool_geom_name,"object_geom_name":c.object_geom_name,
+                "point_world_m":c.point_world_m,"normal_world":c.normal_world,
+                "distance_m":c.distance_m,"penetration_m":c.penetration_m,"relation":c.relation}
+                for c in self.contacts]}

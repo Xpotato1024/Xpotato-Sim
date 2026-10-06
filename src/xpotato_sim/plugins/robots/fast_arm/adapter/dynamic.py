@@ -4,6 +4,7 @@ import numpy as np
 from xpotato_sim.runtime.execution.physics import DynamicsSettings, DYNAMIC_EXECUTION
 from .coordinated import FastArmAssemblyMotionProvider
 from xpotato_sim.mujoco_backend.state_layout import resolve_scene_state_layout
+from xpotato_sim.runtime.scene.dynamics_observation import _DynamicsObservationPlan, observe_dynamics
 
 
 class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
@@ -18,7 +19,7 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
         self.state_layout=resolve_scene_state_layout(self.model,self.assembly.joint_names,
             tuple("object__"+o.instance_id+"__free" for o in object_scene.manifest.objects if o.motion_type=="dynamic"))
         # frozen scene/settingsのidentityだけを固定し、物理値は毎回live dataから読む。
-        self._observation_identity = (object_scene.manifest.digest, settings.digest)
+        self._observation_plan = _DynamicsObservationPlan.prepare(self.model, object_scene, settings, self.addresses)
         if abs(float(self.model.opt.timestep)-settings.physics_dt_s)>1e-15:
             raise ValueError("compiled timestep differs from execution configuration")
 
@@ -39,9 +40,11 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
                 data.ctrl[aid]=target
 
     def _dynamics_observation(self,frame_index):
-        from xpotato_sim.runtime.scene.dynamics_observation import observe_dynamics
+        scene = self._scene_observer.scene
+        if not self._observation_plan.matches(self.model, scene, self.settings, self.addresses):
+            self._observation_plan = _DynamicsObservationPlan.prepare(self.model, scene, self.settings, self.addresses)
         return observe_dynamics(self.model,self._data,scene=self._scene_observer.scene,model_sha256=self.built.model_sha256,
-            settings=self.settings,arms=self.addresses,frame_index=frame_index, identity=self._observation_identity)
+            settings=self.settings,arms=self.addresses,frame_index=frame_index, plan=self._observation_plan)
 
     def _planning_state(self,base):
         """保持中のcommand targetをseedとする。中立でmeasured poseへ追従し続けて沈下させない。"""
