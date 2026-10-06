@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-07-28
+last_verified: 2026-10-07
 canonical_for:
   - installable unified CLI
 related:
@@ -11,6 +11,19 @@ related:
 ---
 
 # 統一 CLI
+
+## 引継ぎ用ローカルランチャー
+
+repository rootの`just init/setup/build/run/dev/doctor`は`scripts/workbench_local.py`への薄い入口である。
+justは標準ユーティリティでありruntime依存ではない。justなしでも既存Python 3.12から同じscriptを呼べる。
+実設定はGit管理外のroot `.env`に置き、uvの`--env-file`でこのfileだけを明示読込みする。
+キーとOS別初回・通常・更新後・開発・直接Pythonの手順は[root README](../../README.md)を参照する。
+`setup`が専用環境と固定buildを準備し、`build`は固定buildだけを更新する。
+Web依存の準備時にはpackage.json、package-lockとnpmのinstalled lockを対応付け、build/dev/doctorで照合する。
+sourceだけの変更はbuild、依存定義・lock変更や準備不一致はsetupとする。
+`run`は既存Python／設定／lock／依存／固定buildを事前検査し、同期・ダウンロード・npm・buildを行わない。
+`dev`だけがdev-serverを明示する。`doctor`は検査のみでappを開始しない。
+既存正式CLIを組み立てるだけで、physics、入力鮮度、試行、保存formatのownerは変更しない。
 
 ## 待機型Workbench
 

@@ -87,3 +87,10 @@ Issue #436当時の分類と、Issue #416の合成log demo分類は変更しな�
 | `measure_pinch_checkpoint.py` | #610反対面接触のstate/force parity | developer diagnostic | 同じ100 mm cube接触checkpointの有限比較。実機・把持成功の証明ではない |
 | `pinch-checkpoint.json` | 上記pinch測定script | diagnostic fixture | 同じqpos/ctrlの入力条件を固定する。実測geometryの正本ではない |
 | `measure_workbench_latency.py` | #610の固定ブラウザ→実MuJoCo→CPU描画提出 | developer diagnostic | 今回専用Chromiumのendpointだけを使い、既存ブラウザを操作・終了しない |
+
+## 2026-10-07: 引継ぎ用ローカル起動入口
+
+`workbench_local.py`（`scripts/workbench_local.py`）はroot `.env`と専用環境・固定buildの準備を所有し、
+justと直接Pythonで同じ正式CLIを組み立てる。旧退役launcherの再導入ではない。
+通常起動では同期・npm・buildを行わず、physics、入力、試行、保存formatのownerを追加しない。
+現行操作手順は[root README](../../../README.md)と[統一CLI](../../operations/unified-cli.md)へ委譲する。

@@ -32,6 +32,12 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --frozen --group dev
+      - name: Install local workflow utility
+        if: matrix.shard == 'general'
+        run: |
+          uv tool install --python 3.12 rust-just==1.58.0
+          echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
+          "$(uv tool dir --bin)/just" --version
       - name: Validate changed Markdown
         if: matrix.shard == 'general' && github.event_name == 'pull_request'
         env:
@@ -44,6 +50,7 @@ jobs:
         if: matrix.shard == 'general'
         run: |
           uv run mypy
+          uv run mypy scripts/workbench_local.py
           uv run ruff check src tests scripts .github
       - name: Run tests
         shell: bash

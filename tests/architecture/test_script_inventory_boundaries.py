@@ -9,6 +9,7 @@ INVENTORY = ROOT / "docs/reports/implementation/script-inventory-and-retirement.
 RETIRED_LAUNCHER = "run_mujoco_viewer_dev.py"
 TEXT_SUFFIXES = {".md", ".py", ".ps1", ".yml", ".yaml", ".toml", ".txt"}
 EXPECTED_SCRIPTS = {
+    "scripts/workbench_local.py",
     "scripts/diagnostics/fast_arm/measure_pinch_checkpoint.py",
     "scripts/diagnostics/fast_arm/measure_simulation_hot_path.py",
     "scripts/diagnostics/fast_arm/pinch-checkpoint.json",
@@ -43,15 +44,15 @@ HISTORICAL_SCRIPT_NAMES = {
 }
 
 
-def _tracked_scripts() -> set[str]:
+def _current_scripts() -> set[str]:
     result = subprocess.run(
-        ["git", "ls-files", "scripts"], cwd=ROOT, check=True, capture_output=True, text=True
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "scripts"], cwd=ROOT, check=True, capture_output=True, text=True
     )
     return set(result.stdout.splitlines()) - {"scripts/README.md"}
 
 
 def _current_consumer_files() -> list[Path]:
-    files = [ROOT / "README.md", ROOT / "AGENTS.md"]
+    files = [ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "justfile"]
     for directory in (ROOT / ".github", ROOT / "apps", ROOT / "tests", ROOT / "scripts"):
         files.extend(
             path for path in directory.rglob("*") if path.is_file() and path.suffix in TEXT_SUFFIXES
@@ -67,10 +68,10 @@ def _current_consumer_files() -> list[Path]:
 
 
 def test_script_inventory_covers_the_exact_current_paths() -> None:
-    assert _tracked_scripts() == EXPECTED_SCRIPTS
+    assert _current_scripts() == EXPECTED_SCRIPTS
     assert {
         path.name for path in (ROOT / "scripts").iterdir() if path.is_file()
-    } == {"README.md"}
+    } == {"README.md", "workbench_local.py"}
     assert not any(path.name == ".gitkeep" for path in (ROOT / "scripts").rglob("*"))
     assert not any(
         path.name.lower() == "readme.md" and not path.read_text(encoding="utf-8").strip()
@@ -99,6 +100,8 @@ def test_old_root_script_paths_are_not_current_consumers() -> None:
             continue
         text = path.read_text(encoding="utf-8")
         for relative in EXPECTED_SCRIPTS:
+            if relative == "scripts/workbench_local.py":
+                continue
             name = Path(relative).name
             if f"scripts/{name}" in text or f"scripts\\{name}" in text:
                 consumers.append(f"{path.relative_to(ROOT)}: scripts/{name}")
