@@ -321,3 +321,59 @@ XY/Zの親子CPU概算はそれぞれ約11%/12%増加した。startupはsender t
 次に必要なのは、利用者端末で片腕/両腕の同じ入力系列を使い、制御計算のCPU実行と実行待ちを区別する計測である。
 別機械の短期平均からGIL、MuJoCo、OpenBLAS、CPU機種のいずれかを原因と断定しない。
 raw、再現script、候補patch、reviewはtask evidence `xpll-bimanual-20261005`に保持する。
+
+
+## 2026-10-06: 実験端末での観測処理再構成と受入未達
+
+実験端末MIYU-LAPTOP-1（i7-1160G7、Python3.12.12、NumPy2.4.6、MuJoCo3.9.0）で追加測定した。
+基準はeceeac1（製品c825976と同一）、改修製品は4fe6d0a。元checkout・結果・固定build・OS電源設定・依存を
+変更せず、専用source copyと新規profileのEdge、所有loopback service/workerを使った。
+条件raw SHA256は445a954184604c4735e8755302a65d72912b847e35682465a1755eff185f5b10で従来と同一。
+control 1/60秒、physics 1/600秒、solver/gain、Mapping、Task、入力age0.2秒、各substep検査は不変。
+
+### 実装の境界
+
+固定Viewer宣言のdigest/resourceとnative body/site/geom/joint bindingをmodel寿命のimmutable planとして準備する。
+位置・速度・ctrl・contact・force・gravity・timeは同じlocked native dataから読み、前のtickの値をcacheしない。
+ModelExecutionの重複metadata生成、geometryの再帰asdict、検証済み表示のJSON encode/decodeを減らし、
+外へ返すnested containerは入力・Task・内部表示から分離した。MuJoCoStateに存在しないpost-init検査を
+仮定したschemaの置換は行っていない。詳細の正本はruntime-compositionの観測節。
+
+独立レビューで負geom IDの末尾index誤結合P1と、返却intentによる内部trigger表示の改変P2が見つかった。
+4fe6d0aで両IDの範囲を名前解決と同じ意味で検査し、単腕intentと内部presentationの所有を分離した。
+追加8caseは補修前8failed、補修後の関連183caseは成功。補完独立reviewで両findingの静的閉鎖を確認した。
+
+### 固定buildを含む両腕の交互比較
+
+同じ既存browser harnessから測定対象だけをAssist/両腕1試行へ固定し、35回×300msの同じXY波形を使った。
+source取得・入力・描画の仕組みと期限は変更していない。4fe6d0aの候補と基準をbefore/after交互に2反復。
+各runは開始、running継続、明示STOP、保存後terminalを確認して終了した。表はbackend末尾約10秒窓である。
+
+| 反復 | before RTF | after RTF | before advance p50/p95 ms | after advance p50/p95 ms |
+| --- | --- | --- | --- | --- |
+| 1 | 0.68164 | 0.77745 | 17.287 / 31.275 | 17.886 / 22.348 |
+| 2 | 0.71987 | 0.77088 | 19.525 / 23.987 | 18.054 / 22.169 |
+
+両反復のRTFとp95は改善したが、中央値は反復1では短縮していない。少数の短期合成比較であり、
+全状態の一様な高速化、PC全体のCPU削減、60秒試行の等速性、元Gamepad操作・実機・参加者受入は認定しない。
+目標RTF0.98を満たさず、実験採用の未達は維持する。とくにCPU待ちとbrowserを含む競合は残る。
+
+先行8f9b66e候補の4条件連続runはSingle左/両RTF0.867/0.786、Assist左/両0.785/0.751で完走した。
+同手順の基準runでは保存child起動期限超過を初期Startと別runの4回目Startで観測した。
+後者の完了した3区間だけは部分結果として保持し、4条件完走とは呼ばない。この開始失敗は今回未修正。
+実行threadの切替間隔を新規診断workerだけ1msにした別試験も行ったが、効果が一貫せずAssist両腕は
+RTF0.591だったため採用しない。製品やユーザー環境のthread/OS設定にこの試行を残していない。
+
+### 正しさの検証と証拠
+
+LLM-01で最終製品の902観測（中立341、両腕341、独立pinch220）のqpos/qvel/ctrl/time、Task、
+全payload/metadata、接触・反力・integration配列が基準と一致した。epoch UUIDだけを正規化した。
+不正入力12条件の拒否内容・停止状態も一致。laptopの別のnative比較でも中立・左右単腕・両腕の
+XY/Z全7系列、各181状態のqpos/qvel/ctrl/time/入力endpointがbyte一致した。
+単体の処理時間は端末内でも開始直後と持続実行で大きく変わるため、一つの高速区間だけを採らない。
+
+primaryの最終対象検証は461件および193件、独立review補修後の対象183件はいずれも成功した。
+集合の重複を合算した件数を全件成功として示さない。最終全件CIはPRでcommitに対応付ける。
+rawとscriptは両端末のtask evidence xpll-observation-20261006へ保存し、laptopのfinal-laptop-comparison.jsonに
+source/script/conditionと成功・部分失敗の対応を残した。動作中の既存実験appへ入力していない。
+検証scratchの削除は実行審査に拒否されたため残存manifestを保持し、迂回削除はしない。
