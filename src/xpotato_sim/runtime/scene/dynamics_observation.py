@@ -64,7 +64,11 @@ def observe_dynamics(model,data,*,scene,model_sha256,settings,arms,frame_index,i
     contacts=[]
     for i in range(data.ncon):
         c=data.contact[i]
-        a, b = plan.geoms[int(c.geom1)], plan.geoms[int(c.geom2)]
+        ga, gb = int(c.geom1), int(c.geom2)
+        # flex等の非rigid contactは負ID。旧名前解決と同じく未対応の役割は観測対象外。
+        if not (0 <= ga < len(plan.geoms) and 0 <= gb < len(plan.geoms)):
+            continue
+        a, b = plan.geoms[ga], plan.geoms[gb]
         if a is None or b is None:
             continue
         g=read_contact_geometry(c)

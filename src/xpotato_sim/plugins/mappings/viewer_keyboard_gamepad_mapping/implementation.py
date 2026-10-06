@@ -493,7 +493,10 @@ class ViewerKeyboardGamepadMappingStrategy:
             triggers,
             reason,
         )
-        self._latest_trigger_presentation = presentation
+        # 返却intentと内部表示のcontainerを共有しない。検証済みの値だけを所有する。
+        self._latest_trigger_presentation = {
+            key: _as_json_wire_value(value) for key, value in presentation.items()
+        }
         metadata = dict(frame.metadata)
         metadata.update(intent.to_metadata())
         metadata.update({

@@ -150,3 +150,36 @@ def test_dynamic_observation_keeps_all_emitted_numeric_values_finite(field):
         values[0] = float("nan")
     with pytest.raises(ValueError, match="nonfinite"):
         provider._dynamics_observation(0)
+
+
+@pytest.mark.parametrize("field", ["geom1", "geom2"])
+@pytest.mark.parametrize("bad_id", [-1, 100000])
+def test_review_invalid_contact_geom_ids_are_not_other_rigid_objects(field, bad_id):
+    profile = load_launch_profile("dynamic-cube-drop")
+    provider = profile.build_model().provider
+    commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
+    for _ in range(60):
+        provider.commit(provider.prepare(commands, profile.dt_s))
+    before = provider._dynamics_observation(0)
+    assert before["contacts"] and len(before["contacts"]) == provider._data.ncon
+    setattr(provider._data.contact[0], field, bad_id)
+    after = provider._dynamics_observation(0)
+    assert after["contacts"] == before["contacts"][1:]
+    assert after["objects"] == before["objects"] and after["joints"] == before["joints"]
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), .91])
+def test_review_mapped_trigger_intent_cannot_mutate_internal_presentation(value):
+    from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import (
+        PLUGIN, map_frame,
+    )
+    strategy = PLUGIN.create_session_strategy()
+    map_frame(strategy, sequence=0)
+    intent = map_frame(strategy, triggers=(.55, 0.), sequence=1)
+    expected = strategy.latest_trigger_presentation
+    intent.metadata["gamepad_trigger_control_v1"]["sides"]["left"]["trigger_value"] = value
+    actual = strategy.latest_trigger_presentation
+    assert actual == expected
+    json.dumps(actual, allow_nan=False)
+    actual["sides"]["right"]["trigger_value"] = value
+    assert strategy.latest_trigger_presentation == expected
