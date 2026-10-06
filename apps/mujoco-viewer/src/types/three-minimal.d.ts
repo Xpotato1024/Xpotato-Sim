@@ -273,11 +273,6 @@ declare module "three" {
   }
 }
 
-declare module "@mujoco/mujoco" {
-  const loadMujoco: (options: { locateFile: (file: string) => string }) => Promise<any>;
-  export default loadMujoco;
-}
-
 declare module "@mujoco/mujoco/mujoco.wasm?url" {
   const url: string;
   export default url;

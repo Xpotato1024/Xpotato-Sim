@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-28
+last_verified: 2026-10-03
 canonical_for:
   - runtime composition root
 related:
@@ -29,6 +29,7 @@ related:
 | `contact/` | versioned contact manifest、backend-owned MuJoCo scene composition / reset、MuJoCo measured contact evidence、Task contractの共有型 |
 | `experiment/` | 6軸のexperiment plugin contract、registry、readiness composition、software-only trial lifecycle |
 | `evaluation/` | FK / endpoint metric、progress、evaluation manifest / freeze readiness |
+| `application/` | Workbenchの制御要求、通信・停止監督、専用worker、headless client、process memory診断 |
 | `runners/` | operational dry-run / smoke / publisherとexperimentのthin entry point |
 
 `runtime.__init__`は`RuntimeConfig`と既存catalog resolver 5件だけをlazy exportする。
@@ -46,8 +47,14 @@ provider identity、plugin identityはこの移動で変更しない。
 既存catalogとlaunch-profile decoderへ接続し、任意pathやcodeを含むGUI専用設定engineを作らない。
 descriptorで公開する型・値域は同じ入口の検証に使い、scene/Task/physicsの追加検証は既存ownerへ渡す。
 
-`runners/workbench.py`は待機アプリの制御/期限監督と専用workerへの接続を所有し、workerは同じTrialRunnerを呼ぶ。
-`workbench_web.py`は明示buildのlocal配信、`workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
+`application/workbench_control.py`は制御要求、`workbench_service.py`は通信/期限監督、
+`workbench_worker.py`は同じTrialRunnerへの接続、`workbench_client.py`はheadless制御を所有する。
+`runners/workbench.py`はCLIとworker/web起動だけを所有し、内部helperを再exportしない。
+`runners/workbench_web.py`は明示buildのlocal配信、`application/workbench_metrics.py`は現在processのRSS/private bytesだけを所有する。
+`application/workbench_projection.py`はprivate socketのreader、STOP slot、入力/制御FIFO、最新表示slotとsenderを所有する。
+これらのthreadはMuJoCo/Mapping/Taskを変更しない。終端記録processは不変stateの検証済みstagingだけを所有し、
+期限内の結果採用と完了marker公開はTrialRunnerのExecution ownerが行い、期限超過時は保存processを回収する。
+固定buildがGUI起動の既定で、source devは明示optionだけとする。
 phase、Task判定、記録形式、physicsをこれらに再実装しない。詳細は[Workbench契約](../contracts/workbench.md)を参照する。
 
 #406で成立したexperiment lifecycle / runnerと、#407で追加したexecution trace / motion-log recorderのownerは
@@ -422,5 +429,14 @@ Robot dynamic providerは既存共同prepare/commitへ実行hookで接続し、�
 `runtime/scene/world.py`は世界条件、`execution/physics.py`は数値条件、`scene/world_composition.py`はnative MJCF投影、
 `schemas/scene_state.py`はpure coordinate layout、`mujoco_backend/state_layout.py`はnative address解決を所有する。
 `scene/dynamics_observation.py`は同じlocked dataからRobot指令/実状態・物体状態・native接触力を取得する。
+Viewer bundleは構築時に宣言digestとresource pathを確定する。metadataの可変containerは取得ごとに生成し、
+宣言を置換したbundleはidentityを再計算する。providerはmodel lifetimeのbody/site名と力学観測の物体・geom役割・
+joint addressをimmutableなplanへ準備し、resetをまたいでもpose、速度、ctrl、gravity、contact、force、timeを
+毎回同じlocked live dataから取得する。力学観測のscene/settings/arm bindingを置換した場合はplanを再構築し、
+snapshotのplanへ別modelを渡した場合は拒否する。physics substepの検査や観測項目は省略しない。
+`ModelExecution.sample()`は同一snapshotを照合してTaskを更新後、metadataを一回だけ合成する。
+snapshotの入力metadataとTask/bindingの可変containerはconsumerから切り離し、前の表示や入力・Task状態を
+consumerの変更で書き換えない。Mappingの検証済みtrigger表示はJSON用containerへコピーし、表示取得のための
+encode/decodeを行わない。wireと保存結果のfield・値・分類は維持する。
 同一frameのGUIは既存publisher/rendererを使い、別のphysics service・device取得・hardware出力を増やさない。
 設計比較と停止意味は[設計記録](../design/adr/2026-09-28-scene-dynamics-ownership.md)を参照する。

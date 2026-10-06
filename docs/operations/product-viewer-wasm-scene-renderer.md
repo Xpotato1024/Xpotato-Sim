@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-21
+last_verified: 2026-10-06
 canonical_for:
   - product viewer wasm scene renderer operation
 related:
@@ -19,7 +19,7 @@ renderer、tests、fixture、operator pathはproduct viewer側に一本化する
 
 - Python native MuJoCo backend / IK / FK / runtime が source of truth
 - Browser WASM MuJoCo は visual renderer only
-- browser 側で IK / FK / qpos recompute はしない
+- browser側で独自IK / FKによる制御やqpos再計算はしない。受信qposからの描画変換は公式MuJoCo APIが所有する
 - browser 側で qpos correction はしない
 - qpos は runtime payload を優先し、未接続時はpluginが宣言したMuJoCo named home keyframeをstartup poseとして使う
 
@@ -72,6 +72,34 @@ connection summaryはcurrent `connectionStatus`を唯一の状態源とし、過
 - compiled MuJoCo model default qpos: historical fallbackではなく、startup sourceには使わない
 - fixture qpos: default startup path では使わない
 - runtime qpos: WebSocket payload が来たら `data.qpos` に適用する
+
+## 描画専用の姿勢反映
+
+model準備時のnamed home、未接続表示、fixture / offline payload、Workbench初期frame、
+live frameはすべて`applyMujocoDisplayPose`へ渡す。検証済みqposを`data.qpos`へ写し、
+installed `@mujoco/mujoco`のsingle WASMにある`mj_fwdKinematics`でbody / site / geom、
+camera / light、flex / tendonのnative値を更新してから`mjv_updateScene`を呼ぶ。
+model切替時は従来どおりmodel / data / scene / optionを再構築する。
+
+準備時・毎frameとも`mj_forward`、衝突判定、慣性行列の構築、制約構築、solver、sensor評価、
+physics stepを行わない。time、qvel、ctrlを進めず、backendの積分・反力計算は変更しない。
+APIの失敗はcallerへ伝え、full forwardへfallbackしない。Three.jsはnative sceneの変換を写す。
+
+`createMujocoDisplayOption`は接触点 / 接触力 / 分離力、制約、island、外力、actuator / activation、
+rangefinderのWASM診断描画とcontact frameを無効化する。これらは描画経路では未評価であり、
+古いcontact / force / sensor値を現在の観測として表示しない。通常geom、mesh、site、tendon、
+flex / skinの既定表示は保持する。接触・力の製品表示は同一snapshotのbackend projectionを
+既存overlayへ渡し、欠測・不正・stale時の消去規則を維持する。
+
+`mujocoDisplayPose.test.ts`は実installed WASMで旧full forwardと描画経路を比較する。
+全body / site / geomの位置・回転、inertial変換 / subtree COM、camera / light、tendon長とwrap、
+flex頂点の数値とbyte、`mjvScene`の描画geom（type / identity / size / material / color / transform）、
+Three.jsへ渡すmatrixとflex描画bufferを検査する。非接触、片側 / 両側接触、反復保持・戻し、
+自由物体の移動・回転、native Robot home / sweep fixture全pose、公開fixture modelへの切替を含む。
+候補の非積分とphysics timer未実行、古い診断値を混ぜないことは別に検査する。
+関係しないforce / acceleration / sensor等の全field一致は要求しない。
+これは描画値の一致の証拠であり、実操作RTFや端末上の性能改善の証拠ではない。
+APIの責務は[MuJoCo 3.9.0の公式実装](https://github.com/google-deepmind/mujoco/blob/3.9.0/src/engine/engine_forward.c)に対応する。
 
 ## viewer declaration startup
 

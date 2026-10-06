@@ -220,8 +220,8 @@ transport             -> runtime
 同じ変更で更新する。
 
 `apps/mujoco-viewer/src`は`tests/architecture/test_layer_import_boundaries.py`で
-検査する。`wasm-scene`だけは既存guardがMuJoCo WASMを許可し、受信qposの`mj_forward`と
-scene描画に限定する。独立した`mj_step`によるphysics進行、入力からの独立IK/FK制御、backend
+検査する。`wasm-scene`だけはMuJoCo WASMを許可し、初期・受信qposの`mj_fwdKinematics`と
+scene描画に限定する。`mj_forward`による衝突・制約・反力の再評価、独立した`mj_step`によるphysics進行、入力からの独立IK/FK制御、backend
 stateの第二SoT、Rapierは許可しない。他のviewer領域にこの例外を広げない。
 
 ## Input Source public compatibility retirement (#474)
@@ -428,3 +428,13 @@ Viewerはmodel digest、関節名・順序・次元を検査して受信stateを
 新geometry診断から共有する。raw force、Task、Viewerの処理は共有primitiveへ逆流させない。
 Task/Evaluationの境界検査は曖昧な`geom`部分文字列ではなくAST上のnative geom属性/API参照を拒否し、
 geometryというDTO名だけで誤検出しない。Robot固有名のgeneric layer禁止は維持する。
+
+
+## Workbench application owner
+
+`runtime/application/`はWorkbench固有の制御、通信・停止監督、専用worker、headless client、
+process memory診断を所有する。generic trial lifecycleとphysicsは既存`experiment/`、`execution/`へ委譲する。
+`runtime/runners/workbench.py`はCLIとworker/web起動を所有し、内部class/helperの互換再exportを持たない。
+serviceから`runners/application_process.py`のprocess所有primitiveを参照する既存境界は維持する。
+pluginとgeneric runtime owner（applicationとrunners以外）からapplicationへのimportは禁止する。
+`tests/architecture/test_runtime_ownership_boundaries.py`がowner配置、旧内部consumer、逆依存をASTで検査する。

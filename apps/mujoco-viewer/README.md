@@ -9,7 +9,11 @@ rendering-only applicationである。最初の起動手順は
 parameterと物体定義/world配置のフォームを提供し、検証済み条件のclone/diff/export/importを共通resolverへ渡す。
 次条件を編集しても適用中のworldは変わらず、native build・初期貫通検査後だけpreviewする。
 制御状態とphysicsはbackendの共通TrialRunnerが所有し、browserは描画準備ACKと既存Gamepad入力だけを送る。
-dev/buildの明示起動、再接続時のclaim、failureからの復旧、resource counterの範囲は
+Workbenchの実験起動はsource/lock/asset byteを照合した固定production buildが既定である。
+buildは試行前に行い、古いdistや自動dev fallbackは使わない。開発だけ`--dev-server`を明示する。
+sceneは直接rendererへ渡し、60Hz実Gamepad取得/送信からReact root updateを外す。
+関節/Input計器は10Hz、詳細は展開中だけ4Hzで、Operate中はsetup editorを生成しない。
+起動、再接続時のclaim、failureからの復旧、resource counterの範囲は
 [Workbench契約](../../docs/contracts/workbench.md)を参照する。
 
 Gamepadのvisible/hidden取得寿命は従来ViewerとWorkbenchが共有する。

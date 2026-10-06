@@ -25,7 +25,9 @@ def read_contact_wrench(model, data, contact_index, frame_world):
         raise ValueError("invalid contact wrench components")
     local=tuple(float(v) for v in raw)
     frame=np.asarray(frame_world,dtype=float).reshape(3,3)
-    if not np.allclose(frame@frame.T,np.eye(3),rtol=0,atol=1e-8) or np.linalg.det(frame)<0:
+    # rtol=0の固定3x3検査では汎用iscloseのbroadcast/特殊値処理を避ける。
+    # <=の全要素照合でNaN/Infも拒否し、許容差と右手系の検査を維持する。
+    if not (np.abs(frame@frame.T-np.eye(3)) <= 1e-8).all() or np.linalg.det(frame)<0:
         raise ValueError("invalid orthonormal contact frame")
     force=frame.T@np.asarray(local[:3]); torque=frame.T@np.asarray(local[3:])
     if not all(isfinite(v) for v in (*local,*force,*torque)):

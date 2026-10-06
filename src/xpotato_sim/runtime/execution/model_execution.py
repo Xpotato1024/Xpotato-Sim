@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from copy import deepcopy
 import json
 
 from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
@@ -9,7 +10,7 @@ from xpotato_sim.runtime.composition.coordinated_input import CoordinatedInputRu
 from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.scene.task import GeometryTaskObservation
-from xpotato_sim.schemas import parse_viewer_control_message_json
+from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_message_json
 
 
 class ModelExecution:
@@ -64,6 +65,18 @@ class ModelExecution:
             return
         try:
             parsed = parse_viewer_control_message_json(message)
+        except Exception as exc:
+            self.runtime.runtime.fail(f"source_ingress_failed:{type(exc).__name__}:{exc}")
+            raise
+        self._ingest_parsed(parsed)
+
+    def _ingest_parsed(self, parsed: ViewerControlMessage):
+        """wire検証を終えたownerから同じtyped sampleを受け取り、再decodeしない。"""
+        if self.runtime.runtime.state in {"faulted", "stopped"}:
+            return
+        try:
+            if type(parsed) is not ViewerControlMessage:
+                raise TypeError("validated ViewerControlMessage required")
             if (parsed.source_kind != "gamepad" or parsed.provider_id != "gamepad/v1"
                     or parsed.provider_schema != "viewer_gamepad_sample/v1"):
                 raise ValueError("coordinated viewer requires explicit gamepad/v1 input")
@@ -103,9 +116,10 @@ class ModelExecution:
     def sample(self, frame_index, *, advance_task=False, budget_exhausted=False, stopped_reason=None):
         """同一model/dataの描画とTask観測を照合する。表示のみではTaskを進めない。"""
         bundle = self.instance.viewer
-        sample = self.instance.provider.sample(frame_index=frame_index, metadata=self._metadata())
+        metadata = self._metadata()
+        sample = self.instance.provider.sample(frame_index=frame_index, metadata=metadata)
         snapshot, state, addresses = sample.robot, sample.state, sample.robot_qpos_addresses
-        if (snapshot.model_sha256 != bundle.metadata["model_sha256"]
+        if (snapshot.model_sha256 != metadata["model_sha256"]
                 or snapshot.joint_names != bundle.declaration.joint_names
                 or len(snapshot.joint_positions_rad) != bundle.declaration.qpos_dimension
                 or len(addresses) != len(snapshot.joint_positions_rad)
@@ -116,7 +130,9 @@ class ModelExecution:
                 or state.time_s != snapshot.simulation_time_s):
             raise ValueError("backend/viewer snapshot mismatch")
         if sample.dynamics is not None:
-            state = replace(state, metadata={**state.metadata, "scene_dynamics_v1": sample.dynamics})
+            metadata = {**state.metadata, "scene_dynamics_v1": sample.dynamics}
+        else:
+            metadata = dict(state.metadata)
         if self.task_binding is not None:
             geometry = sample.geometry
             if (geometry is None or geometry.model_sha256 != snapshot.model_sha256
@@ -130,18 +146,17 @@ class ModelExecution:
                 self.task_view = dict(transition.evidence.require(self.task_event).value)
                 if transition.classification is not TaskTerminalClassification.RUNNING:
                     self.stop()
-                    state = replace(state, metadata={**state.metadata,
+                    metadata.update({
                         "motion_status": self.runtime.runtime.state, "source_active": False,
-                        "coordinated_runtime_v1": {**state.metadata["coordinated_runtime_v1"],
+                        "coordinated_runtime_v1": {**metadata["coordinated_runtime_v1"],
                             "state": self.runtime.runtime.state, "reason": self.task_view["reason"]},
                         "motion_rejection_reason": self.task_view["reason"]})
-            metadata = {**state.metadata, "scene_contact_geometry_v1": geometry.to_document(),
-                "scene_contact_binding_v1": self.scene_binding}
+            metadata.update({"scene_contact_geometry_v1": geometry.to_document(),
+                "scene_contact_binding_v1": deepcopy(self.scene_binding)})
             if self.task_view is not None:
-                metadata["scene_contact_task_v1"] = {**self.task_view,
+                metadata["scene_contact_task_v1"] = {**deepcopy(self.task_view),
                     "presentation_frame_index": frame_index, "presentation_time_s": state.time_s}
-            state = replace(state, metadata=metadata)
-        return state
+        return replace(state, metadata=metadata)
 
     def stop(self):
         """未commit候補を無効化する。Task結果の判定は変更しない。"""

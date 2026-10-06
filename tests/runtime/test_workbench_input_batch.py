@@ -5,6 +5,7 @@ from dataclasses import asdict
 import pytest
 
 from test_trial_runner import prepared, start, message
+from test_workbench_worker import owner_projection
 from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_triggers import message as trigger_message
 
 
@@ -199,9 +200,9 @@ def test_deferred_tick_still_enforces_wall_budget(tmp_path):
 
 @pytest.mark.parametrize("stop_queued", [False, True, "close"])
 @pytest.mark.parametrize("backlog_count", [15, 65])
-def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatch, stop_queued, backlog_count):
+def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatch, stop_queued, backlog_count, owner_projection):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     now = [10.]
     events = []
     commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "fast-arm-bimanual-gamepad"},
@@ -250,7 +251,7 @@ def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatc
             command = commands.pop(0)
             if command is None: raise TimeoutError
             return json.dumps(command)
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 100,
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
@@ -275,11 +276,27 @@ class _WorkerDeadlineExpired(TimeoutError):
     pass
 
 
+@pytest.mark.parametrize("source_gap", [False, True])
+def test_slow_display_sender_keeps_execution_and_real_source_gap_is_stale(tmp_path, monkeypatch, source_gap):
+    _exercise_stalled_worker(tmp_path, monkeypatch, .350, "slow_display", source_gap=source_gap)
+
+
 def _stalled_worker_process(url, config, stall, position, injected):
     """native実行ownerを専用processへ隔離し、親から期限付きで終了可能にする。"""
     from time import sleep
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    from xpotato_sim.runtime.runners.workbench import execution_worker
+    from xpotato_sim.runtime.application.workbench_worker import execution_worker
+    if position == "slow_display":
+        from xpotato_sim.runtime.application import workbench_worker as module
+        original_connect = module.AsyncWorkerConnection
+        class SlowDisplay(original_connect):
+            def send(self, raw):
+                if json.loads(raw).get("type") == "frame":
+                    injected.set();sleep(stall)
+                return super().send(raw)
+        module.AsyncWorkerConnection = SlowDisplay
+        execution_worker(url, config)
+        return
     original = TrialRunner.advance
     def advance(runner, ticket, **kwargs):
         inject = runner.tick_count == 5 and not injected.is_set()
@@ -308,7 +325,7 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                              acknowledge_stop=True, deadline_s=None, source_gap=False):
     from multiprocessing import get_context
     from threading import Thread, Event
-    from time import monotonic
+    from time import monotonic, perf_counter
     import os
     from websockets.sync.server import serve
     events, errors, supply, connections, producers = [], [], [], [], []
@@ -349,14 +366,18 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                         try:
                             # fixture I/O・検証は供給開始前に一度だけ行う。
                             template = json.loads(message())
-                            began = monotonic()
+                            began = perf_counter()
                             diagnostics = {"samples": 0, "max_receipt_gap_s": 0.,
                                            "max_send_duration_s": 0., "last_receipt_s": None}
                             supply.append(diagnostics)
                             for i in range(sample_count):
                                 if source_gap and i == 30:
                                     if cancel.wait(.350): return
-                                if cancel.wait(max(0, began + i / 60 - monotonic())):
+                                # 供給周期/所要時間は高分解能時計。元receiptはmonotonicを維持する。
+                                while (delay := began + i / 60 - perf_counter()) > 0:
+                                    if cancel.wait(delay):
+                                        return
+                                if cancel.is_set():
                                     return
                                 remaining()
                                 axes = (0, 0, 0, 0) if i == 0 else (.15 if (i // 30) % 2 else -.15, 0, 0, 0)
@@ -370,7 +391,7 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
                                 ws.send(json.dumps({"op": "input", "ticket": ticket,
                                     "message": json.dumps(template), "received_at_s": receipt}))
                                 diagnostics["max_send_duration_s"] = max(diagnostics["max_send_duration_s"], monotonic() - receipt)
-                            diagnostics["duration_s"] = monotonic() - began
+                            diagnostics["duration_s"] = perf_counter() - began
                             ws.send(json.dumps({"op": "stop", "id": "stop", "generation": 2}))
                         except Exception as exc:
                             errors.append(exc)
@@ -488,9 +509,9 @@ def test_actual_worker_missing_close_is_bounded(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("limit", ["wall", "input_wait"])
-def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch, limit):
+def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch, limit, owner_projection):
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-    import xpotato_sim.runtime.runners.workbench as module
+    import xpotato_sim.runtime.application.workbench_worker as module
     now, runners, events, bursts = [10.], [], [], [0]
     commands = [{"op": "prepare", "id": "p", "generation": 1,
                  "profile_id": "fast-arm-bimanual-gamepad"},
@@ -521,7 +542,7 @@ def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch
                     for i in range(first, first + 64))
                 bursts[0] += 1
             return json.dumps(commands.pop(0))
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "test", "ticks": 100,
         "input_wait_s": .1 if limit == "input_wait" else 5,
@@ -529,5 +550,7 @@ def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch
     terminal = next(e["state"] for e in events if e.get("state", {}).get("phase") == "terminal")
     assert terminal["result"]["runner_stop_reason"] == limit + "_timeout"
     assert terminal["ticks"] == 0 and bursts[0] >= 3
+    assert terminal["input_diagnostics"]["tick_duration_s"] is not None
+    assert terminal["timing_breakdown"]["advance"]["observed"] >= bursts[0]
     print(json.dumps({"full_batches": bursts[0], "supervision": limit,
                       "processed_sequence": terminal["input_diagnostics"]["processed_sequence"]}))

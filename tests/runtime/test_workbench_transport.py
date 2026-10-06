@@ -6,7 +6,7 @@ import socket
 import pytest
 from websockets.asyncio.client import connect
 
-from xpotato_sim.runtime.runners.workbench import serve_workbench
+from xpotato_sim.runtime.application.workbench_service import serve_workbench
 from xpotato_sim.runtime.runners.workbench_web import build_asset_allowlist
 
 
@@ -53,6 +53,34 @@ async def until(ws, predicate):
             event = json.loads(await ws.recv())
             if predicate(event):
                 return event
+
+
+def test_parent_reclaims_finalizing_worker_without_operator_stop(tmp_path,monkeypatch):
+    now=[10.]
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.monotonic",lambda:now[0])
+    async def scenario():
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1",0));port=reservation.getsockname()[1]
+        worker=Worker();worker.url=f"ws://127.0.0.1:{port}/control"
+        service=asyncio.create_task(serve_workbench({"port":port,"web_port":port+1,"prepare_s":10,
+            "result_root":str(tmp_path),"asset_root":str(tmp_path)},worker,tmp_path,capability="test-capability"))
+        try:
+            await asyncio.wait_for(worker.connected.wait(),5)
+            async with connect(worker.url,proxy=None) as viewer:
+                await viewer.send('{"op":"status"}')
+                await until(viewer,lambda e:e["type"]=="status")
+                await worker.status(0,"finalizing")
+                await until(viewer,lambda e:e["type"]=="status" and e["phase"]=="finalizing")
+                now[0]=13.9;await asyncio.sleep(.1)
+                assert worker.close_count==0
+                now[0]=14.
+                state=await until(viewer,lambda e:e["type"]=="status" and e["phase"]=="faulted")
+                assert worker.close_count==1
+                assert state.get("result") is None and not state["renderer_ready"]
+        finally:
+            service.cancel();await asyncio.gather(service,return_exceptions=True)
+            worker.task.cancel();await asyncio.gather(worker.task,return_exceptions=True)
+    asyncio.run(scenario())
 
 
 def test_terminal_input_and_worker_rejection_preserve_authoritative_reason(tmp_path):
@@ -105,7 +133,8 @@ def test_terminal_input_and_worker_rejection_preserve_authoritative_reason(tmp_p
 def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usable(tmp_path,monkeypatch):
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
     now=[10.]
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.monotonic",lambda:now[0])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.monotonic",lambda:now[0])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_control.monotonic",lambda:now[0])
     async def scenario():
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1",0));port=reservation.getsockname()[1]
@@ -150,7 +179,7 @@ def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usab
 
 @pytest.mark.parametrize("disconnect", [False, True])
 def test_stop_during_prepare_survives_old_completion_and_status(tmp_path, monkeypatch, disconnect):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog",
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog",
                         lambda: [{"id": "known", "available": True}])
 
     async def scenario():
@@ -221,8 +250,37 @@ def test_static_mode_requires_real_referenced_build_assets(tmp_path):
     assert "/assets/app.js" in build_asset_allowlist(tmp_path)
 
 
+def test_build_identity_rejects_missing_old_source_and_tampered_output(tmp_path):
+    from hashlib import sha256
+    from xpotato_sim.runtime.runners.workbench_web import verify_build_identity
+    workspace = tmp_path / "source"
+    app = workspace / "apps/mujoco-viewer"
+    app.mkdir(parents=True)
+    (app/"src").mkdir();(app/"tooling").mkdir()
+    names = ["index.html", "package-lock.json", "package.json", "src/main.ts", "tooling/test.ts", "vite.config.ts"]
+    for name in names:(app/name).write_bytes(name.encode())
+    root = tmp_path/"dist"
+    root.mkdir()
+    with pytest.raises(ValueError,match="固定buildがありません"):verify_build_identity(root, workspace)
+    (root/"apps/mujoco-viewer").mkdir(parents=True)
+    (root/"apps/mujoco-viewer/index.html").write_text('<script type="module" src="/assets/app.js"></script>')
+    (root/"assets").mkdir()
+    (root/"assets/app.js").write_bytes(b"export {};")
+    (root/"assets/mujoco.wasm").write_bytes(b"\x00asm\x01\x00\x00\x00")
+    source = sha256(b"".join(name.encode()+b"\0"+name.encode()+b"\0" for name in names)).hexdigest()
+    identity = {"schema_version":"workbench-build/v1","source_sha256":source,
+        "assets":{p.relative_to(root).as_posix():sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}}
+    (root/"workbench-build.json").write_text(json.dumps(identity))
+    verify_build_identity(root, workspace)
+    (app/"src/main.ts").write_bytes(b"changed source")
+    with pytest.raises(ValueError,match="現在source/lock"):verify_build_identity(root, workspace)
+    (app/"src/main.ts").write_bytes(b"src/main.ts")
+    (root/"assets/app.js").write_bytes(b"tampered")
+    with pytest.raises(ValueError,match="asset bytes"):verify_build_identity(root, workspace)
+
+
 def test_untrusted_peer_cannot_stop_owner_and_private_frame_exceeds_command_cap(tmp_path, monkeypatch, caplog):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog", lambda: [])
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog", lambda: [])
 
     async def scenario():
         with socket.socket() as reservation:
@@ -271,7 +329,7 @@ def test_untrusted_peer_cannot_stop_owner_and_private_frame_exceeds_command_cap(
 
 
 def test_run_once_prepare_error_finishes_without_hanging(tmp_path, monkeypatch):
-    monkeypatch.setattr("xpotato_sim.runtime.runners.workbench.profile_catalog",
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_service.profile_catalog",
                         lambda: [{"id": "known", "available": True}])
 
     async def scenario():
@@ -296,4 +354,61 @@ def test_run_once_prepare_error_finishes_without_hanging(tmp_path, monkeypatch):
                 worker.task.cancel()
                 await asyncio.gather(worker.task, return_exceptions=True)
 
+    asyncio.run(scenario())
+
+
+def test_slow_browser_keeps_required_terminal_then_retry_frames_in_order():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        entered, release, complete = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        sent = []
+        class SlowWire:
+            async def send(self, raw):
+                entered.set()
+                await release.wait()
+                sent.append(json.loads(raw))
+                if len(sent) == 5: complete.set()
+        peer = Peer(SlowWire())
+        terminal = {"type": "status", "phase": "terminal", "ticket": "old"}
+        final_frame = {"type": "frame", "required": True, "ticket": "old"}
+        ready = {"type": "status", "phase": "ready", "ticket": "new"}
+        first_frame = {"type": "frame", "required": True, "ticket": "new"}
+        latest = {"type": "frame", "ticket": "new", "tick": 2}
+        peer.put(terminal)
+        sender = asyncio.create_task(peer.send())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            for value in (final_frame, ready, first_frame, {**latest, "tick": 1}, latest): peer.put(value)
+            release.set()
+            await asyncio.wait_for(complete.wait(), 2)
+            assert sent == [terminal, final_frame, ready, first_frame, latest]
+        finally:
+            release.set(); sender.cancel()
+            await asyncio.gather(sender, return_exceptions=True)
+    asyncio.run(scenario())
+
+
+def test_browser_required_frames_share_bounded_control_fifo():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        peer = Peer(None)
+        for i in range(32): peer.put({"type": "frame", "required": True, "tick": i})
+        with pytest.raises(asyncio.QueueFull): peer.put({"type": "frame", "required": True, "tick": 32})
+    asyncio.run(scenario())
+
+
+def test_browser_stop_invalidates_required_frames_but_keeps_control_replies():
+    from xpotato_sim.runtime.application.workbench_service import Peer
+    async def scenario():
+        peer = Peer(None)
+        status = {"type": "status", "generation": 1}
+        completed = {"type": "completed", "id": "request"}
+        peer.put(status)
+        peer.put({"type": "frame", "required": True, "generation": 1})
+        peer.put(completed)
+        peer.put({"type": "frame", "generation": 1, "tick": 2})
+        peer.invalidate_frames()
+        assert peer.frame is None
+        assert [peer.control.get_nowait(), peer.control.get_nowait()] == [status, completed]
+        assert peer.control.empty()
     asyncio.run(scenario())

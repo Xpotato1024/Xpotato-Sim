@@ -289,9 +289,10 @@ class ViewerKeyboardGamepadMappingStrategy:
 
     @property
     def latest_trigger_presentation(self) -> dict[str, object] | None:
+        """検証済みMapping出力をJSONのcontainer形状へコピーし、sessionを公開しない。"""
         if self._latest_trigger_presentation is None:
             return None
-        return json.loads(json.dumps(self._latest_trigger_presentation, allow_nan=False))
+        return {key: _as_json_wire_value(value) for key, value in self._latest_trigger_presentation.items()}
 
     def map_input(self, input_intent: object, parameters: Mapping[str, object]) -> InputIntent:
         if not isinstance(input_intent, RawInputFrame):
@@ -492,7 +493,10 @@ class ViewerKeyboardGamepadMappingStrategy:
             triggers,
             reason,
         )
-        self._latest_trigger_presentation = presentation
+        # 返却intentと内部表示のcontainerを共有しない。検証済みの値だけを所有する。
+        self._latest_trigger_presentation = {
+            key: _as_json_wire_value(value) for key, value in presentation.items()
+        }
         metadata = dict(frame.metadata)
         metadata.update(intent.to_metadata())
         metadata.update({

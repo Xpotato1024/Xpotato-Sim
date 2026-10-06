@@ -59,6 +59,7 @@ import {
 } from "../transport/websocketClient.js";
 import { loadMujocoWasm, mujocoWasmModuleBuilds } from "./mujocoWasmLoader.js";
 import { matrixFromMujocoGeom } from "./mujocoSceneTransforms.js";
+import { applyMujocoDisplayPose, createMujocoDisplayOption } from "./mujocoDisplayPose.js";
 import {
   resolveNamedInitialKeyframe,
   resolveTransportQpos,
@@ -635,8 +636,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     candidate: ViewerPayloadCandidate | null = null,
   ): void => {
     const sceneApplyStartedMs = frameTiming.now();
-    data.qpos.set(qpos);
-    mujocoApi.mj_forward(model, data);
+    applyMujocoDisplayPose(mujocoApi, model, data, qpos);
     syncSceneFromCurrentData();
     if (candidate !== null) {
       frameTiming.recordSceneApplied(candidate, frameTiming.now() - sceneApplyStartedMs);
@@ -1131,10 +1131,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
         }
       }
 
-      data.qpos.set(startupQpos);
-      mujocoApi.mj_forward(model, data);
+      applyMujocoDisplayPose(mujocoApi, model, data, startupQpos);
       mjvScene = new mujocoApi.MjvScene(model, MAX_GEOMS);
-      mjvOption = new mujocoApi.MjvOption();
+      mjvOption = createMujocoDisplayOption(mujocoApi);
       mjvPerturb = new mujocoApi.MjvPerturb();
       mjvCamera = new mujocoApi.MjvCamera();
 

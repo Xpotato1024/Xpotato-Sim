@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -70,8 +70,10 @@ $sourceIdentity = '<HEAD SHAと未commit差分のidentity>'
 .\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --open-browser
 ```
 
-`--web-dist`省略時はsourceのVite dev serverを使う。固定buildでの検証は明示的にbuildし、
-出力rootを`--web-dist`へ渡す。devからbuildへの自動fallbackはない。
+固定production buildが実験起動の既定である。`--web-dist`省略時は`apps/mujoco-viewer/dist`を使う。
+不在・source/lock不一致・出力byte不一致は起動前に拒否する。事前に以下でbuildして出力rootを渡し、
+試行中にbuildしない。開発は排他option `--dev-server`を明示する。古いbuildやdevへの自動fallbackはない。
+headlessの`--run-once`はWeb buildを要求しない。
 
 ```powershell
 $env:XPOTATO_VITE_CACHE = Join-Path $taskRoot 'vite-cache'
@@ -81,6 +83,9 @@ node apps/mujoco-viewer/node_modules/vite/bin/vite.js build --config apps/mujoco
 ```
 
 buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む必要がある。
+`workbench-build.json`はviewer src/tooling、index、Vite設定、package/lockのbyte digestと各出力assetの
+byte digestを持ち、現在sourceと照合する。callerの`software_revision`とは別の検査である。
+これはviewer source/buildの対応検査であり、署名や依存取得の認証ではない。
 静的serverは参照の存在・非空、WASM header、root内pathを検査し、欠落・外部URL・symlinkを拒否する。
 任意の代替HTMLをGUIとして生成しない。これは依存JS全体の完全性署名やbrowser動作保証ではない。
 
@@ -97,7 +102,7 @@ buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む
 | `--condition` | export済み展開条件JSON。profile/ticks/期限optionと排他。予算は条件内limitsを使用 |
 | `--backend-port` / `--web-port` | 8766 / 5173。異なるloopback portのみ |
 | `--ticks` | 省略時は選択profileのsteps。有限なcommit予算 |
-| `--input-wait-s` | 5秒。Start後の入力中立待ち |
+| `--input-wait-s` | 5秒。開始記録成立後の入力中立待ち。総wallはStart要求時刻から |
 | `--wall-s` | 360秒。Start後の総wall時間 |
 | `--prepare-s` | 30秒。runner準備上限、親の監督期限は追加2秒 |
 | `--diagnostic-memory` | 指定時だけtracemallocを開始。通常はPython heap未測定（null） |
@@ -112,7 +117,7 @@ buildは`apps/mujoco-viewer/index.html`、参照module/CSSとWASM資産を含む
 再接続は状態照会だけで、操作権取得とStartは自動化しない。
 
 command ID・期待revision・trial ticket・generationを検査する。dedup履歴128件はacceptedとcompleted/errorを
-保持する。最新結果32件、peer最大8、pending要求32、peer制御FIFO32、描画は最新1frameだけとする。
+保持する。最新結果32件、peer最大8、pending要求32、peer必須FIFO32（制御応答とready/terminal frame）、通常描画は最新1frameだけとする。
 private worker/frame輸送は1 MiB、外部commandは64 KiBとして分離する。大きすぎるprivate frameも無制限にはしない。
 phase変化と実行中最大0.5秒間隔のstatusでtick・simulation時間を更新し、描画sampleの時間と区別する。
 
@@ -157,7 +162,10 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | 資源 | 所有者・上限 | 破棄点 |
 | --- | --- | --- |
 | Web/process/job、worker、async service task | launcher / `OwnedApplicationWorkers` | アプリ終了、監督fault |
-| Python MjModel/MjData、Source/Mapping/Task/input/log | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
+| Python MjModel/MjData、Source/Mapping/Task/input | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
+| private async socket、IO入口FIFO256、入力FIFO256、制御FIFO32、STOP専用slot | IO thread / ExecutionInboxのreader | STOP/closeはExecution FIFOより優先。元順序を維持。overflow/切断はtechnical_invalid記録 |
+| 表示最新1slot、制御応答FIFO32、JSON整形/送信 | ProjectionSenderのsender | 制御遷移で旧表示slot失効。send/overflow障害は終了へ伝える |
+| immutable終端snapshotの検証済みstaging | TrialRecorder専用spawn process、同時1件 | Start gateで起動確認。finalizingではphysics/retry禁止。期限内のmarker公開はExecution owner。期限/closeで回収 |
 | asset file/allowlist | workerは現modelだけ生成、serviceが公開 | 次prepare/STOP/faultでallowlist無効化、アプリ終了でtask内directory削除 |
 | 結果と履歴 | service 32 / 128、永続結果はtrial別file | bounded listから退役。永続結果は消さない |
 | WASM module | browser loaderのPromise 1件 | ページ寿命。失敗したloadだけ再試行可能 |
@@ -213,7 +221,7 @@ live Gamepad取得は描画fpsから独立した約60Hz（`1000 / 60` ms）のti
 hidden/disconnect/error時の停止通知、button/trigger、中立、source/session/sequence、
 元受信時刻と0.2秒gateは従来どおり扱う。意味保存を伴わないlatest-only化は行わない。
 workerはticket・phase・成功commitによるtick数の変化後にframeを公開する。
-ready/terminalの同じ状態をtimerで繰り返し生成しない。peer最新1frame slotと制御FIFOは維持する。
+ready/terminalの同じ状態をtimerで繰り返し生成しない。通常描画の最新1frame slotと、制御応答・必須frameのFIFOを維持する。
 表示sampleはreset/commitでforward済みのnative stateを読み、追加の`mj_forward`を呼ばない。
 表示頻度でwarmstartやTask進行が変わらないことを回帰testで照合する。
 
@@ -231,8 +239,8 @@ workerは1件ごとにtickを挟まず、既に受信済みの同ticket入力を
 受信loopとadvance入口の両方で確認し、両者の間にworkerが停滞して届いた入力もtick前に消費する。
 各sampleのvalidation、Mappingのbutton/trigger符号ラッチ・解除、中立を処理し、physicsは最新sampleで
 1tickだけ進める。元receiptを保持し、古いmotionの追い付き再生やlatest-onlyの履歴破棄は行わない。
-64件に達したiterationではtick/frame生成を後回しにし、次の受信へ戻る。worker受信queueも64件、
-service制御queueは32件のままとする。受信batch内のSTOP/closeは入力を積分せず優先し、
+64件に達したiterationではtick/frame生成を後回しにし、次の受信へ戻る。WS library受信上限64、
+IO入口256、Execution入力FIFO256、service制御queue32を区別する。受信batch内のSTOP/closeは入力を積分せず優先し、
 別ticket・要求ID付き操作はbatchの境界として扱う。既存service STOP監督も維持する。
 
 batchの過去sampleは元receiptで順序・source・利用可能性を検査する。receipt間隔は診断に残すが、
@@ -250,3 +258,71 @@ service receiptだけ先行し、processed receipt/sequenceが止まる場合は
 browser主threadの長時間停止など、tick時の最新actual receiptが0.2秒超のstaleなら試行は引き続き`technical_invalid`となる。
 simulation一時停止による操作継続、明示resumeと再中立、wall budgetや実験有効性の扱いは別のpolicy判断を要し、
 本修正は自動resumeやformal evaluation変更を導入しない。
+
+
+## 実装owner
+
+Workbench固有の制御要求は`runtime/application/workbench_control.py`、通信と停止監督は
+`workbench_service.py`、単一processのTrialRunner接続は`workbench_worker.py`、headless制御は
+`workbench_client.py`、process memory診断は`workbench_metrics.py`が所有する。
+`runtime/runners/workbench.py`はCLIとworker/web process起動を所有する。
+worker/webのmodule起動名は従来entryへ明示固定し、stdin start gateとjob参加順序を維持する。
+外部CLI、wire/log/condition、入力・停止・physicsの契約はこの配置変更で変更しない。
+
+
+controlの認可後dispatchはeditor、input、lifecycleのprivate methodへ分ける。
+同じWorkbenchControl objectだけがrevision、履歴、次条件、STOP監督を保持し、mutable状態を複製しない。
+`workbench_projection.py`はreader/senderと有界受渡しだけを所有する。ExecutionだけがMapping、全入力barrier、
+MuJoCo commit、Task観測を行う。readerは元receipt/session/sequenceを維持し、入力coalesceを行わない。
+Task観測で検査したcommit表示は`take_committed_projection()`で一度だけ渡し、入力、次advance、終端、新ticketで失効する。
+それ以外は明示再観測し、reset/live state/faultを隠す汎用cacheは作らない。
+同じworker接続を専用IO thread上の公開async WebSocket APIで送受信し、sendのflow-control待ち中にも受信taskが進む。
+sync WebSocketのprotocol mutexを共有しない。IO入口256件、Execution入力256件・制御32件・専用STOP、sender制御32件と最新frameを有界にする。
+ready初期frameとterminal最終frameはworkerとbrowser中継Peerの両方で制御応答と同じ必須FIFOへ入れ、
+同じ接続でstatus→対応frameを順序保証する。通常frameだけを最新slotへ置換する。
+STOP/fault時はFIFO内を含む未送信frameだけを失効し、制御応答・完了eventの順序と配送は維持する。
+旧generation/ticketとSTOP後frameはserviceで拒否する。IDなしのvalid late入力は検査・棄却し、制御応答を毎sample生成しない。
+送受信・overflow障害はactive試行を`technical_invalid`として原因とともに記録してから資源を回収する。
+message frameworkや第二の試行SoTは作らない。senderはthreadなのでGIL競合とowner上のsnapshot/payload変換負荷は残る。
+shared-memory snapshot専用processへの完全分離は未実装である。
+
+### 表示と計測
+
+sceneはReactを経ずrendererへ直接適用し、60Hz実Gamepad取得/送信はroot stateを更新しない。
+関節/Input計器は専用componentの10Hz、詳細は展開中だけ4Hzとする。Operate中はsetup editorと詳細JSXを生成しない。
+STOP/fault/epochの操作gateは即時statusで更新する。Single/Assist、camera、条件import/export、診断能力を維持する。
+計器・詳細のsampleはgeneration/epochへ束縛し、STOP要求・fault・切断・新epochで即時無効にする。
+Operateの状態帯にもbackend実行RTFと観測窓秒数を既存status周期で表示する。
+未計測と終了時値を区別し、browser時刻から補間しない。
+Setupの展開診断には実commit tick、処理時間、host receipt/ageも表示する。nullは未計測である。
+
+`execution_timing`と最大600件の`timing_samples_ns`は`perf_counter_ns`でhot path/deadline lagを測る。
+hot pathはadvanceとcommit表示のowner処理までで、別threadの送信/保存CPUを含まない。
+RTFはrunning中の実commit simulation delta / 実wall delta（最大10秒窓）である。新Start/retryでresetする。
+receipt→applyは同じhost monotonic領域だけで測り、browser時計と引算しない。
+周期deadlineとtick所要時間は高分解能`perf_counter_ns`で計測する。receipt/freshnessのhost monotonic領域は維持する。
+Python 3.12 Windowsのmonotonicは15.625ms分解能の場合があり、receipt差のns表現はns精度を意味しない。
+hot path/receipt→applyのraw列は末尾最大600件で、全試行quantileではない。`timing_sample_scope`に範囲を明示する。
+固定dtの一回commit後に期限を更新し、無限catchup、可変physics dt、表示時刻補正を行わない。
+
+
+### 期限超過時の待ちと区間別診断（2026-10-05）
+
+activeなworkerで周期deadlineが到来済みなら、受信はtimeout 0で有界に確認する。
+入力/STOP確認を飛ばさず、空queueに最低1msの待ちを加えない。期限前は残り時間を最大20msまで待つ。
+inactive時は過去のdeadlineに依存せず20msの有界待ちとし、busy pollingを作らない。
+固定dt、実commit数、wall/input-wait監督、元receipt、0.2秒鮮度判定、既存のcatchup制限は変更しない。
+この修正は計算そのものの高速化でも、任意PCでの等速保証でもない。
+
+`timing_breakdown`はreceive_wait、input_dispatch、advance、projection、statusを区間ごとに最大600件保持する。
+countは保持標本数、observedはリセット後の測定数。last/mean/p50/p95/p99/maxはns単位で、未測定はnull。
+分位点はnearest-rank。区間ごとの標本数と時点が異なるため分位点を合算して周期時間にしない。
+receive_waitはinbox呼出しの経過時間で、待ちだけでなく復帰遅延を含む。input_dispatchは外側input処理、
+advanceは内部の再受信・鮮度確認、Mapping、physics、観測、Taskを含む。projectionは表示sampleとpayload変換・
+senderへの受渡し、statusは状態通知準備までであり、別threadのJSON化・socket送信時間ではない。
+いずれもwall経過時間でCPU占有時間ではない。新prepare/retry/Startでリセットし、終端後は終了時の標本を保持する。
+既存のtick_duration_sは直前advance一回の時間で、平均・95%点・physics単独時間ではない。
+
+詳細画面に上記分布と制御周期を表示する。`runtime_environment`にはPython/OS/論理CPU数、主要library version、
+memory profilingの有効性、限定したBLAS thread環境変数だけを出す。全環境変数・hostname・認証情報は出さない。
+環境変数未指定をsingle-thread動作と解釈しない。実験設定やプロセスのthread数はこの診断で変更しない。

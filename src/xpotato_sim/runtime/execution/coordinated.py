@@ -138,6 +138,13 @@ class CoordinatedRuntime:
                 raise ValueError("input_sequence_reused_with_changed_content")
         self._last = value
 
+    def accept_inputs_after(self, received_at_s: float) -> None:
+        """開始記録成立の境界を中立判定にも適用する。入力消費後の変更は禁止。"""
+        with self._lock:
+            if self.state != "waiting_neutral" or self._last is not None or self._neutral_input is not None:
+                raise RuntimeError("input boundary requires a fresh runtime")
+            self._minimum_received_at_s = number(received_at_s, "input acceptance boundary")
+
     def consume_received_input(self, value: CoordinatedInput) -> None:
         """有界batchの履歴を元receiptで検査する。physicsとfreshness判定はtickに残す。"""
         with self._lock:

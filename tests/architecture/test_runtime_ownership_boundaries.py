@@ -10,6 +10,7 @@ import xpotato_sim.runtime.safety.collision_policy as collision_policy
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
+    "application": {"workbench_control", "workbench_service", "workbench_worker", "workbench_client", "workbench_metrics", "workbench_projection"},
     "scene": {"composition", "contracts", "objects", "observation", "measurement", "task", "world", "world_composition", "dynamics_observation"},
     "composition": {
         "fast_arm_coordinated",
@@ -86,7 +87,6 @@ EXPECTED_MODULES = {
     },
     "runners": {
         "workbench",
-        "workbench_metrics",
         "workbench_web",
         "finite_trial",
         "coordinated_gamepad",
@@ -210,3 +210,26 @@ def test_production_experiment_runtime_has_no_concrete_robot_or_test_fixture_imp
             "ExperimentPluginRegistries(",
         ):
             assert forbidden not in source, name
+
+
+def test_workbench_entry_has_no_internal_compatibility_exports() -> None:
+    tree = ast.parse((RUNTIME_ROOT / "runners/workbench.py").read_text(encoding="utf-8"))
+    definitions = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+    assert definitions == {"run_workbench"}
+    assert not (RUNTIME_ROOT / "runners/workbench_metrics.py").exists()
+    internal = {"WorkbenchControl", "decode_request", "validate_late_input", "profile_catalog", "Peer", "serve_workbench", "prepare_watchdog_deadline", "execution_worker", "run_headless_client"}
+    for root in (ROOT / "src", ROOT / "tests", ROOT / "scripts"):
+        for path in root.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.ImportFrom) and node.module == "xpotato_sim.runtime.runners.workbench":
+                    assert internal.isdisjoint(alias.name for alias in node.names), path
+                if isinstance(node, ast.ImportFrom) and node.module == "xpotato_sim.runtime.runners":
+                    assert "workbench" not in {alias.name for alias in node.names}, path
+
+
+def test_plugins_and_generic_runtime_do_not_import_application() -> None:
+    roots = [ROOT / "src/xpotato_sim/plugins"]
+    roots.extend(RUNTIME_ROOT / owner for owner in EXPECTED_MODULES if owner not in {"application", "runners"})
+    for root in roots:
+        for path in root.rglob("*.py"):
+            assert not any(module == "xpotato_sim.runtime.application" or module.startswith("xpotato_sim.runtime.application.") for module in _imports(path)), path

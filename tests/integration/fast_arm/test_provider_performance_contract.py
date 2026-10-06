@@ -120,3 +120,69 @@ def test_display_sampling_cadence_cannot_change_native_integration_or_contact_st
         for field in ("qacc", "qacc_warmstart", "actuator_force", "efc_force", "site_xpos"):
             np.testing.assert_array_equal(getattr(providers[0]._data, field), getattr(providers[1]._data, field))
         assert providers[0].sample(frame_index=tick, metadata={}).dynamics == providers[1].sample(frame_index=tick, metadata={}).dynamics
+
+
+@pytest.mark.parametrize("substep", [1, 5, 10])
+@pytest.mark.parametrize("field,value,reason", [
+    ("qpos", 100., "joint_limit"),
+    ("qvel", 10.0001, "speed budget"),
+    ("ctrl", .7501, "tracking error"),
+    ("qacc", float("nan"), "nonfinite"),
+    ("actuator_force", float("inf"), "nonfinite"),
+    ("site_xpos", float("nan"), "nonfinite"),
+    ("warning", 1, "warning"),
+])
+def test_each_physics_substep_rejects_invalid_candidate_before_next_step(monkeypatch, substep, field, value, reason):
+    profile = load_launch_profile("dynamic-cube-drop")
+    provider = profile.build_model().provider
+    before = provider.trial_state()
+    original = mujoco.mj_step
+    steps = []
+    def injected(model, data):
+        original(model, data)
+        steps.append(float(data.time))
+        if len(steps) == substep:
+            if field == "warning":
+                data.warning[0].number = value
+            elif field == "ctrl":
+                data.ctrl[-1] = data.qpos[provider.addresses[-1].qpos_addresses[-1]] + value
+            elif field == "site_xpos":
+                data.site_xpos[-1, 0] = value
+            elif field == "qpos":
+                data.qpos[provider.addresses[-1].qpos_addresses[-1]] = value
+            elif field == "qvel":
+                data.qvel[provider.addresses[-1].dof_addresses[-1]] = value
+            else:
+                getattr(data, field)[-1] = value
+    monkeypatch.setattr(mujoco, "mj_step", injected)
+    commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
+    with pytest.raises(ValueError, match=reason):
+        provider.prepare(commands, profile.dt_s)
+    assert len(steps) == substep
+    assert provider.trial_state() == before
+    assert provider._pending is None
+
+
+def test_native_validation_keeps_inclusive_limits_and_reads_live_config():
+    from dataclasses import replace
+    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    data = provider._data
+    for arm in provider.addresses:
+        for index, limit in zip(arm.qpos_addresses, provider.limits.joints, strict=True):
+            for value in (limit.lower_rad, limit.upper_rad):
+                old = data.qpos[index]
+                data.qpos[index] = data.ctrl[arm.actuator_ids[arm.qpos_addresses.index(index)]] = value
+                provider._check_data(data)
+                data.qpos[index] = data.ctrl[arm.actuator_ids[arm.qpos_addresses.index(index)]] = old
+    index = provider.addresses[-1].dof_addresses[-1]
+    data.qvel[index] = provider.settings.max_joint_speed_rad_s
+    provider._check_data(data)
+    provider.settings = replace(provider.settings, max_joint_speed_rad_s=1.)
+    with pytest.raises(ValueError, match="speed budget"):
+        provider._check_data(data)
+    data.qvel[index] = 0.
+    limit = provider.limits.joints[-1]
+    provider.limits = replace(provider.limits, joints=provider.limits.joints[:-1] +
+        (replace(limit, lower_rad=float(data.qpos[provider.addresses[-1].qpos_addresses[-1]])+.01),))
+    with pytest.raises(ValueError, match="joint_limit"):
+        provider._check_data(data)

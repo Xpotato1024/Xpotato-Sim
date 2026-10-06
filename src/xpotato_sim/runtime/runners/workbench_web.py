@@ -7,6 +7,37 @@ from threading import BoundedSemaphore
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, build_opener
 from urllib.parse import urljoin, urlsplit
+import hashlib
+import json
+
+
+def verify_build_identity(root: Path, workspace: Path):
+    """現sourceとlockの完全byte一致を検査し、古いbuildを拒否する。"""
+    app = workspace / "apps/mujoco-viewer"
+    files = []
+    for name in ("src", "tooling", "index.html", "package.json", "package-lock.json", "vite.config.ts"):
+        path = app / name
+        files.extend(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else files.append(path)
+    digest = hashlib.sha256()
+    for path in sorted(files, key=lambda p: p.relative_to(app).as_posix()):
+        digest.update(path.relative_to(app).as_posix().encode() + b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    try:
+        identity = json.loads((root / "workbench-build.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("固定buildがありません。事前にnpm ciとVite build --outDir <絶対build root>を実行し、--web-distへ指定してください。開発は--dev-serverを明示してください") from exc
+    if (set(identity) != {"schema_version", "source_sha256", "assets"}
+            or identity["schema_version"] != "workbench-build/v1" or identity["source_sha256"] != digest.hexdigest()):
+        raise ValueError("固定buildと現在source/lockが一致しません。試行前に再buildしてください")
+    paths = build_asset_allowlist(root)
+    assets = identity["assets"]
+    if not isinstance(assets, dict) or not assets:
+        raise ValueError("固定buildのasset identityがありません")
+    for name, expected in assets.items():
+        path = paths.get("/" + name)
+        if path is None or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError("固定buildのasset bytesが一致しません")
 
 
 def build_asset_allowlist(root: Path):

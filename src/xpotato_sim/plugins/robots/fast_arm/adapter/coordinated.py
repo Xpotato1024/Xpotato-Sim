@@ -7,7 +7,7 @@ import numpy as np
 from fast_arm_core.assembly import FastArmAssembly, resolve_assembly_addresses
 from fast_arm_core.assembly_model import FastArmAssemblyModel, build_fast_arm_assembly_model
 from xpotato_sim.motion import LocalEndpointMotionGenerator
-from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state
+from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state, _SnapshotLayout
 from xpotato_sim.schemas import InputIntent, MuJoCoState
 from xpotato_sim.schemas.command import JointPositionCommand
 from xpotato_sim.schemas.coordinated import CoordinatedSnapshot, EndpointObservation, EndpointVelocity, number
@@ -56,6 +56,7 @@ class FastArmAssemblyMotionProvider:
         self.assembly = assembly
         self.model = mujoco.MjModel.from_xml_string(self.built.xml.decode(), dict(self.built.assets))
         self.addresses = resolve_assembly_addresses(self.model, assembly)
+        self._snapshot_layout = _SnapshotLayout.prepare(self.model)
         self.endpoint_ids = assembly.arm_ids
         self.limits = parse_fast_arm_joint_limit_config(default_fast_arm_joint_limits_path())
         self._data = mujoco.MjData(self.model)
@@ -107,7 +108,8 @@ class FastArmAssemblyMotionProvider:
             raise ValueError("invalid sample frame/metadata")
         with self._lock:
             geometry = None if self._scene_observer is None else self._scene_observer.observe(self._data,frame_index=frame_index)
-            state = _read_synchronized_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata)
+            state = _read_synchronized_mujoco_state(self.model,self._data,frame_index=frame_index,metadata=metadata,
+                layout=self._snapshot_layout)
             return ModelStateSample(self.snapshot(),state,
                 tuple(i for arm in self.addresses for i in arm.qpos_addresses),geometry,
                 self._dynamics_observation(frame_index))
@@ -117,14 +119,18 @@ class FastArmAssemblyMotionProvider:
         return None
 
     def _check_data(self, data) -> None:
-        if not all(np.isfinite(a).all() for a in (data.qpos, data.qvel, data.ctrl, data.site_xpos)):
+        qpos, qvel, ctrl, sites = data.qpos, data.qvel, data.ctrl, data.site_xpos
+        if not (np.isfinite(qpos).all() and np.isfinite(qvel).all()
+                and np.isfinite(ctrl).all() and np.isfinite(sites).all()):
             raise ValueError("nonfinite assembly state")
         if (data.warning.number > 0).any():
             raise ValueError("MuJoCo warning in candidate state")
+        # 全native配列のfinite検査後、同じlive限界を直接照合する。
+        # 違反一覧用DTOと二重のtuple/float変換を毎substepで生成しない。
         for arm in self.addresses:
-            q = tuple(float(data.qpos[i]) for i in arm.qpos_addresses)
-            if self.limits.violations_for_qpos(q):
-                raise ValueError(f"joint_limit_violation:{arm.arm_id}")
+            for index, limit in zip(arm.qpos_addresses, self.limits.joints, strict=True):
+                if not limit.lower_rad <= float(qpos[index]) <= limit.upper_rad:
+                    raise ValueError(f"joint_limit_violation:{arm.arm_id}")
 
     def preflight(self) -> bool:
         with self._lock:

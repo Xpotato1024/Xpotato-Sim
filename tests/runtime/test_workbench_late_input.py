@@ -3,10 +3,13 @@ import json
 from pathlib import Path
 
 import pytest
+from test_workbench_worker import owner_projection
+pytestmark=pytest.mark.usefixtures("owner_projection")
 
 from xpotato_sim.runtime.experiment.edited_condition import preset_condition
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-from xpotato_sim.runtime.runners import workbench as module
+from xpotato_sim.runtime.application import workbench_worker as module
+from xpotato_sim.runtime.application.workbench_control import WorkbenchControl
 
 
 def neutral(sequence=0):
@@ -87,7 +90,7 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
                 return json.dumps(request)
             return json.dumps({"op": op, "id": op, "generation": generation})
 
-    monkeypatch.setattr("websockets.sync.client.connect", lambda *a, **kw: Wire())
+    monkeypatch.setattr("xpotato_sim.runtime.application.workbench_worker.AsyncWorkerConnection", lambda *a, **kw: Wire())
     module.execution_worker("ws://test", {"result_root": str(tmp_path / "results"),
         "asset_root": str(tmp_path / "assets"), "software_revision": "608-regression",
         "input_wait_s": 5, "wall_s": 30, "prepare_s": 30})
@@ -113,7 +116,7 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
 
 @pytest.mark.parametrize("phase", ["terminal", "recording_failed"])
 def test_control_terminal_same_ticket_returns_status_without_forwarding(phase):
-    control = module.WorkbenchControl([], "test")
+    control = WorkbenchControl([], "test")
     control.owner = "owner"
     ticket = {"trial_id": "one", "epoch": "one", "condition_sha256": "digest"}
     result = {"trial_id": "one", "runner_stop_reason": "technical_invalid", "error": "original stale"}
@@ -139,7 +142,7 @@ def test_control_terminal_same_ticket_returns_status_without_forwarding(phase):
 
 
 def test_control_stop_pending_discards_same_ticket_without_completing_stop():
-    control = module.WorkbenchControl([], "test")
+    control = WorkbenchControl([], "test")
     control.owner = "owner"
     ticket = {"trial_id": "one", "epoch": "one", "condition_sha256": "digest"}
     control.state.update(phase="running", ticket=ticket)
@@ -154,7 +157,7 @@ def test_control_stop_pending_discards_same_ticket_without_completing_stop():
 
 @pytest.mark.parametrize("invalid", ["malformed", "stale", "disconnected"])
 def test_terminal_invalid_input_is_rejected_without_result_mutation(invalid):
-    control = module.WorkbenchControl([], "test")
+    control = WorkbenchControl([], "test")
     control.owner = "owner"
     ticket = {"trial_id": "one", "epoch": "one", "condition_sha256": "digest"}
     control.state.update(phase="terminal", ticket=ticket, result={"runner_stop_reason": "task_success"})

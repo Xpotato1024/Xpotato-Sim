@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createViewerPackageResourcePlugin } from "./tooling/viewerPackageResources.js";
+import {buildIdentity} from "./tooling/buildIdentity.js";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(appRoot, "../..");
@@ -29,5 +30,5 @@ export default defineConfig({
       input: resolve(appRoot, "index.html"),
     },
   },
-  plugins: [createViewerPackageResourcePlugin(repoRoot), react()],
+  plugins: [createViewerPackageResourcePlugin(repoRoot), react(), buildIdentity(appRoot)],
 });

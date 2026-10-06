@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {canConnect, createWorkbenchGamepadMessages, preparationIsCurrent} from "../src/app/workbenchLifecycle.js";
+import {canConnect, createWorkbenchGamepadMessages, preparationIsCurrent, workbenchTimingLabel} from "../src/app/workbenchLifecycle.js";
 import {exportedHeapBytes} from "../src/wasm-scene/exportedHeap.js";
 import {sampleViewerGamepadSnapshot, buildViewerGamepadControlMessage} from "../src/input/gamepadInput.js";
 
@@ -87,3 +87,24 @@ assert.equal(workbenchNotice({...terminal,error:null,result:{runner_stop_reason:
 assert.equal(workbenchNotice({...terminal,error:null},"late rejection"),"original stale");
 assert.equal(workbenchNotice({...terminal,phase:"running",error:null,result:null},"real input failure"),"real input failure");
 assert.equal(workbenchNotice({...terminal,phase:"recording_failed",error:"disk failure"},"old rejection"),"disk failure");
+
+import {telemetryIdentity,telemetryIsCurrent} from "../src/app/workbenchLifecycle.js";
+const telemetryOld=telemetryIdentity({ticket:{epoch:"old"},generation:1,phase:"running"});
+const telemetryNew=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"});
+assert.equal(telemetryIsCurrent(telemetryOld,telemetryNew,telemetryNew,true),false);
+assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,true),true);
+assert.equal(telemetryIsCurrent(telemetryNew,null,telemetryNew,true),false);
+assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,false),false);
+assert.equal(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"faulted"}),null);
+assert.notEqual(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"ready"}),telemetryNew);
+const afterReconnect=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"},1);
+assert.equal(telemetryIsCurrent(telemetryNew,afterReconnect,afterReconnect,true),false);
+
+
+const halfSpeed = {phase:"running", execution_timing:{actual_rtf:0.5, rtf_window_s:10}};
+assert.equal(workbenchTimingLabel(halfSpeed), "実行RTF 0.500（窓 10.0 s）");
+assert.equal(workbenchTimingLabel({...halfSpeed, phase:"terminal"}), "終了時RTF 0.500（窓 10.0 s）");
+assert.equal(workbenchTimingLabel({...halfSpeed, phase:"ready"}), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel(null), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel({phase:"running", execution_timing:{actual_rtf:NaN,rtf_window_s:10}}), "実行RTF 未計測");
+assert.equal(workbenchTimingLabel({phase:"running", execution_timing:{actual_rtf:0,rtf_window_s:10}}), "実行RTF 0.000（窓 10.0 s）");

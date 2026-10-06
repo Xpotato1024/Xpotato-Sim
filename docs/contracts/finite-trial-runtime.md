@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-29
+last_verified: 2026-10-03
 canonical_for:
   - finite model trial condition lifecycle and local result
 related:
@@ -44,7 +44,13 @@ Workbenchのprepare/reset失敗からの明示prepareは旧runnerをcloseして�
 simulation予算は成功したprovider commitによるtick数×control dtだけを消費する。
 dynamicでは実際の`mj_step` substep、kinematicでは明示されたqpos反映とsimulation時刻更新を意味し、
 kinematicを力学積分と呼ばない。ready、入力中立待ち、表示sample、terminalでは消費しない。
-prepare上限、start後の入力待ち上限、startからの総wall上限は正の有限秒として別指定する。
+prepare上限、開始記録成立後の入力待ち上限、startからの総wall上限は正の有限秒として別指定する。
+`started_monotonic_s`は開始要求処理時刻を維持する。`input_accepting_monotonic_s`は開始記録のflush/fsync/
+read-back/排他的公開が成功した後のhost時刻で、statusとterminal記録へ残す。入力待ち期限は後者から測る。
+Start前は`input_pre_trial`、Start以後でも記録成立前のreceiptは`input_pre_recording`として拒否する。
+receiptの下限と共同runtimeの中立下限は同じ`input_accepting_monotonic_s`（以上）へ設定する。
+future receipt、旧ticket、記録中のreceiptは区別して拒否する。同clock bucket内の時刻順序をns精度と主張せず、serviceのStart busy gateも維持する。
+記録失敗では入力受付時刻を成立させない。renderer ACK、明示Start、記録、新epochのfresh neutralの順を維持する。
 入力が空でもadvanceでwall/待機期限へ到達する。callerは同期advanceを継続して監督する必要がある。
 実時刻はmonotonicで後退を拒否し、既存presetの入力freshness 0.2秒は変更しない。
 
@@ -81,6 +87,21 @@ hard linkで最終名を排他的公開する。hard linkを提供するロー�
 stateはmodel identityと全MuJoCo integration stateを保存し、描画用関節sliceだけへ縮退しない。
 保存失敗では可能な限り停止し、Task outcomeとは別の記録失敗を返す。途中fileを成功結果として読まない。
 OS crash耐久性、改竄防止、完全metric、全frame replayの保証ではない。per-frame fileは生成しない。
+
+Workbenchの終端保存は専用spawn processへimmutable final snapshotだけを渡し、ownerは`finalizing`で停止する。
+保存processは開始記録成立後のStart gateで起動し、最大2秒でreadyを確認してから入力受付境界を設定する。
+終端では準備済みprocessへ最大64 KiBの内部snapshotを渡す。外部pickle入力を受け付けない。
+保存processは検証済みpendingまで作り、期限内にownerが結果を採用した時だけ`terminal.json`を公開する。
+`advance`は保存結果をpollし、physicsを進めない。結果確定前はretryを許可しない。
+保存期限は終端処理開始から2秒、かつ開始要求からwall予算＋2秒以内で、既存STOP監督の2秒に対応する。
+期限超過は保存processをterminate/joinし、必要ならkill/joinしてから`recording_failed`と未確定の原因を報告する。
+結果取得前だけでなく、writerの終了確認後・完了marker公開直前にも保存期限を再確認する。
+結果取得や回収中に期限を超えた場合も公開せず、recording_failedとする。
+完了markerを偽装せず、期限後に遅延writerが成功markerを書かない。pending/最終stateは不完全な証拠として残り得る。
+closeも最大2秒のpoll後に同じ回収を行い、無期限future/executor待ちを行わない。
+serviceは明示STOPの既存2秒に加え、通常Task終端のfinalizingから4秒と開始受付から実効wall＋4秒で所有workerを強制回収する。
+STOP完了応答は保存の成否確定後に返す。保存失敗は`recording_failed`を維持する。
+同期CLIは従来の同期記録を維持する。開始記録は開始command内の同期gateで、running周期へdisk waitを入れない。
 
 ## 有限CLIと検証境界
 

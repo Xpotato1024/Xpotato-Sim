@@ -10,12 +10,15 @@ Python **3.11以上**、uv、Git、Node.js **20.xの20.19以上、または22.12
 git clone https://github.com/Xpotato1024/Xpotato-Sim.git
 Set-Location Xpotato-Sim
 uv sync --frozen --group dev
-npm --prefix apps/mujoco-viewer ci
+npm.cmd --prefix apps/mujoco-viewer ci --no-audit --no-fund
 $workbenchTemp = Join-Path $env:TEMP 'xpotato-workbench'
 $results = Join-Path $env:LOCALAPPDATA 'Xpotato-Sim/results'
 New-Item -ItemType Directory -Force -Path $workbenchTemp, $results | Out-Null
 $revision = git rev-parse HEAD
-uv run xpotato-sim workbench --temporary-root $workbenchTemp --result-root $results --software-revision $revision --open-browser
+$env:XPOTATO_VITE_CACHE = Join-Path $workbenchTemp 'vite-cache'
+$viewerBuild = Join-Path $workbenchTemp 'viewer-dist'
+node apps/mujoco-viewer/node_modules/vite/bin/vite.js build --config apps/mujoco-viewer/vite.config.ts --configLoader runner --outDir $viewerBuild
+uv run xpotato-sim workbench --temporary-root $workbenchTemp --result-root $results --software-revision $revision --web-dist $viewerBuild --open-browser
 ```
 
 Workbenchは未選択・無入力・無physics stepで待機します。`--open-browser`が自動で開いた操作ページで「操作権を取得」し、presetを選択してください。端末に表示されるURLは閲覧専用で、操作資格は印字しません。自動で開いた操作URLの一時資格は他人へ共有しません。資格なしのURLは表示できても試行を操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。
@@ -75,7 +78,8 @@ uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/tri
 | `--condition` | 任意 | export済み条件JSON。profile/ticksと排他。GUIでは初期次条件、headlessでは適用条件 |
 | `--web-port` | 任意・5173 | loopback Web port。control portと別にする |
 | `--backend-port` | 任意・8766 | loopback control WebSocket／asset port |
-| `--web-dist` | 任意・Vite dev | 明示production buildのroot。自動fallbackなし |
+| `--web-dist` | 任意・apps/mujoco-viewer/dist | 対応production buildのroot。source/lock/output byte不一致は起動前に拒否 |
+| `--dev-server` | 任意・無効 | 開発時だけ明示するsource server。web-distと排他、自動fallbackなし |
 | `--open-browser` | 任意・off | 操作URLをブラウザで開く。run-onceと排他 |
 | `--startup-check` | 任意・off | Web/worker起動・終了だけを確認。run-onceと排他 |
 | `--run-once` | 任意・off | headless有限実行。profileまたはconditionとfixtureが必須 |

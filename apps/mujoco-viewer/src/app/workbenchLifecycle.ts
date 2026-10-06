@@ -1,6 +1,14 @@
 import {createViewerGamepadLifecycle, type ViewerGamepadLifecycleOptions} from "./gamepadLifecycle.js";
 import {buildViewerGamepadControlMessage, sampleViewerGamepadSnapshot, type ViewerGamepadLike} from "../input/gamepadInput.js";
 
+/** 計器sampleを試行世代へ束縛し、停止・切断・新epochで即時失効する。 */
+export function telemetryIdentity(status:{ticket:{epoch:string}|null;generation:number;phase:string}|null,invalidation=0):string|null {
+  return status?.ticket&&["ready","waiting_input","running","terminal"].includes(status.phase)?`${status.generation}:${status.ticket.epoch}:${invalidation}`:null;
+}
+export function telemetryIsCurrent(sample:string|null,mailbox:string|null,current:string|null,connected:boolean):boolean {
+  return connected&&current!==null&&sample===current&&mailbox===current;
+}
+
 /** socket/sceneの同一性を非同期処理の開始時に固定する。 */
 export type Preparation = {socket: object; epoch: string; generation: number};
 export function preparationIsCurrent(captured: Preparation, socket: object|null,
@@ -69,4 +77,16 @@ export function workbenchNotice(status: {phase:string; error:string|null;
     return status.result.error || status.result.runner_stop_reason;
   }
   return requestError;
+}
+
+
+/** backendの実commit由来RTFだけを表示し、未計測と終了時値を区別する。 */
+export function workbenchTimingLabel(status: {phase: string; execution_timing?: {actual_rtf: number|null; rtf_window_s: number|null}}|null): string {
+  if (!status || !["running", "finalizing", "terminal", "recording_failed", "faulted", "closed"].includes(status.phase)) return "実行RTF 未計測";
+  const label = status.phase === "running" ? "実行RTF" : "終了時RTF";
+  const value = status.execution_timing?.actual_rtf;
+  if (value == null || !Number.isFinite(value) || value < 0) return `${label} 未計測`;
+  const window = status.execution_timing?.rtf_window_s;
+  const scope = window != null && Number.isFinite(window) && window > 0 ? `${window.toFixed(1)} s` : "未計測";
+  return `${label} ${value.toFixed(3)}（窓 ${scope}）`;
 }
