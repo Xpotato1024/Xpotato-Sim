@@ -272,3 +272,10 @@ def test_ps_quoted_value_remains_data_even_if_it_looks_like_an_option():
                                                    ["-inputpath", "-recorded.txt", "-title", "-Help"])
     parsed = plot.build_parser().parse_args(normalized)
     assert parsed.input_path == "-recorded.txt" and parsed.title == "-Help"
+
+
+def test_ps_missing_value_fails_before_falling_back_to_stdin(capsys):
+    with pytest.raises(SystemExit) as caught:
+        bridge.normalize_legacy_arguments(plot.build_parser(), ["-InputPath"])
+    assert caught.value.code == 2
+    assert "requires a value" in capsys.readouterr().err

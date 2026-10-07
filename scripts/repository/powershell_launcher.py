@@ -46,7 +46,9 @@ def normalize_legacy_arguments(parser: argparse.ArgumentParser, arguments: list[
             normalized.append(canonical)
         elif action.nargs is None:
             # PS binderはquotedなleading-dash値もoperandとして受け取る。
-            if not colon and index < len(arguments):
+            if not colon:
+                if index >= len(arguments):
+                    parser.error(f"{canonical} requires a value")
                 value = arguments[index]
                 index += 1
             normalized.append(canonical + "=" + value)
