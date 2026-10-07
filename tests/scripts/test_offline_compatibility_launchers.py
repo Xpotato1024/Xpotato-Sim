@@ -241,11 +241,11 @@ def test_recorded_file_bom_detection_keeps_powershell_out_file_logs(tmp_path, en
 
 
 @pytest.mark.parametrize("arguments,expected", [
-    (["-nobrowser", "-steps", "4"], ["-NoBrowser", "-Steps", "4"]),
+    (["-nobrowser", "-steps", "4"], ["-NoBrowser", "-Steps=4"]),
     (["-NoBrowser:", "False"], []),
     (["-NoBrowser:$false"], []),
     (["-nob:$true"], ["-NoBrowser"]),
-    (["-Step:", "4"], ["-Steps", "4"]),
+    (["-Step:", "4"], ["-Steps=4"]),
     (["--steps", "4"], ["--steps", "4"]),
 ])
 def test_ps_binding_uses_browser_owner_options(arguments, expected):
@@ -255,6 +255,20 @@ def test_ps_binding_uses_browser_owner_options(arguments, expected):
 def test_ps_binding_uses_plot_owner_options():
     arguments = ["-inputpath:", "file.txt", "-channels", "0,2", "-clipboard:", "False"]
     normalized = bridge.normalize_legacy_arguments(plot.build_parser(), arguments)
-    assert normalized == ["-InputPath", "file.txt", "-Channels", "0,2"]
+    assert normalized == ["-InputPath=file.txt", "-Channels", "0,2"]
     parsed = plot.build_parser().parse_args(normalized)
     assert parsed.input_path == "file.txt" and not parsed.clipboard
+
+
+@pytest.mark.parametrize("arguments", [["-Help:$false"], ["-Help:", "False"]])
+def test_false_help_switch_does_not_skip_plot(arguments):
+    normalized = bridge.normalize_legacy_arguments(plot.build_parser(), arguments)
+    assert normalized == []
+    assert plot.build_parser().parse_args(normalized).title == "Loadcell vectors"
+
+
+def test_ps_quoted_value_remains_data_even_if_it_looks_like_an_option():
+    normalized = bridge.normalize_legacy_arguments(plot.build_parser(),
+                                                   ["-inputpath", "-recorded.txt", "-title", "-Help"])
+    parsed = plot.build_parser().parse_args(normalized)
+    assert parsed.input_path == "-recorded.txt" and parsed.title == "-Help"

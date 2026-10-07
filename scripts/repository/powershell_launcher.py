@@ -37,13 +37,19 @@ def normalize_legacy_arguments(parser: argparse.ArgumentParser, arguments: list[
         if colon and not value and index < len(arguments):
             value = arguments[index]
             index += 1
-        if colon and isinstance(action, argparse._StoreTrueAction):
+        if colon and action.nargs == 0:
             truth = value.casefold().removeprefix("$")
             if truth == "false":
                 continue
             if truth != "true":
                 parser.error(f"{canonical} requires a PowerShell boolean")
             normalized.append(canonical)
+        elif action.nargs is None:
+            # PS binderはquotedなleading-dash値もoperandとして受け取る。
+            if not colon and index < len(arguments):
+                value = arguments[index]
+                index += 1
+            normalized.append(canonical + "=" + value)
         else:
             normalized.append(canonical)
             if colon:
