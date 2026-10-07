@@ -37,6 +37,8 @@ option、default、検証、physics、保存形式の正本は既存実装であ
 | `just github-body-check` | `validate_github_body_structure.py` |
 | `just viewer-test` / `just viewer-typecheck` / `just viewer-build` | Viewerのnpm test/typecheck/build |
 | `just viewer-smoke` | `run_live_viewer_smoke.py` |
+| `just browser-smoke --no-browser` | 一時replay profileと既存appのloopback startup/cleanup |
+| `just loadcell-plot --input-path logs/vectors.txt` | 記録済みvectorのoffline CSV/PNG |
 | `just selfrionette-dry-run` | 記録済みserial fixtureのoffline検証 |
 | `just fast-arm-motion-sanity` | 既存FastArm software診断 |
 | `just check` | lint、2つのtypecheck、compile |
@@ -74,9 +76,24 @@ Workbenchの所有済み外部固定buildを更新する`just build`とは用途
 Workbenchの通常入力はGamepadだけである。Keyboard、旧v1 profile、replay、単独Viewer診断は
 `app`/`viewer`を維持し、古いprofileをWorkbenchへ暗黙変換しない。
 Selfrionette live、serial monitor/measure、Arduino、OSC、実機操作は既存operator gateを維持する。
-PowerShellのmonitor/measure/plotとbrowser smokeは#456の残件であり、今回薄いlauncher化が完了したとは扱わない。
-追加recipeはそれらの実機操作を自動実行しない。
+monitor/measureは#456のlive serial残件であり、今回移行完了とは扱わない。
+追加recipeはserial、校正、OSC、実機操作を自動実行しない。
 
-Windows PowerShell 5.1から直接実行する既存browser smokeの
-`run-browser-viewer-smoke.ps1`はUTF-8 BOM付きで保存する。BOMなしではCP932誤読により
-構文エラーとなるためで、本文bytesと処理は保持する。Markdown/JSON/PythonのUTF-8 without BOM方針は維持する。
+## offline plotとbrowser smoke
+
+option/defaultは`plot_loadcell_vectors.py`と`run_browser_viewer_smoke.py`が所有する。
+旧PowerShellは引数・stdin・終了codeだけを転送する。PS5.1で空文字/引用符が失われないよう
+UTF-8 JSONをbase64として共通OS adapterへ渡し、Pythonで元のargvへ戻す。
+wrapperはASCIIだけのUTF-8 without BOMで、機能の分岐やprofile/chart作成を持たない。
+`-InputPath`/`-Channels`/`-OpenBrowser`/`-NoBrowser`等の既存option名を維持する。
+
+plotはfile/clipboard/stdinの優先順、sample index、全7chのCSV、欠損timestampとNaN、
+1600×900 PNG、channel色と選択を維持する。CSVは既存Export-Csvと同じUTF-8 BOM/quoted fieldsで、
+正本の文書/PythonのBOMなし方針とは用途が異なる。描画engineは既存依存matplotlib/Aggへ移し、
+pixelの完全一致は要求しない。InputPath/OutputPathの相対pathは旧wrapperの呼出しcwdを基準とする。
+Clipboardは明示した場合だけWindows OS adapterが読む。通常のoffline入力では読まない。
+
+browser smokeは旧replay profileの既定値を維持し、NoBrowserがOpenBrowserに優先する。
+startup-check、loopback検査、process所有/回収は既存appへ委譲する。
+`just browser-smoke --no-browser`はserver起動/回収のsoftware確認で、browserの描画確認ではない。
+明示`--open-browser`のmanual確認は[Browser Visual Smoke](browser-visual-smoke.md)に従う。

@@ -28,6 +28,8 @@ COMMANDS = {
     "viewer-typecheck": (*NPM, "typecheck"),
     "viewer-build": (*NPM, "build"),
     "viewer-smoke": (*UV, "python", "scripts/viewer/run_live_viewer_smoke.py"),
+    "browser-smoke": (*UV, "python", "scripts/viewer/run_browser_viewer_smoke.py"),
+    "loadcell-plot": (*UV, "python", "scripts/hardware/selfrionette/plot_loadcell_vectors.py"),
     "selfrionette-dry-run": (*UV, "python", "scripts/hardware/selfrionette/run_selfrionette_serial_dry_run.py"),
     "fast-arm-motion-sanity": (*UV, "python", "scripts/diagnostics/fast_arm/run_fast_arm_endpoint_motion_sanity.py"),
 }

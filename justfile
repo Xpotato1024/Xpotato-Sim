@@ -155,6 +155,20 @@ fast-arm-motion-sanity *args:
     main = runpy.run_path("scripts/repository/commands.py")["main"]
     sys.exit(main("fast-arm-motion-sanity", sys.argv[1:]))
 
+[script]
+[positional-arguments]
+browser-smoke *args:
+    import runpy, sys
+    main = runpy.run_path("scripts/repository/commands.py")["main"]
+    sys.exit(main("browser-smoke", sys.argv[1:]))
+
+[script]
+[positional-arguments]
+loadcell-plot *args:
+    import runpy, sys
+    main = runpy.run_path("scripts/repository/commands.py")["main"]
+    sys.exit(main("loadcell-plot", sys.argv[1:]))
+
 check: lint typecheck launcher-typecheck compile
 
 check-all: check test viewer-test viewer-typecheck viewer-build

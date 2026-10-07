@@ -104,9 +104,10 @@ WebSocket endpoint付きURLを開く。bind addressとbrowser-visible hostの区
 http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 ```
 
-既存PowerShell `scripts/viewer/run-browser-viewer-smoke.ps1`は、引数から一時replay profileを作り
-同じlauncherへ委譲する。独自process管理は行わない。`-NoBrowser`はstartup-check、`-OpenBrowser`は
-明示openに対応する。v1のloopback、正の時間値などの検査に従い、旧版の広いhost/zero間隔を
+`just browser-smoke --no-browser`はPythonで一時replay profileを作り同じappへ委譲する。
+既存PowerShell `scripts/viewer/run-browser-viewer-smoke.ps1`も同じPythonへ引数だけを渡す。
+独自process管理は行わない。`--no-browser`/旧`-NoBrowser`はstartup-check、
+`--open-browser`/旧`-OpenBrowser`は明示openに対応する。v1のloopback、正の時間値などの検査に従い、旧版の広いhost/zero間隔を
 無検証で通さない。LAN配信は上記低位CLIへ明示的に分ける。
 
 ## 左右独立の1スティックXYZ操作
