@@ -391,8 +391,8 @@ Robot-specific codec、P5判断、Source取得は再実装しない。testsの�
 serial、model stepを開始せず、実機permissionを生成しない。
 
 `runtime/runners/application.py`はLaunchProfileから既存publisherとWeb dev serverを起動する。
-`application_process.py`はそのworkerのprocess/job所有権と有限cleanupだけを所有する。
-`runtime/runners/workbench.py`は既存TrialRunner・transport・application_processを結線する待機制御入口である。
+`runtime/application/owned_processes.py`はappとWorkbenchのworkerのprocess/job所有権と有限cleanupだけを所有する。
+`runtime/runners/workbench.py`は既存TrialRunner・transport・owned_processesを結線する待機制御入口である。
 `workbench_web.py`のHTTP配信と`workbench_metrics.py`のprocess計測は同入口の補助で、simulation/Taskのownerではない。
 CLIやPowerShellはこのownerへ委譲し、別control loop、physics、hardware permissionを持たない。
 
@@ -435,6 +435,8 @@ geometryというDTO名だけで誤検出しない。Robot固有名のgeneric la
 `runtime/application/`はWorkbench固有の制御、通信・停止監督、専用worker、headless client、
 process memory診断を所有する。generic trial lifecycleとphysicsは既存`experiment/`、`execution/`へ委譲する。
 `runtime/runners/workbench.py`はCLIとworker/web起動を所有し、内部class/helperの互換再exportを持たない。
-serviceから`runners/application_process.py`のprocess所有primitiveを参照する既存境界は維持する。
+process所有primitiveは`application/owned_processes.py`へ集約し、旧runner内の内部pathと互換再exportを残さない。
+`application/publisher_session.py`は有限publisherのbind、ready通知、接続待機とserver回収を共有する。
+未接続なら実行しない。physics、Mapping、Task、結果保存は既存ownerへ委譲する。
 pluginとgeneric runtime owner（applicationとrunners以外）からapplicationへのimportは禁止する。
 `tests/architecture/test_runtime_ownership_boundaries.py`がowner配置、旧内部consumer、逆依存をASTで検査する。

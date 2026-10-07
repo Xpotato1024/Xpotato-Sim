@@ -72,6 +72,8 @@ uv run --no-project --no-config --no-cache --no-env-file --offline --no-python-d
 
 既存の`xpotato-sim workbench`などの直接CLIも維持します。直接CLIでは保存先・source identityを操作者が明示します。ローカルランチャーはprepare／Start／hardware操作を自動送信しません。
 
+非実機のtest、replay、publisher、diagnosticは[repository操作入口](docs/operations/repository-commands.md)のjust recipeを第一入口とします。直接CLI/script/npmは同等のdebug入口として維持します。
+
 ## Workbenchでの操作
 
 Workbenchは未選択・無入力・無physics stepで待機します。`--open-browser`が自動で開いた操作ページで「操作権を取得」し、presetを選択してください。端末に表示されるURLは閲覧専用で、操作資格は印字しません。自動で開いた操作URLの一時資格は他人へ共有しません。資格なしのURLは表示できても試行を操作できません。通常の入力はGamepadです。実機、serial、OSCへ出力しません。

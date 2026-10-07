@@ -48,3 +48,5 @@ related:
 - `r7-e-p1-fast-arm-endpoint-motion-sanity.md`: endpoint motion sanity gate
 - `r7-g-deterministic-e2e.md`: R7-G manifestからevaluation artifactまでの有限deterministic software-only E2E
 - `r7-h-p7-contact-e2e.md`: R7-H-P7 contact scene / raw evidence / Task / viewer payloadの有限software-only E2E
+
+- [repository操作入口](repository-commands.md): justと既存CLI/script/npmの対応。

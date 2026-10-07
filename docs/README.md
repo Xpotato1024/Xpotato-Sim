@@ -76,6 +76,7 @@ completion audit、implementation report、inventory、handoff、historical reco
 | physical safety core decision | `docs/contracts/physical-safety-core.md` | limit・collision・dynamicのclosed action compose |
 | physical operator validation / evidence | `docs/contracts/physical-operator-validation.md` | operator gate、stop / rollback、strict evidence artifact |
 | world/tool control-frame評価 | `docs/evaluation/world-tool-frame-comparison-design.md` | limited exploratory pilot design |
+| repository操作入口 | `docs/operations/repository-commands.md` | justと直接CLI/script/npmの対応、引数転送と残存wrapper |
 | Git / PR workflow | `docs/operations/git-pr-workflow.md` | branch、diff、PR、head一致のgate |
 | Codex workflow | `docs/operations/codex-workflow.md` | repository-local ruleとtask-specific deltaの適用 |
 | repository-local Skill governance | `docs/operations/agent-skill-governance.md` | Skill lifecycle、candidate / eval schema、autonomy boundary |

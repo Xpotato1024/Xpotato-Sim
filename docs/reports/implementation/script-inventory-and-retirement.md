@@ -94,3 +94,10 @@ Issue #436当時の分類と、Issue #416の合成log demo分類は変更しな�
 justと直接Pythonで同じ正式CLIを組み立てる。旧退役launcherの再導入ではない。
 通常起動では同期・npm・buildを行わず、physics、入力、試行、保存formatのownerを追加しない。
 現行操作手順は[root README](../../../README.md)と[統一CLI](../../operations/unified-cli.md)へ委譲する。
+
+## 2026-10-07: #456/#607の共通操作入口
+
+`commands.py`（`scripts/repository/commands.py`）はjustから既存CLI/script/npmへargvを転送する。
+option/default/validationを再定義せず、実機操作のmonitor/measure/liveを追加しない。
+現行手順は[repository操作入口](../../operations/repository-commands.md)を参照する。
+既存PowerShellの分類と履歴は保持する。
