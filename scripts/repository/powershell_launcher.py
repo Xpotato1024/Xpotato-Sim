@@ -1,6 +1,7 @@
 """PowerShell 5.1のargv/文字コード境界だけを扱う。option/defaultは対象Pythonが所有する。"""
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 from pathlib import Path
@@ -8,6 +9,46 @@ import runpy
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def normalize_legacy_arguments(parser: argparse.ArgumentParser, arguments: list[str]) -> list[str]:
+    """Python ownerの登録optionからPSのcase/prefix/colon/switch bindingを復元する。"""
+    options = {name.casefold(): (name, action)
+               for name, action in parser._option_string_actions.items()
+               if name.startswith("-") and not name.startswith("--")}
+    normalized = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        index += 1
+        name, colon, value = argument.partition(":")
+        if not name.startswith("-") or name.startswith("--"):
+            normalized.append(argument)
+            continue
+        match = options.get(name.casefold())
+        if match is None:
+            candidates = [item for key, item in options.items() if key.startswith(name.casefold())]
+            if len(candidates) == 1:
+                match = candidates[0]
+        if match is None:
+            normalized.append(argument)
+            continue
+        canonical, action = match
+        if colon and not value and index < len(arguments):
+            value = arguments[index]
+            index += 1
+        if colon and isinstance(action, argparse._StoreTrueAction):
+            truth = value.casefold().removeprefix("$")
+            if truth == "false":
+                continue
+            if truth != "true":
+                parser.error(f"{canonical} requires a PowerShell boolean")
+            normalized.append(canonical)
+        else:
+            normalized.append(canonical)
+            if colon:
+                normalized.append(value)
+    return normalized
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -20,8 +61,9 @@ def main(arguments: list[str] | None = None) -> int:
     previous = sys.argv
     try:
         sys.argv = [str(target), *forwarded]
-        runpy.run_path(str(target), run_name="__main__")
-        return 0
+        namespace = runpy.run_path(str(target), run_name="xpotato_powershell_entry")
+        parser = namespace["build_parser"]()
+        return namespace["main"](normalize_legacy_arguments(parser, forwarded))
     finally:
         sys.argv = previous
 

@@ -6,6 +6,7 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime
 import math
+import locale
 import os
 from pathlib import Path
 import re
@@ -77,8 +78,17 @@ def read_source(input_path: str | None, clipboard: bool) -> str:
     if clipboard:
         return read_clipboard()
     if input_path:
-        # 旧ログのnon-vector commentが別encodingでもASCII vector行を保持する。
-        return Path(input_path).read_text(encoding="utf-8-sig", errors="replace")
+        data = Path(input_path).read_bytes()
+        # Get-Content相当のBOM識別。UTF-32 LEはUTF-16 LEより先に判定する。
+        for marker, encoding in (
+            (b"\xff\xfe\x00\x00", "utf-32"), (b"\x00\x00\xfe\xff", "utf-32"),
+            (b"\xff\xfe", "utf-16"), (b"\xfe\xff", "utf-16"),
+            (b"\xef\xbb\xbf", "utf-8-sig"),
+        ):
+            if data.startswith(marker):
+                return data.decode(encoding, errors="replace")
+        encoding = locale.getencoding() if os.name == "nt" else "utf-8"
+        return data.decode(encoding, errors="replace")
     return sys.stdin.read()
 
 

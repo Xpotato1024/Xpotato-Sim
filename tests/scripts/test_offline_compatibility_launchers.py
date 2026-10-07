@@ -176,17 +176,17 @@ def test_browser_custom_legacy_options_keep_replay_contract():
 def test_powershell_bridge_preserves_argv_cwd_and_status(monkeypatch, tmp_path, capsys, status):
     target = tmp_path / "spy.py"
     target.write_text(
-        "import json, os, sys\n"
-        "print(json.dumps([sys.argv[1:], os.getcwd()]))\n"
-        f"raise SystemExit({status})\n", encoding="utf-8",
+        "import argparse, json, os\n"
+        "def build_parser(): return argparse.ArgumentParser()\n"
+        "def main(arguments):\n"
+        "    print(json.dumps([arguments, os.getcwd()]))\n"
+        f"    return {status}\n", encoding="utf-8",
     )
     arguments = ["日本語 space", 'a"b', "", "a&ver", "%COMSPEC%", "0,2"]
     encoded = base64.b64encode(json.dumps(arguments).encode()).decode()
     monkeypatch.setattr(bridge, "ROOT", tmp_path)
     previous = sys.argv
-    with pytest.raises(SystemExit) as caught:
-        bridge.main(["spy.py", encoded])
-    assert caught.value.code == status
+    assert bridge.main(["spy.py", encoded]) == status
     assert sys.argv is previous
     assert json.loads(capsys.readouterr().out) == [arguments, str(Path.cwd())]
 
@@ -225,3 +225,36 @@ def test_actual_powershell_wrapper_forwards_unicode_quotes_empty_and_arrays(tmp_
     assert payload["argv"] == ["-Title", "日本語 space", "", 'a"b', "a&ver",
                                "%COMSPEC%", "-Channels", "0,2"]
     assert payload["args"][:3] == ["run", "--project", str(tmp_path)]
+
+
+@pytest.mark.parametrize("encoding,marker", [
+    ("utf-8", b"\xef\xbb\xbf"), ("utf-16-le", b"\xff\xfe"),
+    ("utf-16-be", b"\xfe\xff"), ("utf-32-le", b"\xff\xfe\x00\x00"),
+    ("utf-32-be", b"\x00\x00\xfe\xff"),
+])
+def test_recorded_file_bom_detection_keeps_powershell_out_file_logs(tmp_path, encoding, marker):
+    source = tmp_path / "recorded.txt"
+    text = "日本語 comment\nvector,100,1,2,3,4,5,6,7\n"
+    source.write_bytes(marker + text.encode(encoding))
+    assert plot.read_source(str(source), False) == text
+    assert plot.main(["--input-path", str(source)]) == 0
+
+
+@pytest.mark.parametrize("arguments,expected", [
+    (["-nobrowser", "-steps", "4"], ["-NoBrowser", "-Steps", "4"]),
+    (["-NoBrowser:", "False"], []),
+    (["-NoBrowser:$false"], []),
+    (["-nob:$true"], ["-NoBrowser"]),
+    (["-Step:", "4"], ["-Steps", "4"]),
+    (["--steps", "4"], ["--steps", "4"]),
+])
+def test_ps_binding_uses_browser_owner_options(arguments, expected):
+    assert bridge.normalize_legacy_arguments(browser.build_parser(), arguments) == expected
+
+
+def test_ps_binding_uses_plot_owner_options():
+    arguments = ["-inputpath:", "file.txt", "-channels", "0,2", "-clipboard:", "False"]
+    normalized = bridge.normalize_legacy_arguments(plot.build_parser(), arguments)
+    assert normalized == ["-InputPath", "file.txt", "-Channels", "0,2"]
+    parsed = plot.build_parser().parse_args(normalized)
+    assert parsed.input_path == "file.txt" and not parsed.clipboard

@@ -84,10 +84,12 @@ monitor/measureは#456のlive serial残件であり、今回移行完了とは�
 option/defaultは`plot_loadcell_vectors.py`と`run_browser_viewer_smoke.py`が所有する。
 旧PowerShellは引数・stdin・終了codeだけを転送する。PS5.1で空文字/引用符が失われないよう
 UTF-8 JSONをbase64として共通OS adapterへ渡し、Pythonで元のargvへ戻す。
+旧PSの大小文字非区別・一意prefix・colon/switch値は対象Pythonの登録parserから正規化する。
 wrapperはASCIIだけのUTF-8 without BOMで、機能の分岐やprofile/chart作成を持たない。
 `-InputPath`/`-Channels`/`-OpenBrowser`/`-NoBrowser`等の既存option名を維持する。
 
-plotはfile/clipboard/stdinの優先順、sample index、全7chのCSV、欠損timestampとNaN、
+plotはUTF-8/UTF-16/UTF-32 BOMとWindowsのBOMなし既定encodingを識別する。
+file/clipboard/stdinの優先順、sample index、全7chのCSV、欠損timestampとNaN、
 1600×900 PNG、channel色と選択を維持する。CSVは既存Export-Csvと同じUTF-8 BOM/quoted fieldsで、
 正本の文書/PythonのBOMなし方針とは用途が異なる。描画engineは既存依存matplotlib/Aggへ移し、
 pixelの完全一致は要求しない。InputPath/OutputPathの相対pathは旧wrapperの呼出しcwdを基準とする。

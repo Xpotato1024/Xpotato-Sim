@@ -42,3 +42,11 @@ CSVのBOMは既存Export-Csvのartifact互換性であり、文書/PythonはBOM�
 physics、Mapping、Task、実験評価、寸法、研究条件・人数を変えない操作実装なので
 research log/experiment note更新は不要と判定する。serial、OSC、browser実操作、実験端末の反復検証は行わない。
 #456全体、#607全面退役、#617/#618の完了はこの変更から宣言しない。
+
+## 独立レビューによる互換性の補完
+
+独立レビューで旧Get-Contentが識別するUTF-16 BOMログと、旧PS binderのcase-insensitive option /
+switch:$falseが新入口で拒否されることを再現した。
+fileはUTF-8/UTF-16/UTF-32のBOMを識別し、WindowsのBOMなし既定encodingも維持する。
+OS adapterは対象Pythonの登録parserからcase/prefix/colon/switch値を正規化し、
+option名やdefaultの別定義を増やさない。BOM各種と旧bindingを回帰へ追加する。
