@@ -68,3 +68,11 @@ research logとexperiment noteの新規更新は不要と判定する。
 #607のapp/publisher全面退役と#456のPowerShell monitor/measure/plot/browser smoke移行は完了していない。
 production削除量、新共通化code、移動code、操作launcherの追加量はPRで分けて実測する。
 LOCのみを目的に互換性を削らず、Issueの全受入を満たしたとは宣言しない。
+
+## Windows文字コードの補完
+
+新just appの回収ログはPython childのUTF-8 modeを明示する。
+既存browser smokeはPS5.1 ParseFileでCP932誤読のUnexpectedTokenを再現し、
+同一本文のUTF-8 ParseInputでは成功した。本文bytesを保ったBOM追加だけで
+4つの既存PowerShell scriptのPS5.1 parserが成功することを確認した。
+汎用encoding checkerのBOM指摘はこの.ps1に限る互換性要件として記録し、MarkdownのBOMを許容しない。

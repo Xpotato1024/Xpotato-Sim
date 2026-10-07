@@ -74,3 +74,7 @@ Workbenchの通常入力はGamepadだけである。Keyboard、旧v1 profile、r
 Selfrionette live、serial monitor/measure、Arduino、OSC、実機操作は既存operator gateを維持する。
 PowerShellのmonitor/measure/plotとbrowser smokeは#456の残件であり、今回薄いlauncher化が完了したとは扱わない。
 追加recipeはそれらの実機操作を自動実行しない。
+
+Windows PowerShell 5.1から直接実行する既存browser smokeの
+`run-browser-viewer-smoke.ps1`はUTF-8 BOM付きで保存する。BOMなしではCP932誤読により
+構文エラーとなるためで、本文bytesと処理は保持する。Markdown/JSON/PythonのUTF-8 without BOM方針は維持する。
