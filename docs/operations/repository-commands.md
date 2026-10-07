@@ -64,7 +64,9 @@ just replay --robot fast_arm --steps 2
 
 child終了codeはWindows/Unixで保持し、operator interruptionは130とする。
 Python childはUTF-8 modeを明示し、Windows CP932環境でもUnicode回収ログを出力できる。
-npmの実行fileはPATHから解決する。`viewer-build`は既存npm buildであり、
+npmの実行fileはPATHから解決する。Windowsのnpm.cmdはnative Nodeとnpm-cli.jsへ
+解決し、batchの環境変数展開やコマンド分割を避ける。global npmの選択はnpm-prefix.jsへ委譲する。
+必要なnative実装がない場合や他toolがbatchの場合は明示失敗し、shellへfallbackしない。`viewer-build`は既存npm buildであり、
 Workbenchの所有済み外部固定buildを更新する`just build`とは用途が異なる。
 
 ## 存続する入口

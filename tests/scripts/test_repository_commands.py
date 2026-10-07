@@ -89,3 +89,46 @@ def test_real_python_child_uses_utf8_when_parent_disables_it(monkeypatch, capfd)
     ))
     assert commands.main("profile", []) == 0
     assert capfd.readouterr().out.strip() == "\u279c"
+
+@pytest.mark.parametrize("status", [0, 17, 130])
+@pytest.mark.parametrize("global_npm", [False, True])
+def test_real_native_node_bypasses_batch_and_preserves_arguments(
+    tmp_path, monkeypatch, capfd, status, global_npm,
+):
+    node = shutil.which("node")
+    assert node, "Install documented Node before running development tests"
+    batch = tmp_path / "npm.cmd"
+    # batchへ戻す回帰は無害に失敗する。実際のcmd expansionは実行しない。
+    batch.write_text("@exit /b 91\n", encoding="ascii")
+    cli = tmp_path / "node_modules/npm/bin/npm-cli.js"
+    cli.parent.mkdir(parents=True)
+    cli.write_text("process.exit(92);\n", encoding="ascii")
+    if global_npm:
+        prefix = tmp_path / "global prefix 日本語"
+        cli = prefix / "node_modules/npm/bin/npm-cli.js"
+        cli.parent.mkdir(parents=True)
+        (tmp_path / "node_modules/npm/bin/npm-prefix.js").write_text(
+            f"console.log({json.dumps(str(prefix))});\n", encoding="ascii",
+        )
+    cli.write_text(
+        "console.log(JSON.stringify(process.argv.slice(2)));\n"
+        f"process.exit({status});\n", encoding="ascii",
+    )
+    monkeypatch.setattr(commands.shutil, "which", lambda name: str(batch) if name == "npm" else node)
+    arguments = ["a&ver", "%COMSPEC%", "!PATH!", "a>b", "$(echo x)", 'a"b', "", "日本語 space"]
+    assert commands.main("viewer-test", arguments) == status
+    assert json.loads(capfd.readouterr().out.strip()) == [
+        *commands.COMMANDS["viewer-test"][1:], *arguments,
+    ]
+
+
+def test_batch_tool_and_incomplete_npm_fail_without_execution(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(commands.shutil, "which", lambda name: str(tmp_path / f"{name}.cmd"))
+    assert commands.main("profile", []) == 1
+    assert "batch tool" in capsys.readouterr().err
+    assert commands.main("viewer-test", []) == 1
+    assert "Node" in capsys.readouterr().err
+    monkeypatch.setattr(commands.shutil, "which",
+                        lambda name: str(tmp_path / "npm.cmd") if name == "npm" else "node.exe")
+    assert commands.main("viewer-test", []) == 1
+    assert "CLI" in capsys.readouterr().err

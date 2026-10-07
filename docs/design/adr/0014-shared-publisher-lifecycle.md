@@ -76,3 +76,12 @@ LOCのみを目的に互換性を削らず、Issueの全受入を満たしたと
 同一本文のUTF-8 ParseInputでは成功した。本文bytesを保ったBOM追加だけで
 4つの既存PowerShell scriptのPS5.1 parserが成功することを確認した。
 汎用encoding checkerのBOM指摘はこの.ps1に限る互換性要件として記録し、MarkdownのBOMを許容しない。
+
+## 独立レビューによるWindows npm境界の補完
+
+最終headの独立レビューで、shell=FalseでもWindowsのnpm.cmdはcmd.exeを経由し、
+a&verの分割実行、%COMSPEC%の展開、child失敗codeの消失が再現された。
+native Node/npm CLIへ解決し、npmのglobal prefix選択だけ既存helperへ委譲する。
+未対応batchへfallbackせず明示失敗とする。
+本物のNodeで空文字・引用符・日本語・shell記号と0/17/130を検証し、
+bundled/global両CLI選択を回帰で拘束する。batchの実行そのものはfixtureの無害な失敗で検出する。
