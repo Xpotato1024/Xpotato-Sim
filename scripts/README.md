@@ -17,8 +17,9 @@ justなしでも同じscriptを使う。physicsや試行のownerを持たず、�
 
 ## safety
 
-`hardware/`のscriptは閲覧だけで実行せず、
+`hardware/`のlive scriptは閲覧だけで実行せず、
 [hardware safety](../docs/operations/hardware-safety.md)に従ってdevice、port、stop手順を確認する。
+記録済みfile/stdinだけを扱う`just loadcell-plot`と既存dry-runはoffline例外である。
 diagnosticsやdry-runをhardware validationと呼ばない。
 
 ## canonical routing

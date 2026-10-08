@@ -101,3 +101,11 @@ justと直接Pythonで同じ正式CLIを組み立てる。旧退役launcherの�
 option/default/validationを再定義せず、実機操作のmonitor/measure/liveを追加しない。
 現行手順は[repository操作入口](../../operations/repository-commands.md)を参照する。
 既存PowerShellの分類と履歴は保持する。
+
+## 2026-10-07: #456のoffline plotとbrowser smoke移行
+
+- `plot_loadcell_vectors.py`: 記録済みvectorのparser、全7ch CSV、sample index PNGを所有するoffline tool。serial/deviceは開かない。
+- `run_browser_viewer_smoke.py`: 旧option/defaultから同じv1 replay profileを作り、正式appの検査・寿命へ委譲する。
+- `powershell_launcher.py`: PS5.1のUTF-8/base64 argvを復元するOS adapter。操作のoption/defaultを所有しない。
+- 既存`plot_loadcell_vectors.ps1`/`run-browser-viewer-smoke.ps1`は引数/stdin/終了codeだけの互換launcherへ置換する。
+- monitor/measureの過去分類と履歴は保持し、live serial/calibrationの能力を黙って削らない。

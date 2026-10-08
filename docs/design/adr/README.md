@@ -37,3 +37,5 @@ ADRはdesign decisionを、その時点のcontextとprovenanceを含めて記録
 - [ADR 0011: シミュレーション主経路と左右共通scope](0011-simulation-first-bimanual-scope.md)
 
 - [ADR 0014: 現役consumerを保持した起動寿命の集約](0014-shared-publisher-lifecycle.md)
+
+- [ADR 0015: offline操作のPython ownerとPowerShell互換入口](0015-offline-python-operation-owners.md)

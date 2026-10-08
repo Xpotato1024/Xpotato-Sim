@@ -60,18 +60,16 @@ host / port / public host contract は
 
 ## One-command launcher
 
-Windows / PowerShell 向けの one-command smoke は
-`scripts/viewer/run-browser-viewer-smoke.ps1` を使う。Windows PowerShell 5.1 で動く
-構文を優先している。
+準備済みrepository rootで`just browser-smoke`を使う。
+option/profile作成はPythonが所有し、起動寿命は正式appへ委譲する。
+既存`scripts/viewer/run-browser-viewer-smoke.ps1`はPS5.1互換の引数転送launcherとして存続する。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\viewer\run-browser-viewer-smoke.ps1 `
-  -PublisherPort 8768 `
-  -ViewerPort 5176 `
-  -Preset sweep_x `
-  -Steps 6 `
-  -OpenBrowser
+just browser-smoke --publisher-port 8768 --viewer-port 5176 --preset sweep_x --steps 6 --open-browser
 ```
+
+`--open-browser`はoperatorがmanual描画確認するときだけ明示する。
+server起動/回収だけを確認する場合は`just browser-smoke --no-browser`を使う。
 
 default URL:
 

@@ -41,11 +41,11 @@ channel-to-axis assignment、endpoint conversionを所有する。
 - `scripts/hardware/selfrionette/run_live_selfrionette_runtime.py`
 - `scripts/hardware/selfrionette/monitor_selfrionette_serial.ps1`
 - `scripts/hardware/selfrionette/measure_loadcell_channel_response.ps1`
-- `scripts/hardware/selfrionette/plot_loadcell_vectors.ps1`
+- `scripts/hardware/selfrionette/plot_loadcell_vectors.py`（旧.ps1は引数転送のみ）
 
 `monitor_selfrionette_serial.ps1`は`status` / `warn` / `vector` protocolとcalibration
 commandを扱うためdevice-specificである。`measure_loadcell_channel_response.ps1`と
-`plot_loadcell_vectors.ps1`の`loadcell`はsensor response / recorded sample semanticsを
+`plot_loadcell_vectors.py`の`loadcell`はsensor response / recorded sample semanticsを
 表すためbasenameを維持するが、Selfrionette固有protocol owner配下に置く。
 
 ## offline fixture smoke
@@ -86,6 +86,16 @@ malformed fixtureはdeterministic failureの確認に使用する。
 uv run python scripts/hardware/selfrionette/run_selfrionette_serial_dry_run.py `
   --fixture tests/fixtures/r7_a_lite_serial_frames/malformed.txt
 ```
+
+## recorded vectorのoffline plot
+
+```powershell
+just loadcell-plot --input-path tests/fixtures/r7_a_lite_serial_frames/minimal_valid.txt --output-path tmp/loadcell.png
+```
+
+fileまたはstdinの記録済みvector行だけを読み、CSVとsample index基準のPNGを作る。
+serial port、校正、Mapping、health判定は実行しない。詳細は
+[repository操作入口](repository-commands.md#offline-plotとbrowser-smoke)を参照する。
 
 ## manual live serial
 
