@@ -34,6 +34,11 @@ related:
 
 `runtime.__init__`は`RuntimeConfig`と既存catalog resolver 5件だけをlazy exportする。
 interpreter-based `RuntimePipeline`はC4で退役し、`ControlMappedRuntimePipeline`だけをexecution ownerに残す。
+standalone WebSocketの既定replayと`sweep_x`は、いずれも`run_once()`が取得、Mapping、安全判定、MuJoCo step、
+同stepのsnapshotを所有する。`sweep_x`のtarget / 軌道metadataだけを`control/input_step_diagnostics.py`の
+`project_sweep_x_replay_state()`でpublish直前に投影する。typed qpos rejectionではtargetとendpoint evaluationを
+nullに保ち、Robot Profile metadataはpipelineのidentityを正とする。投影はphysics stateを再取得しない。
+generic input-source loopのhealth / input表示の投影は既存ownerに残し、standalone replayへ追加しない。
 contractやrunnerをpackage rootからre-exportしない。catalog access前のlazy-load、resolved Bundleのtyped
 provider identity、plugin identityはこの移動で変更しない。
 
