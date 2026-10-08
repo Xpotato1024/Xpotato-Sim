@@ -10,7 +10,7 @@ justなしでも同じscriptを使う。physicsや試行のownerを持たず、�
 初回・通常・更新後・開発の手順は[root README](../README.md)、起動契約は
 [Workbench](../docs/contracts/workbench.md)を参照する。
 
-- `repository/`: Markdown / GitHub body等のrepository validation
+- `repository/`: Markdown / GitHub body等のrepository validationとjustの既存commandへのargv転送
 - `viewer/`: viewer fixture exportとbrowser / live smoke
 - `diagnostics/`: software-only Robot diagnostics
 - `hardware/`: serial / deviceを扱いうるoperator-gated script

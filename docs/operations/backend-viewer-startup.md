@@ -25,6 +25,9 @@ MuJoCo backendがsimulation stateを所有し、browserは受信qposの描画と
 profile未選択で起動し有限試行を繰り返す場合は[Workbenchの起動手順](../contracts/workbench.md#起動)を使う。
 `workbench`のdev/build選択と既存`app --profile`の固定profile起動は別の入口である。
 
+既存app/publisherの人間向け第一入口は[repository操作入口](repository-commands.md)のjust recipeです。
+この文書の直接CLIはdebug/downstream向けにも維持します。
+
 ## 初回セットアップ
 
 リポジトリrootで実行する。依存のinstallと毎回の起動を分ける。

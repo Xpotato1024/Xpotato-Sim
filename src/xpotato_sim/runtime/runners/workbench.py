@@ -14,7 +14,7 @@ import tempfile
 from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, repository_workspace
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
 from xpotato_sim.runtime.experiment.edited_condition import resolve_condition, MAX_BYTES
-from xpotato_sim.runtime.runners.application_process import OwnedApplicationWorkers, join_application_job
+from xpotato_sim.runtime.application.owned_processes import OwnedApplicationWorkers, join_application_job
 
 from xpotato_sim.runtime.application import workbench_service, workbench_worker
 

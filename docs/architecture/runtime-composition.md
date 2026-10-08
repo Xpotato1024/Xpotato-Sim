@@ -29,7 +29,7 @@ related:
 | `contact/` | versioned contact manifest、backend-owned MuJoCo scene composition / reset、MuJoCo measured contact evidence、Task contractの共有型 |
 | `experiment/` | 6軸のexperiment plugin contract、registry、readiness composition、software-only trial lifecycle |
 | `evaluation/` | FK / endpoint metric、progress、evaluation manifest / freeze readiness |
-| `application/` | Workbenchの制御要求、通信・停止監督、専用worker、headless client、process memory診断 |
+| `application/` | app/Workbenchのprocess所有と有限publisherの接続寿命、Workbenchの制御要求、通信・停止監督、専用worker、headless client、process memory診断 |
 | `runners/` | operational dry-run / smoke / publisherとexperimentのthin entry point |
 
 `runtime.__init__`は`RuntimeConfig`と既存catalog resolver 5件だけをlazy exportする。

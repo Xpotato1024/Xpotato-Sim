@@ -35,3 +35,5 @@ ADRはdesign decisionを、その時点のcontextとprovenanceを含めて記録
 - [ADR 0010: 入力とphysical sessionの有限owner](0010-bounded-physical-runtime-owner.md)
 
 - [ADR 0011: シミュレーション主経路と左右共通scope](0011-simulation-first-bimanual-scope.md)
+
+- [ADR 0014: 現役consumerを保持した起動寿命の集約](0014-shared-publisher-lifecycle.md)

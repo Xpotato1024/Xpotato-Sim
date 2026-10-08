@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$HostName = "127.0.0.1",
     [int]$PublisherPort = 8768,

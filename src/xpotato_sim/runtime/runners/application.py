@@ -25,7 +25,7 @@ from xpotato_sim.runtime.composition.launch_profile import (
     load_launch_profile,
     override_launch_profile,
 )
-from xpotato_sim.runtime.runners.application_process import OwnedApplicationWorkers, join_application_job
+from xpotato_sim.runtime.application.owned_processes import OwnedApplicationWorkers, join_application_job
 from xpotato_sim.runtime.runners.model_websocket_publisher import run_model_websocket_publisher
 from xpotato_sim.runtime.runners.websocket_publisher import run_input_source_websocket_publisher
 

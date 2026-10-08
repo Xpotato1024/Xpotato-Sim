@@ -31,6 +31,7 @@ from xpotato_sim.runtime.runners.live_websocket_delivery import (
 )
 from xpotato_sim.schemas import RawInputFrame
 from xpotato_sim.transport import WebSocketPublisherServer, WebSocketStatePublisher
+from xpotato_sim.runtime.application.publisher_session import connected_publisher_session
 
 DEFAULT_WEBSOCKET_PUBLISHER_HOST = "127.0.0.1"
 DEFAULT_WEBSOCKET_PUBLISHER_PORT = 8766
@@ -133,19 +134,12 @@ async def _run_input_source_websocket_publisher_async(
     server_kwargs = {"host": host, "port": port}
     if on_message is not None:
         server_kwargs["on_message"] = on_message
-    async with WebSocketPublisherServer(**server_kwargs) as server:
-        _log(f"serving on ws://{server.host}:{server.bound_port}")
-        if on_ready is not None:
-            on_ready()
-        _log(f"Waiting for viewer during grace period ({grace_period_s:.2f}s)")
-
-        has_client = await server.wait_for_client(timeout_s=grace_period_s)
-        if not has_client:
-            _log("No viewer connected during grace period; no payloads published.")
-            _log("Completed without publishing because no viewer connected.")
+    async with connected_publisher_session(
+        WebSocketPublisherServer(**server_kwargs),
+        grace_period_s=grace_period_s, on_ready=on_ready,
+    ) as server:
+        if server is None:
             return
-
-        _log("Viewer connected; publishing started.")
         selection = select_runtime_input_source(
             input_source,
             steps=steps,
@@ -269,17 +263,12 @@ async def _run_replay_mujoco_websocket_publisher_async(
 ) -> None:
     runtime_config = RuntimeConfig(dt_s=dt_s, robot_profile_id=robot_profile_id)
 
-    async with WebSocketPublisherServer(host=host, port=port) as server:
-        _log(f"serving on ws://{server.host}:{server.bound_port}")
-        _log(f"Waiting for viewer during grace period ({grace_period_s:.2f}s)")
-
-        has_client = await server.wait_for_client(timeout_s=grace_period_s)
-        if not has_client:
-            _log("No viewer connected during grace period; no payloads published.")
-            _log("Completed without publishing because no viewer connected.")
+    async with connected_publisher_session(
+        WebSocketPublisherServer(host=host, port=port),
+        grace_period_s=grace_period_s,
+    ) as server:
+        if server is None:
             return
-
-        _log("Viewer connected; publishing started.")
 
         pipeline = build_concrete_mujoco_pipeline(
             frames=_sweep_x_replay_frames(steps) if preset == "sweep_x" else (_default_replay_frame(),),

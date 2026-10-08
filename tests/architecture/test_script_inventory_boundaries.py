@@ -10,6 +10,7 @@ RETIRED_LAUNCHER = "run_mujoco_viewer_dev.py"
 TEXT_SUFFIXES = {".md", ".py", ".ps1", ".yml", ".yaml", ".toml", ".txt"}
 EXPECTED_SCRIPTS = {
     "scripts/workbench_local.py",
+    "scripts/repository/commands.py",
     "scripts/diagnostics/fast_arm/measure_pinch_checkpoint.py",
     "scripts/diagnostics/fast_arm/measure_simulation_hot_path.py",
     "scripts/diagnostics/fast_arm/pinch-checkpoint.json",

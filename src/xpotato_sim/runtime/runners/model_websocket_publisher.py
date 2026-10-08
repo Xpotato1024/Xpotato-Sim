@@ -10,6 +10,7 @@ from xpotato_sim.runtime.runners.live_websocket_delivery import LiveLatestStateW
 from xpotato_sim.runtime.composition.launch_profile import LaunchProfile
 from xpotato_sim.runtime.execution.model_execution import ModelExecution
 from xpotato_sim.transport import WebSocketPublisherServer
+from xpotato_sim.runtime.application.publisher_session import connected_publisher_session
 
 
 async def _run_model_websocket_publisher_async(
@@ -24,14 +25,13 @@ async def _run_model_websocket_publisher_async(
         execution.ingest(message)
 
     try:
-        async with WebSocketPublisherServer(
-            host=profile.host, port=profile.backend_port, on_message=on_message,
+        async with connected_publisher_session(
+            WebSocketPublisherServer(
+                host=profile.host, port=profile.backend_port, on_message=on_message,
+            ),
+            grace_period_s=profile.grace_period_s, on_ready=on_ready, verbose=False,
         ) as server:
-            print(f"serving on ws://{server.host}:{server.bound_port}", flush=True)
-            if on_ready is not None:
-                on_ready()
-            if not await server.wait_for_client(timeout_s=profile.grace_period_s):
-                print("No viewer connected during grace period; no payloads published.", flush=True)
+            if server is None:
                 return
 
             pacer = AbsoluteDeadlinePacer(profile.interval_s)
