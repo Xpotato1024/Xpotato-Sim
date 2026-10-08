@@ -5,6 +5,7 @@ import argparse
 import base64
 import json
 from pathlib import Path
+import re
 import runpy
 import sys
 
@@ -52,6 +53,18 @@ def normalize_legacy_arguments(parser: argparse.ArgumentParser, arguments: list[
                 value = arguments[index]
                 index += 1
             normalized.append(canonical + "=" + value)
+        elif action.nargs == "+":
+            values = [value] if colon else []
+            while index < len(arguments):
+                operand = arguments[index]
+                if operand.startswith("-") and not re.fullmatch(r"-[0-9]+(?:,[+-]?[0-9]+)*", operand):
+                    break
+                values.append(operand)
+                index += 1
+            if not values:
+                parser.error(f"{canonical} requires a value")
+            # PSの数値配列を一つのoperandにし、負数comma列をoptionとして解釈させない。
+            normalized.append(canonical + "=" + ",".join(values))
         else:
             normalized.append(canonical)
             if colon:

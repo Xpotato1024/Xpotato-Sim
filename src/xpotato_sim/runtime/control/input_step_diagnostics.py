@@ -209,6 +209,32 @@ def annotate_runtime_input_state(
     )
 
 
+def project_sweep_x_replay_state(
+    state: MuJoCoState,
+    intent: InputIntent,
+    safety_result: RuntimeInputSafetyResult,
+    *,
+    authoritative_profile_metadata: Mapping[str, object] | None,
+) -> MuJoCoState:
+    """既定replayのprogrammed軌道を投影する。取得healthやinput表示は追加しない。"""
+    command = safety_result.motion_command
+    qpos_rejected = safety_result.qpos_feasibility_rejected
+    metadata = merge_runtime_metadata(
+        state.metadata,
+        intent.metadata,
+        command.metadata,
+        {"preset": "sweep_x"},
+        authoritative_profile_metadata=authoritative_profile_metadata,
+    )
+    if qpos_rejected:
+        metadata["endpoint_evaluation"] = None
+    return replace(
+        state,
+        target_position_m=None if qpos_rejected else tuple(intent.metadata["desired_endpoint_m"]),
+        metadata=metadata,
+    )
+
+
 def input_signal_display_projection(frame: RawInputFrame, *, sample_schema: str,
                                     state: MuJoCoState) -> dict[str, object]:
     """取得済みraw値を同じsimulation frameへ結ぶ。写像・校正・単位を推定しない。"""
@@ -243,6 +269,7 @@ def input_signal_display_projection(frame: RawInputFrame, *, sample_schema: str,
 
 __all__ = [
     "PostStepMeasurement",
+    "project_sweep_x_replay_state",
     "TargetFeedbackAnnotation",
     "annotate_runtime_input_state",
     "annotate_target_feedback",

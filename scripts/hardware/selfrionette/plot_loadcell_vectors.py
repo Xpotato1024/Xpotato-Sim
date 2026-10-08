@@ -111,6 +111,7 @@ def write_csv(records: Sequence[Vector], path: Path) -> None:
 
 
 def write_chart(records: Sequence[Vector], path: Path, title: str, channels: Sequence[int]) -> None:
+    from matplotlib import font_manager
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
     from matplotlib.ticker import FuncFormatter
@@ -124,7 +125,13 @@ def write_chart(records: Sequence[Vector], path: Path, title: str, channels: Seq
             if 0 <= channel <= 6:
                 axis.plot(range(len(records)), [record.values[channel] for record in records],
                           label=f"ch{channel}", color=PALETTE[channel], linewidth=2)
-        axis.set(title=title, xlabel="Sample index", ylabel="Value",
+        available_fonts = {font.name for font in font_manager.fontManager.ttflist}
+        # 旧Windows chartで表示できた日本語titleを、既存の日本語fontで保持する。
+        title_family = next((name for name in (
+            "Meiryo", "Yu Gothic", "MS Gothic", "Noto Sans CJK JP", "Noto Sans JP",
+        ) if name in available_fonts), None)
+        axis.set_title(title, **({"fontfamily": title_family} if title_family else {}))
+        axis.set(xlabel="Sample index", ylabel="Value",
                  xlim=(0, max(1, len(records) - 1)))
         axis.tick_params(axis="x", labelrotation=45)
         axis.yaxis.set_major_formatter(FuncFormatter(lambda value, position: format(value, ".0f")))
@@ -152,7 +159,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(arguments)
     try:
-        channels = [int(part) for item in args.channels for part in item.split(",")]
+        channels = [] if args.channels == [""] else [
+            int(part) for item in args.channels for part in item.split(",")
+        ]
     except ValueError:
         parser.error("channels must be integers separated by spaces or commas")
     try:

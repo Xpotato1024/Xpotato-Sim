@@ -50,3 +50,8 @@ switch:$falseが新入口で拒否されることを再現した。
 fileはUTF-8/UTF-16/UTF-32のBOMを識別し、WindowsのBOMなし既定encodingも維持する。
 OS adapterは対象Pythonの登録parserからcase/prefix/colon/switch値を正規化し、
 option名やdefaultの別定義を増やさない。BOM各種と旧bindingを回帰へ追加する。
+
+最新mainへの統合レビューで、負数を含むchannel配列がoptionとして拒否されることと、
+日本語titleがAggの既定fontで欠落することを再現した。数値配列は次のoption手前までを
+一つのoperandとして復元し、空配列も保持する。titleは既存の日本語fontを選び、依存を増やさない。
+負数・複数operand・colon・後続option・空配列と、実PS入口のCSV/PNG・日本語glyphを回帰で拘束する。

@@ -255,9 +255,10 @@ def test_ps_binding_uses_browser_owner_options(arguments, expected):
 def test_ps_binding_uses_plot_owner_options():
     arguments = ["-inputpath:", "file.txt", "-channels", "0,2", "-clipboard:", "False"]
     normalized = bridge.normalize_legacy_arguments(plot.build_parser(), arguments)
-    assert normalized == ["-InputPath=file.txt", "-Channels", "0,2"]
+    assert normalized == ["-InputPath=file.txt", "-Channels=0,2"]
     parsed = plot.build_parser().parse_args(normalized)
     assert parsed.input_path == "file.txt" and not parsed.clipboard
+    assert parsed.channels == ["0,2"]
 
 
 @pytest.mark.parametrize("arguments", [["-Help:$false"], ["-Help:", "False"]])
@@ -279,3 +280,80 @@ def test_ps_missing_value_fails_before_falling_back_to_stdin(capsys):
         bridge.normalize_legacy_arguments(plot.build_parser(), ["-InputPath"])
     assert caught.value.code == 2
     assert "requires a value" in capsys.readouterr().err
+
+@pytest.mark.parametrize("arguments,expected", [
+    (["-Channels", "-1,0"], [-1, 0]),
+    (["-Channels", "-1,0", "2"], [-1, 0, 2]),
+    (["-Channels:-1,0", "2"], [-1, 0, 2]),
+    (["-Channels", "0,2", "-1,6"], [0, 2, -1, 6]),
+    (["-Channels", ""], []),
+])
+def test_legacy_channel_arrays_keep_values_and_following_option(
+    monkeypatch, tmp_path, arguments, expected,
+):
+    monkeypatch.setattr(plot.sys, "stdin", io.StringIO("vector,100,1,2,3,4,5,6,7\n"))
+    seen = []
+    monkeypatch.setattr(plot, "write_chart", lambda records, path, title, channels:
+                        seen.append((title, channels)))
+    normalized = bridge.normalize_legacy_arguments(plot.build_parser(), [
+        *arguments, "-Title", "kept", "--output-path", str(tmp_path / "plot.png"),
+    ])
+    assert plot.main(normalized) == 0
+    assert seen == [("kept", expected)]
+
+
+@pytest.mark.parametrize("arguments", [
+    ["-Channels"], ["-Channels", "-Title", "kept"],
+])
+def test_missing_legacy_channel_operand_fails_immediately(arguments):
+    with pytest.raises(SystemExit) as caught:
+        bridge.normalize_legacy_arguments(plot.build_parser(), arguments)
+    assert caught.value.code == 2
+
+
+def test_legacy_channel_operand_does_not_consume_unknown_option():
+    normalized = bridge.normalize_legacy_arguments(plot.build_parser(), [
+        "-Channels", "0", "-Unknown",
+    ])
+    with pytest.raises(SystemExit) as caught:
+        plot.build_parser().parse_args(normalized)
+    assert caught.value.code == 2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell and installed Japanese fonts")
+@pytest.mark.parametrize("channel_expression", ["@(-1,0)", "@(-1,0) 2", "@()"])
+def test_real_powershell_plot_keeps_negative_empty_arrays_and_japanese_title(tmp_path, channel_expression):
+    source = tmp_path / "recorded.txt"
+    source.write_text("vector,100,1,2,3,4,5,6,7\nvector,101,7,6,5,4,3,2,1\n", encoding="utf-16")
+    wrapper = str(ROOT / "scripts/hardware/selfrionette/plot_loadcell_vectors.ps1").replace("'", "''")
+    input_path = str(source).replace("'", "''")
+    invoke = tmp_path / "invoke.ps1"
+    invoke.write_text(
+        "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n"
+        f"& '{wrapper}' -InputPath '{input_path}' -Title '日本語の記録' -Channels {channel_expression}\n"
+        "exit $LASTEXITCODE\n", encoding="utf-8-sig",
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-File", str(invoke)], cwd=tmp_path,
+        input="", capture_output=True, text=True, encoding="utf-8", timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "missing from font" not in result.stderr
+    assert Image.open(source.with_suffix(".png")).size == (1600, 900)
+    with source.with_suffix(".csv").open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows[0] == {"sample_index": "0", "timestamp_ms": "100",
+                       **{f"ch{ch}": str(ch + 1) for ch in range(7)}}
+    assert rows[1]["sample_index"] == "1" and rows[1]["timestamp_ms"] == "101"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Installed Windows Japanese font compatibility")
+def test_japanese_chart_title_has_no_missing_glyphs(tmp_path):
+    import warnings
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        plot.write_chart(
+            [plot.Vector(100, tuple(range(7)))], tmp_path / "title.png", "日本語の記録", [0],
+        )
+    assert not [str(w.message) for w in seen if "missing from font" in str(w.message)]
+    assert Image.open(tmp_path / "title.png").size == (1600, 900)

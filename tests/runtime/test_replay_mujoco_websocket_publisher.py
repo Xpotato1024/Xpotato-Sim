@@ -178,8 +178,10 @@ def test_replay_mujoco_websocket_publisher_sweep_x_keeps_metadata_and_finishes_c
     _assert_endpoint_evaluation(payloads[0])
 
 
+@pytest.mark.parametrize("preset", [None, "sweep_x"])
 def test_replay_mujoco_websocket_publisher_uses_typed_rejection_without_fast_arm_metadata(
     monkeypatch: pytest.MonkeyPatch,
+    preset: str | None,
 ) -> None:
     original_builder = websocket_runner_module.build_concrete_mujoco_pipeline
 
@@ -190,7 +192,7 @@ def test_replay_mujoco_websocket_publisher_uses_typed_rejection_without_fast_arm
 
     monkeypatch.setattr(websocket_runner_module, "build_concrete_mujoco_pipeline", build_rejecting_pipeline)
 
-    payload = _collect_payloads(steps=1, preset="sweep_x", client_connected=True, grace_period_s=0.0)[0]
+    payload = _collect_payloads(steps=1, preset=preset, client_connected=True, grace_period_s=0.0)[0]
 
     assert payload["target_position_m"] is None
     assert payload.get("endpoint_evaluation") is None
