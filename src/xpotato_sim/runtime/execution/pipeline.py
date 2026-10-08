@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
@@ -153,7 +153,13 @@ class ControlMappedRuntimePipeline:
             pipeline=self,
         )
 
-    async def run_once(self, dt_s: float | None = None) -> MuJoCoState:
+    async def run_once(
+        self,
+        dt_s: float | None = None,
+        *,
+        state_projection: Callable[[MuJoCoState, InputIntent, RuntimeInputSafetyResult], MuJoCoState] | None = None,
+    ) -> MuJoCoState:
+        """取得・写像・安全判定・stepを一度だけ行い、同stepの診断投影を公開する。"""
         dt = self.config.dt_s if dt_s is None else dt_s
         frame = self.input_source.read_frame()
         if isinstance(self.input_source, ManagedInputSource):
@@ -203,5 +209,7 @@ class ControlMappedRuntimePipeline:
                     authoritative_profile_metadata=self.robot_profile_metadata,
                 ),
             )
+        if state_projection is not None:
+            state = state_projection(state, intent, safety_result)
         await self.publisher.publish(state)
         return state
