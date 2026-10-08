@@ -65,6 +65,13 @@ renderingをこのPRの成果として主張しない。
   warningはbrowser smoke acceptance pathに含めない
 - browser runtimeはdiagnostic payload textを表示してpayload v0をparseできるが、proper 3D GUI visual smokeではない
 
+既定replayと`sweep_x`は共通pipelineの`run_once()`を1 published stepにつき1回実行する。
+`sweep_x`の5 phase、trajectory内の`metadata.frame_index` / `t_s`、target / endpoint metadataを維持する。
+trajectoryは既定の1/30秒sample列で、non-loopの最終sampleをholdする。`--dt-s`はMuJoCoのstep時間だけを
+指定し、trajectoryをresampleしない。top-level `frame_index` / `time_s`はsimulation側の値である。
+typed qpos rejectionではtargetとendpoint evaluationがnullになる。client不在時はpipelineを構築せず期限内に終了し、
+通常終了、publish例外、cancel時はいずれもWebSocket listenerと接続を閉じる。
+
 ## scope制限
 
 - authenticationなし
