@@ -38,6 +38,7 @@ related:
 - `generic-kinematics-test-doubles.md`: generic test-only FK/IK double
 - `robot-runtime-plugin-conformance-tests.md`: Robot Runtime Plugin conformance suite
 - `r6-l-keyboard-gamepad-live-viewer-smoke.md`: keyboard / gamepad live viewer manual smoke
+- [Selfrionette firmware入手・build](selfrionette-firmware-location.md): Device所有の現行v2・旧互換と採用順
 - `r7-a-lite-serial-dry-run-smoke.md`: recorded fixtureによるserial dry-run
 - `r7-b-manual-live-selfrionette-runtime-runner.md`: operator-gated live Selfrionette runner
 - `r7-c-viewer-fixture-demo-procedure.md`: viewer fixture demo

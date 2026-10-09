@@ -440,3 +440,11 @@ process所有primitiveは`application/owned_processes.py`へ集約し、旧runne
 未接続なら実行しない。physics、Mapping、Task、結果保存は既存ownerへ委譲する。
 pluginとgeneric runtime owner（applicationとrunners以外）からapplicationへのimportは禁止する。
 `tests/architecture/test_runtime_ownership_boundaries.py`がowner配置、旧内部consumer、逆依存をASTで検査する。
+
+## Device firmwareのrepository境界
+
+Selfrionette firmware、PlatformIO build、physical tare/calibration、identity、EEPROMは
+Selfrionette-Deviceが所有する。Simはfirmware sourceを保持せず、受信parser/host receipt/health、
+Input Source Plugin、robot control Mappingを所有する。software-side normalizationはphysical校正の正本を持たない。
+[firmware入手・build入口](../operations/selfrionette-firmware-location.md)は別checkoutを案内し、
+Simのruntime dependency、submodule、起動時buildやserial接続を追加しない。
