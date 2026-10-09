@@ -15,3 +15,5 @@ build/
 .venv/
 
 .hypothesis/
+/.vite/
+/MUJOCO_LOG.TXT
