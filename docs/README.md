@@ -61,7 +61,8 @@ completion audit、implementation report、inventory、handoff、historical reco
 | EndpointTargetGenerator | `docs/contracts/endpoint-target-generator.md` | input vectorからcommand-side targetを生成する契約 |
 | programmed target input | `docs/contracts/programmed-target-input-source.md` | deterministic target trajectoryとmetadata bridge |
 | runtime input source registry | `docs/contracts/runtime-input-source-registry.md` | versioned production catalog、selection、CLI alias、health、lifecycle contract |
-| Selfrionette serial frame | `docs/contracts/r7-a-lite-serial-frame-contract.md` | 7-channel protocol、diagnostic、parser contract |
+| Selfrionette firmware入手・build | `docs/operations/selfrionette-firmware-location.md` | Device所有の現行v2・旧互換、採用順、固定commit |
+| Selfrionette serial frame | `docs/contracts/r7-a-lite-serial-frame-contract.md` | 旧7ch受信互換、diagnostic、parser contract |
 | runtime input pipeline | `docs/contracts/r7-b-runtime-input-pipeline-contract.md` | Input SourceからMuJoCo stepまでのruntime contract |
 | runtime input source state | `docs/contracts/runtime-input-source-state.md` | source stateのpayload metadata |
 | runtime input safety | `docs/contracts/runtime-input-safety.md` | stale commandのhold contract |

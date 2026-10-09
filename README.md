@@ -169,4 +169,6 @@ uv run xpotato-sim workbench --help
 | `replay` | robot必須、steps=1、preset任意 | NDJSON dry-run。WebSocketやGUIを起動しない |
 | `app` | profile必須、`--check`任意 | 旧profile起動／依存検査。Workbench editorとは別の既存入口 |
 
+Selfrionetteのfirmwareは[Selfrionette-Deviceで管理する](docs/operations/selfrionette-firmware-location.md)。Simの起動・offline検証にfirmware buildは不要です。
+
 全commandのflag、組合せ、publisher・legacy参照は[統一CLI](docs/operations/unified-cli.md)、条件と停止・資源契約は[Workbench](docs/contracts/workbench.md)、設計の入口は[Source of Truth Map](docs/README.md)を参照してください。ブラウザ閲覧URLとWebSocket接続URLは別です。Workbenchはloopbackのみで、LAN／公開bindを提供しません。
