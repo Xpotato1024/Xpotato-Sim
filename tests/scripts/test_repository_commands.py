@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -78,6 +79,37 @@ def test_missing_tool_and_interruption(monkeypatch, capsys):
         raise KeyboardInterrupt
     monkeypatch.setattr(commands.subprocess, "call", interrupt)
     assert commands.main("profile", []) == 130
+
+
+@pytest.mark.parametrize("invalid_mode", [False, True])
+def test_live_recipe_matches_direct_python_without_serial(tmp_path, invalid_mode):
+    """実justからfixtureの同じ出力とmode拒否codeを保ち、serial importを禁止する。"""
+    just = shutil.which("just")
+    assert just, "Install documented rust-just before running development tests"
+    guard = tmp_path / "serial.py"
+    guard.write_text("raise AssertionError('fixture must not import serial')\n", encoding="utf-8")
+    fixture = tmp_path / "日本語 space;a&b.txt"
+    shutil.copyfile(ROOT / "tests/fixtures/r7_a_lite_serial_frames/minimal_valid.txt", fixture)
+    arguments = [] if invalid_mode else ["--fixture", str(fixture), "--max-frames", "1"]
+    env = {**os.environ, "PYTHONUTF8": "1"}
+    env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(ROOT / "src"), env.get("PYTHONPATH", "")])
+    direct = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/hardware/selfrionette/run_live_selfrionette_runtime.py"), *arguments],
+        cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", timeout=60,
+    )
+    recipe = subprocess.run(
+        [just, "--justfile", str(ROOT / "justfile"), "selfrionette-live", *arguments],
+        cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", timeout=60,
+    )
+    assert direct.returncode == recipe.returncode == (2 if invalid_mode else 0), recipe.stderr
+    assert direct.stdout == recipe.stdout
+    if invalid_mode:
+        assert "--port --fixture" in recipe.stderr
+    else:
+        lines = recipe.stdout.splitlines()
+        assert lines[0] == "manual gated Selfrionette fixture mode: serial is not opened"
+        assert json.loads(lines[1])["version"] == 0
+        assert lines[-1] == "frames_emitted=1"
 
 
 def test_real_python_child_uses_utf8_when_parent_disables_it(monkeypatch, capfd):
