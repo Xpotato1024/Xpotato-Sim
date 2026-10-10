@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-10-07
+last_verified: 2026-10-10
 canonical_for:
   - repository operation command routing
 related:
@@ -40,6 +40,7 @@ option、default、検証、physics、保存形式の正本は既存実装であ
 | `just browser-smoke --no-browser` | 一時replay profileと既存appのloopback startup/cleanup |
 | `just loadcell-plot --input-path logs/vectors.txt` | 記録済みvectorのoffline CSV/PNG |
 | `just selfrionette-dry-run` | 記録済みserial fixtureのoffline検証 |
+| `just selfrionette-live` | 既存Python runtime runner。明示fixtureはoffline、port指定はoperator-gated live acquisition |
 | `just fast-arm-motion-sanity` | 既存FastArm software診断 |
 | `just check` | lint、2つのtypecheck、compile |
 | `just check-all` | check、Python全件test、Viewer test/typecheck/build |
@@ -76,8 +77,39 @@ Workbenchの所有済み外部固定buildを更新する`just build`とは用途
 Workbenchの通常入力はGamepadだけである。Keyboard、旧v1 profile、replay、単独Viewer診断は
 `app`/`viewer`を維持し、古いprofileをWorkbenchへ暗黙変換しない。
 Selfrionette live、serial monitor/measure、Arduino、OSC、実機操作は既存operator gateを維持する。
-monitor/measureは#456のlive serial残件であり、今回移行完了とは扱わない。
+`selfrionette-live`は既存Python ownerへ転送するだけで、option/defaultや検証をrecipeへ複製しない。
+portまたはfixtureを明示しない実行は既存parserが拒否する。fixtureはserialを開かず、
+port指定は[manual live runner](r7-b-manual-live-selfrionette-runtime-runner.md)のoperator gateを必要とする。
+monitor/measureは#456のDevice移行残件であり、今回移行完了とは扱わない。
 追加recipeはserial、校正、OSC、実機操作を自動実行しない。
+
+### monitor/measureの移行と#456の完了条件
+
+firmware分離後の[所有境界](selfrionette-firmware-location.md)に従い、physical calibrationと
+device管理の実装をSimのPythonへ移植しない。現在の互換PowerShellは能力移行が成立するまで残す。
+
+| 入口 | 保持する能力 | 移行先の責務 |
+| --- | --- | --- |
+| `monitor_selfrionette_serial.ps1` | 旧v1のserial表示、normal/paused filter、p/r/c/q、有限/無期限実行、明示SendText/Calibrate、close | Device側の管理toolとOS adapter。旧`c`とv2 `tare`を同等と推測しない |
+| `measure_loadcell_channel_response.ps1` | baseline/press window、7ch平均と差分、最強channel、sensor選択・反復・全sensor sweep、対話待機、close | Device側のsensor検査tool。robotのchannel→XYZ/符号/gainはSim Mappingに保持 |
+
+Deviceの現行[host core契約](https://github.com/Xpotato1024/Selfrionette-Device/blob/2da6588849a646b7757bea5154e673e552e05d88/docs/contracts/host-device-core.md)と
+[serial transport契約](https://github.com/Xpotato1024/Selfrionette-Device/blob/2da6588849a646b7757bea5154e673e552e05d88/docs/contracts/serial-transport.md)の
+bounded identity query (`info` / `query_info`)は、旧校正操作・interactive測定の代替ではない。
+Device側で次の移行を実装・採用してから、Sim側のcompatibility launcherを薄くする。
+
+1. Deviceの採用済み[host core / installable CLI設計](https://github.com/Xpotato1024/Selfrionette-Device/blob/2da6588849a646b7757bea5154e673e552e05d88/docs/decisions/0005-rust-host-core-cli.md)に従って旧v1管理・測定のownerを置く。
+   v2とはprotocol modeと校正成功の判定を分離し、Python adapterが必要でもdevice semanticsを複製しない。
+   引数/default、数値・不正入力、表示・対話、終了code、Ctrl+Cと資源回収をfake transport/clock/inputで拘束する。
+2. Windows PowerShell 5.1とLinuxのOS adapterを検証する。元のv1/v2に対応する能力を確認するまで
+   bounded identity query (`info` / `query_info`)へ置換せず、live serial・EEPROM書込を自動testで要求しない。
+3. Device側の採用後、別checkoutの明示実装入口へSimのjust/互換wrapperからargvを転送する。
+   import・通常Sim起動・offline fixtureにDevice cloneを必須化せず、未準備時は明示失敗する。
+4. 両repositoryの現行操作案内とCLIを同期し、全対象wrapperのbusiness logic/default重複がないこと、
+   直接debug入口、Windows/Linuxのrecipe、current-head CIと既存operator gateを確認して#456全体の完了を判断する。
+
+この段階でSim-owned live runtimeのjust入口だけが追加された。Device実装、monitor/measureの移行、
+#607の能力移行・退役、#617の実験端末受入は完了していない。
 
 ## offline plotとbrowser smoke
 

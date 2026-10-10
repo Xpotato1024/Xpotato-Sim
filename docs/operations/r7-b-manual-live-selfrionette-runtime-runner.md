@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: operations
-last_verified: 2026-07-29
+last_verified: 2026-10-10
 canonical_for:
   - R7-B-P5 manual live Selfrionette runtime runner
 related:
@@ -51,7 +51,7 @@ Selfrionette serial or injected lines
 人間のoperatorがhardware safety gateを確認した場合だけ実行する。
 
 ```powershell
-uv run python scripts/hardware/selfrionette/run_live_selfrionette_runtime.py `
+just selfrionette-live `
   --port COM5 `
   --baud-rate 115200 `
   --max-frames 120
@@ -60,7 +60,18 @@ uv run python scripts/hardware/selfrionette/run_live_selfrionette_runtime.py `
 hardwareを使わないinjected-lines確認ではfixtureを指定する。
 
 ```powershell
-uv run python scripts/hardware/selfrionette/run_live_selfrionette_runtime.py `
+just selfrionette-live `
+  --fixture tests/fixtures/r7_a_lite_serial_frames/minimal_valid.txt `
+  --max-frames 1
+```
+
+recipeは既存Python scriptへargvと終了codeを転送するだけで、既定port・校正command・自動retryを追加しない。
+引数/default/検証の正本はPython scriptとruntime APIのままである。
+justの準備と他の入口は[repository操作入口](repository-commands.md)を参照する。
+justなしの直接debug入口も維持する:
+
+```powershell
+uv run --no-sync --no-env-file --offline python scripts/hardware/selfrionette/run_live_selfrionette_runtime.py `
   --fixture tests/fixtures/r7_a_lite_serial_frames/minimal_valid.txt `
   --max-frames 1
 ```
