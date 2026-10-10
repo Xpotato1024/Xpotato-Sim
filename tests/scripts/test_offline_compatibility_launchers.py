@@ -195,6 +195,8 @@ def test_powershell_bridge_preserves_argv_cwd_and_status(monkeypatch, tmp_path, 
 @pytest.mark.parametrize("relative", [
     "scripts/hardware/selfrionette/plot_loadcell_vectors.ps1",
     "scripts/viewer/run-browser-viewer-smoke.ps1",
+    "scripts/hardware/selfrionette/monitor_selfrionette_serial.ps1",
+    "scripts/hardware/selfrionette/measure_loadcell_channel_response.ps1",
 ])
 def test_actual_powershell_wrapper_forwards_unicode_quotes_empty_and_arrays(tmp_path, relative):
     node = shutil.which("node")

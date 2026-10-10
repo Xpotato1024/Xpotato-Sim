@@ -109,3 +109,7 @@ option/default/validationを再定義せず、実機操作のmonitor/measure/liv
 - `powershell_launcher.py`: PS5.1のUTF-8/base64 argvを復元するOS adapter。操作のoption/defaultを所有しない。
 - 既存`plot_loadcell_vectors.ps1`/`run-browser-viewer-smoke.ps1`は引数/stdin/終了codeだけの互換launcherへ置換する。
 - monitor/measureの過去分類と履歴は保持し、live serial/calibrationの能力を黙って削らない。
+
+## #456 Device互換入口の追加
+
+`run_device_serial_tool.py`を`hardware/selfrionette/`に追加した。monitor/measureのserial・option/default・表示・集計はDevice Rust CLIへ移し、Simの2 PowerShellはargv/stdin/終了code転送だけを持つ。Deviceの先行採用とnative CLI準備がSim変更の採用条件である。
