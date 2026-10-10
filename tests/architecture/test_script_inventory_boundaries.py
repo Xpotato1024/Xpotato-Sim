@@ -21,6 +21,7 @@ EXPECTED_SCRIPTS = {
     "scripts/diagnostics/run_prehardware_signal_e2e.py",
     "scripts/hardware/selfrionette/measure_loadcell_channel_response.ps1",
     "scripts/hardware/selfrionette/monitor_selfrionette_serial.ps1",
+    "scripts/hardware/selfrionette/run_device_serial_tool.py",
     "scripts/hardware/selfrionette/plot_loadcell_vectors.ps1",
     "scripts/hardware/selfrionette/run_live_selfrionette_runtime.py",
     "scripts/hardware/selfrionette/run_selfrionette_serial_dry_run.py",

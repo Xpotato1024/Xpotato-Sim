@@ -157,6 +157,20 @@ selfrionette-live *args:
 
 [script]
 [positional-arguments]
+selfrionette-monitor *args:
+    import runpy, sys
+    main = runpy.run_path("scripts/repository/commands.py")["main"]
+    sys.exit(main("selfrionette-monitor", sys.argv[1:]))
+
+[script]
+[positional-arguments]
+selfrionette-measure *args:
+    import runpy, sys
+    main = runpy.run_path("scripts/repository/commands.py")["main"]
+    sys.exit(main("selfrionette-measure", sys.argv[1:]))
+
+[script]
+[positional-arguments]
 fast-arm-motion-sanity *args:
     import runpy, sys
     main = runpy.run_path("scripts/repository/commands.py")["main"]
