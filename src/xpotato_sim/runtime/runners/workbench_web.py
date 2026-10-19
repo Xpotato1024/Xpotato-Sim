@@ -38,6 +38,8 @@ def verify_build_identity(root: Path, workspace: Path):
         path = paths.get("/" + name)
         if path is None or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise ValueError("固定buildのasset bytesが一致しません")
+    return {"mode": "production", "source_sha256": identity["source_sha256"],
+        "build_sha256": hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
 
 
 def build_asset_allowlist(root: Path):

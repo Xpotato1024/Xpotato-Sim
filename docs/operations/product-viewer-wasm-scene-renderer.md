@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-10-06
+last_verified: 2026-10-19
 canonical_for:
   - product viewer wasm scene renderer operation
 related:
@@ -307,3 +307,24 @@ Quad、研究layout/camera/policy freeze、feedback非公開の全pane/rail/stri
 全paneの描画提出を終えた時点を観測する。browserのmonotonic時刻であり、GPU完了・画面走査・実device時刻ではない。
 software入力変更から、対応するbackend sequence/frameを描画提出するまでの経路は相関を確認して測る。
 既存receive-to-applyがnullのWorkbench経路を0msと補完しない。計測用にphysics、poller、送信周期を増やさない。
+
+## 現行dynamicの固定接触力cue
+
+`force-presentation-binding/v1`を受信した場合は、旧contact log、幾何接触、raw動力学の診断cueを全pane/panelで抑止する。
+矢印は共有sceneの`ForceOverlay`だけが所有し、Single/Assistの全cameraで同じ値・固定縮尺を描く。
+backendから`force_cue`を選んだ場合だけ、対象物が各手先へ加えるworld力を表示する。
+反力のベクトルはN、固定縮尺の既定値は0.002 m/N、矢印長の上限は0.12 m、法線荷重barの上限は30 N。
+scaleを超えた矢印は橙で示し、数値を切り詰めず「表示上限」を併記する。自動scaleやbrowserの再filterは行わない。
+
+現在適用したqposとmodel/scene/settings/epoch/frame/timeが合うsampleだけを採用し、
+初めて受け取った表示条件のidentity・値と派生manifestを同renderer lifetimeに固定する。
+古いtick、条件差替え、欠落、不正値、非running/停止、期限超過では残留矢印と数値を消す。
+同じsource tickの表示再送は元source frameとbrowser最初の受信時刻を保持し、200 ms以内の固定期限を更新しない。
+明示Workbench Prepare/retryだけがstreamを新しいlifetimeへ作り直す。GPU資源はpool化し、終了時だけ解放する。
+条件が一度存在した後の欠落や不正bindingをlegacy診断へfallbackしない。
+
+現行比較で残す通常映像/状態と固定条件の操作は[Workbench contract](../contracts/workbench.md#追加接触力の提示条件)を参照する。
+`ForcePresentation`と数値欄DOMのsample/condition IDは、raw取得・派生・scene採用・数値欄commit・描画提出を区別するための観測値である。
+source hostとbrowser時計を減算しない。offline payloadの読込は`receiptKind=offline`としてWebSocket受信と区別する。
+control tickの省略とbrowserの提出前置換は別counterであり、physics dropやsensor欠測と呼ばない。
+全sampleの永続evidenceや知覚効果の評価はこの表示adapterの責務ではない。

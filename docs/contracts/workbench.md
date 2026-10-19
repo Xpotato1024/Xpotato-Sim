@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-07
+last_verified: 2026-10-19
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -20,6 +20,7 @@ Startを送らない。「開始」はOperateでのみ有効とし、従来の�
 waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
 
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
+dynamic比較条件ではさらに固定高さの接触力表示欄を置く。両modeで同じ領域を確保し、sceneの大きさを変えない。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
 Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正面はscreen-right=-Y / screen-up=+Zとする。視点変更で入力mappingは変更しない。
@@ -342,3 +343,24 @@ senderへの受渡し、statusは状態通知準備までであり、別thread�
 詳細画面に上記分布と制御周期を表示する。`runtime_environment`にはPython/OS/論理CPU数、主要library version、
 memory profilingの有効性、限定したBLAS thread環境変数だけを出す。全環境変数・hostname・認証情報は出さない。
 環境変数未指定をsingle-thread動作と解釈しない。実験設定やプロセスのthread数はこの診断で変更しない。
+
+## 追加接触力の提示条件
+
+SetupのAdvanced「表示」で`no_force_cue`（追加接触力なし）または`force_cue`（反力ベクトル・法線荷重）を選び、
+既存の「次条件を検証」「検証・準備」でbackend条件へ反映する。表示中にbrowserだけで切り替えるcheckboxは持たない。
+export/importとCLI `--condition`は同じfieldとresolverを使う。固定・保存の詳細は
+[有限試行contract](finite-trial-runtime.md#接触力の表示比較条件)、力の意味は
+[virtual reaction force contract](virtual-reaction-force.md#現行dynamic-sceneの手先対象別signal)を参照する。
+
+比較条件を受信した全app面は、旧接触矢印/点/色・接触距離/貫通深さ/件数・raw solver force/actuator torqueの
+診断表示を両modeで消す。force_cueは現在sceneに一致する手先×Task対象物ごとの派生world反力と法線荷重だけを追加する。
+共通のRobot/物体映像、関節姿勢、入力、時刻、Task状態・終了理由・停止/安全通知は保持する。
+no_force_cueは通常映像も残る対照条件であり、視覚フィードバック全体の除去や完全盲検ではない。
+独立camera、入力速度減衰、仮想ばね/質量を表示条件へ混ぜない。
+
+WebSocket event入口のbrowser時刻をsource metadataのhost monotonicから分離し、rendererへ渡す。
+`__workbenchCounters`でsource tick/frame、browser受信/scene採用/描画提出時刻、採用数、提出数、
+提出前の置換数・無効化数、採用間のsource tick省略数を観測できる。提出はGPU完了や画面の光学的時刻ではない。
+数値欄は既存10 Hzの計器購読を維持するため、3D sceneの更新と別の時刻に反映し得る。
+そのDOMにはcondition/sample IDと`data-panel-committed-at-ms`を残し、数値欄への反映とscene提出を区別する。
+保持する値は現在のsampleと有界counterだけで、全frame記録器は追加しない。

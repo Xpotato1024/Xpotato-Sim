@@ -39,6 +39,14 @@
 .main-interaction { touch-action:none; cursor:grab; }.main-interaction:active { cursor:grabbing; }
 .assist-column { display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1px;min-height:0; }
 .input-strip { grid-column:2;grid-row:2;border:0;background:#f9faf9;padding:4px 10px;box-sizing:border-box;overflow:auto;min-width:0; }
+.operation-workspace[data-force-comparison=true] { grid-template-rows:minmax(0,1fr) 100px 100px; }
+.force-cue-panel { grid-column:2;grid-row:3;display:flex;align-items:center;gap:14px;overflow:auto;margin:0;padding:6px 10px;background:#f9faf9;border:0;min-width:0; }
+.force-cue-panel h2 { font-size:12px;min-width:96px;margin:0; }
+.force-cue-panel p { font-size:11px;margin:2px 0; }
+.force-cue-panel > div { min-width:180px; }
+.force-cue-panel strong { font-size:11px; }
+.force-cue-panel small { font-size:9px;max-width:150px;margin-left:auto; }
+.force-cue-panel meter { display:block;width:100%;height:8px; }
 .input-strip header { display:flex;gap:12px;height:18px;align-items:center;font-size:10px; }.input-strip header span { color:#596c75; }
 .input-strip small { font-size:9px;display:block;white-space:nowrap; }.input-strip p { font-size:12px;margin:9px; }
 /* 操作量だけを中央へまとめる。source名の幅で四計器の中心をずらさない。 */

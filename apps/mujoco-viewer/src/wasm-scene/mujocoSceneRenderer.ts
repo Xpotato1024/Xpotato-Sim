@@ -43,6 +43,8 @@ import {
 import { SceneContactStream, unavailableSceneContact, type SceneContactPresentation } from "../contact/sceneContactPresentation.js";
 import { SceneContactOverlay } from "./sceneContactOverlay.js";
 import { DynamicsStream } from "./dynamicsPresentation.js";
+import { ForcePresentationStream, type ForcePresentation } from "./forcePresentation.js";
+import { ForceOverlay } from "./forceOverlay.js";
 import type { ViewerRobotProfile } from "../robot-profiles/types.js";
 import {
   loadViewerRobotProfileFromPayload,
@@ -102,8 +104,8 @@ export interface MujocoSceneRendererOptions {
 
 /** render resource lifecycle。dispose後はcanvas/scene resourceを再利用しない。 */
 export interface MujocoSceneRenderer {
-  prepareWorkbench(payload: TransportPayloadV0, epoch: string): Promise<void>;
-  applyWorkbench(payload: TransportPayloadV0, epoch: string): void;
+  prepareWorkbench(payload: TransportPayloadV0, epoch: string, receivedAtMs?: number): Promise<void>;
+  applyWorkbench(payload: TransportPayloadV0, epoch: string, receivedAtMs?: number): void;
   invalidateWorkbench(): void;
   counters(): Record<string, number|null>;
   applyOfflinePayload(payload: TransportPayloadV0): void;
@@ -215,6 +217,10 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   let geometryStream = new SceneContactStream();
   let dynamicsStream = new DynamicsStream();
   scene.add(geometryOverlay.group);
+  const forceOverlay = new ForceOverlay();
+  let forceStream = new ForcePresentationStream();
+  let forceProcessingMs = 0, forceProcessingSamples = 0;
+  scene.add(forceOverlay.group);
 
   const renderer = new WebGLRenderer({ canvas: options.canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -324,8 +330,25 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     emitState(applyProductViewerRendererStatePatch(state, patch));
   };
 
+  const setForcePresentation = (value: ForcePresentation): void => {
+    forceOverlay.update(value);
+    geometryOverlay.group.visible = contactOverlay.visible = !value.comparison;
+    if (state.forcePresentation !== value) updateRendererStatus({forcePresentation:value});
+  };
+  const observeComparison = (payload: TransportPayloadV0): void => {
+    forceStream.observeBinding(payload);
+    setForcePresentation(forceStream.current);
+  };
+  const applyForcePresentation = (payload: TransportPayloadV0, receivedAtMs: number, receiptKind: "websocket" | "offline"): void => {
+    const started = performance.now();
+    setForcePresentation(forceStream.apply(payload, receivedAtMs, started, receiptKind));
+    forceProcessingMs += performance.now() - started;
+    forceProcessingSamples += 1;
+  };
   const setSceneContactPresentation = (value: SceneContactPresentation): void => {
-    geometryOverlay.update(value);
+    if (value.status === "unavailable") setForcePresentation(forceStream.invalidate(value.reason));
+    geometryOverlay.update(state.forcePresentation.comparison
+      ? unavailableSceneContact("比較条件では幾何接触cueを表示しません") : value);
     updateRendererStatus({sceneContactPresentation: value,
       ...(value.status==="unavailable" ? {dynamicsPresentation:{status:"unavailable" as const,reason:value.reason}} : {})});
   };
@@ -389,7 +412,9 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     modelMeshNameById.clear();
     clearContactOverlay();
     geometryOverlay.dispose();
+    forceOverlay.dispose();
     scene.remove(geometryOverlay.group);
+    scene.remove(forceOverlay.group);
     scene.remove(contactOverlay);
     floorTexture.dispose();
     floorMaterial.dispose();
@@ -399,7 +424,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
   const updateContactOverlay = (presentation: ContactTaskPresentationV1): void => {
     clearContactOverlay();
-    if (presentation.status !== "available" || presentation.cube === null) {
+    if (state.forcePresentation.comparison || presentation.status !== "available" || presentation.cube === null) {
       return;
     }
 
@@ -495,6 +520,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       geometryOverlay.update(value);
       next.sceneContactPresentation = value;
       next.dynamicsPresentation = {status:"unavailable",reason:value.reason ?? "接続無効"};
+      next.forcePresentation = forceStream.invalidate(value.reason ?? "接続無効");
+      forceOverlay.update(next.forcePresentation);
     }
     emitState(next);
   };
@@ -665,6 +692,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
 
   const applyTransportPayload = (candidate: ViewerPayloadCandidate): void => {
     const payload = candidate.payload;
+    observeComparison(payload);
     const endpointEvaluation = payload.endpoint_evaluation ?? null;
     const inputOverlay = buildProductViewerInputOverlayState(payload);
     const activeProfile = requireProfile();
@@ -715,6 +743,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       inputOverlay,
       candidate,
     );
+    applyForcePresentation(payload, candidate.receivedAtMs, "websocket");
     const sceneContact = geometryStream.apply(payload);
     setSceneContactPresentation(sceneContact);
     updateRendererStatus({dynamicsPresentation:sceneContact.status==="unavailable"
@@ -783,6 +812,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       applyTransportPayload(candidate);
     }
     controls.update();
+    const force = forceStream.expire(performance.now());
+    if (force !== state.forcePresentation) setForcePresentation(force);
     if (options.canvas.clientWidth && options.canvas.clientHeight && document.visibilityState !== "hidden") {
       const panes=options.getScenePanes?.() ?? [{id:"main",x:0,y:0,width:options.canvas.clientWidth,height:options.canvas.clientHeight}];
       renderer.setScissorTest(false);
@@ -818,6 +849,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       renderedInputSequence = state.inputOverlay?.sequence ?? null;
       renderedAtMs = performance.now();
       renderedPaneCount = panes.filter(p=>p.width>0&&p.height>0).length;
+      forceStream.submitted(renderedAtMs);
+      if (forceStream.current !== state.forcePresentation) setForcePresentation(forceStream.current);
     }
     frameHandle = window.requestAnimationFrame(animate);
   };
@@ -827,6 +860,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     observation: ViewerWebSocketPayloadObservation,
   ): void => {
     frameTiming.receive(payload, observation);
+    observeComparison(payload);
     const activeProfile = requireProfile();
     const payloadContactPresentation = parseContactTaskPresentationV1(
       payload.metadata.contact_task_v1,
@@ -870,7 +904,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     frameTiming.acceptLatestCandidate(payload, observation);
   };
 
-  const applyOfflinePayload = (payload: TransportPayloadV0): void => {
+  const applyOfflinePayload = (payload: TransportPayloadV0, receivedAtMs?: number): void => {
+    observeComparison(payload);
     const activeProfile = requireProfile();
     const contactPresentation = parseContactTaskPresentationV1(
       payload.metadata.contact_task_v1,
@@ -919,6 +954,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       payload.endpoint_evaluation ?? null,
       buildProductViewerInputOverlayState(payload),
     );
+    const nowMs = performance.now();
+    applyForcePresentation(payload, receivedAtMs ?? nowMs, receivedAtMs === undefined ? "offline" : "websocket");
     const sceneContact = geometryStream.apply(payload);
     setSceneContactPresentation(sceneContact);
     updateRendererStatus({dynamicsPresentation:sceneContact.status==="unavailable"
@@ -1153,6 +1190,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       // 観測pointを作らずhidden poolを準備し、ready通知はGPU準備完了後に限る。
       syncSceneFromCurrentData();
       await geometryOverlay.prepare(objects => renderer.compileAsync(objects, camera, scene));
+      await forceOverlay.prepare(objects => renderer.compileAsync(objects, camera, scene));
       checkCurrent();
       await renderer.compileAsync(scene, camera);
       checkCurrent();
@@ -1173,7 +1211,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   };
 
   return {
-    prepareWorkbench(payload, epoch) {
+    prepareWorkbench(payload, epoch, receivedAtMs) {
       const generation = ++loadGeneration;
       prepareAbort?.abort();
       const abort = new AbortController();
@@ -1201,11 +1239,14 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
           validateViewerRobotProfileFrameReference(payload, declarationReference, requireProfile());
           frameTiming.dispose(); frameTiming = createViewerFrameTiming();
           geometryStream = new SceneContactStream(); dynamicsStream = new DynamicsStream();
+          forceStream = new ForcePresentationStream();
+          forceProcessingMs = forceProcessingSamples = 0;
+          setForcePresentation(forceStream.current);
           workbenchEpoch = epoch;
           lastWorkbenchFrame = payload.frame_index;
           lastWorkbenchTime = payload.time_s;
           mujocoApi.mj_resetData(model, data);
-          applyOfflinePayload(payload);
+          applyOfflinePayload(payload, receivedAtMs);
           if (state.qposStatus !== "ready") throw new Error(state.qposError ?? "初期scene状態を適用できません");
           if (!listening) {
             listening = true; setCanvasSize();
@@ -1218,8 +1259,11 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       // callerと同じpromiseを返し、拒否されたfinally枝を未処理にしない。
       return workbenchChain;
     },
-    invalidateWorkbench() { loadGeneration += 1; workbenchEpoch = null; prepareAbort?.abort(); },
-    applyWorkbench(payload, epoch) {
+    invalidateWorkbench() {
+      loadGeneration += 1; workbenchEpoch = null; prepareAbort?.abort();
+      setForcePresentation(forceStream.invalidate("試行を停止・無効化しました"));
+    },
+    applyWorkbench(payload, epoch, receivedAtMs) {
       if (disposed || !hasLoaded || epoch !== workbenchEpoch || !declarationReference) throw new Error("旧epochまたは未準備sceneです");
       const runtime = payload.metadata.coordinated_runtime_v1 as {epoch?: string} | undefined;
       if (runtime?.epoch !== epoch) throw new Error("frameのepochが不一致です");
@@ -1229,7 +1273,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       if (!Number.isFinite(payload.time_s) || payload.time_s < lastWorkbenchTime) throw new Error("同じepoch内の時刻後退は拒否します");
       lastWorkbenchFrame = payload.frame_index;
       lastWorkbenchTime = payload.time_s;
-      applyOfflinePayload(payload);
+      applyOfflinePayload(payload, receivedAtMs);
     },
     counters() { return {modelBuilds, modelDeletes, liveVfs, wasmModules: mujocoWasmModuleBuilds(),
       wasmHeapBytes: exportedHeapBytes(mujocoApi), nativeModels: model ? 1 : 0, nativeData: data ? 1 : 0,
@@ -1241,6 +1285,15 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
       cameraX:camera.position.x,cameraY:camera.position.y,cameraZ:camera.position.z,
       targetX:controls.target.x,targetY:controls.target.y,targetZ:controls.target.z,
       renderedFrameIndex, renderedInputSequence, renderedAtMs, renderedPaneCount,
+      forceSourceTick:forceStream.current.sourceTick,forceSourceFrame:forceStream.current.sourceFrame,
+      forceReceivedAtMs:forceStream.current.receivedAtMs,forceAdoptedAtMs:forceStream.current.adoptedAtMs,
+      forceRenderSubmittedAtMs:forceStream.current.renderSubmittedAtMs,forceSkippedSourceTicks:forceStream.current.skippedSourceTicks,
+      forceAdoptedSamples:forceStream.counts.adopted,forceSubmittedSamples:forceStream.counts.submitted,
+      forceReplacedBeforeRender:forceStream.counts.replacedBeforeRender,forceInvalidatedBeforeRender:forceStream.counts.invalidatedBeforeRender,
+      forceProcessingMs,forceProcessingSamples,
+      forceVisibleArrows:forceOverlay.group.children.filter(c=>c.visible).length,
+      geometryVisibleCues:geometryOverlay.group.visible?geometryOverlay.group.children.filter(c=>c.visible).length:0,
+      legacyVisibleCues:contactOverlay.visible?contactOverlay.children.length:0,
       sceneAppliedFrames:frameTiming.snapshot().sceneAppliedFrameCount,
       receiveToApplyP50Ms:frameTiming.snapshot().receiveToApplyAgeMsP50,
       receiveToApplyP95Ms:frameTiming.snapshot().receiveToApplyAgeMsP95}; },

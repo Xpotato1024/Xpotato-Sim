@@ -26,7 +26,7 @@ def execution_worker(url, config):
     import tracemalloc
     if config.get("diagnostic_memory"):
         tracemalloc.start(1)
-    runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True)
+    runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True, viewer_build_identity=config.get("viewer_build_identity"))
     fixture = load_trial_fixture(Path(config["fixture"])) if config.get("fixture") else None
     import platform
     import sys
@@ -174,7 +174,7 @@ def execution_worker(url, config):
                         if runner.status in {"faulted", "recording_failed"}:
                             retired_builds += runner.model_build_count
                             runner.close()
-                            runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True)
+                            runner = TrialRunner(result_root=Path(config["result_root"]), software_revision=config["software_revision"], async_terminal_recording=True, viewer_build_identity=config.get("viewer_build_identity"))
                         if "condition" in cmd:
                             profile, limits, candidate = resolve_condition(cmd["condition"])
                         else:
@@ -182,6 +182,7 @@ def execution_worker(url, config):
                             limits = TrialLimits(config.get("ticks") or profile.steps,
                                 config["input_wait_s"], config["wall_s"], config["prepare_s"])
                             candidate = preset_condition(cmd["profile_id"], limits)
+                            profile, limits, candidate = resolve_condition(candidate)
                         runner.prepare(profile, limits)
                         applied_condition = candidate
                         generation = cmd["generation"]

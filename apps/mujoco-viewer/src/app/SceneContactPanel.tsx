@@ -1,10 +1,12 @@
 import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
 
 /** 同じ適用frameのgeometry表示。力や接触成功を捏造せず、未評価と明記する。 */
-export function SceneContactPanel({value,live}:{value:SceneContactPresentation; live:boolean}) {
+export function SceneContactPanel({value,live,comparison=false}:{value:SceneContactPresentation; live:boolean;comparison?:boolean}) {
   if (value.status === "absent") return null;
   if (value.status !== "available") return <section className="inspector-section" data-testid="scene-contact-panel"><h2>接触診断</h2><p>{value.reason}</p></section>;
   const phases = {observing:"観測中",completed:"観測期間終了",aborted:"停止",invalid:"観測無効"};
+  if(comparison)return <section className="inspector-section"><h2>課題の状態</h2><p>{live?phases[value.phase]:"通信待機"}</p>
+    {value.taskReason===null?null:<p>{value.taskReason}</p>}</section>;
   return <section className="inspector-section" data-testid="scene-contact-panel" data-contact-count={value.contacts.length} data-scene-phase={value.phase} data-frame-index={value.frameIndex}>
     <div className="inspector-heading"><h2>接触診断</h2><span className="section-kicker">GEOMETRY</span></div>
     <p className="inspector-primary">{live ? phases[value.phase] : "通信待機 / 最終適用frame"}</p>

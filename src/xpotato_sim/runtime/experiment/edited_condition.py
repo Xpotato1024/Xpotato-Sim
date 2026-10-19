@@ -1,5 +1,5 @@
 """WorkbenchとCLIの展開済み条件。既存profile decoderを唯一のcomposition入口にする。"""
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from copy import deepcopy
 from hashlib import sha256
 import json
@@ -12,6 +12,7 @@ from xpotato_sim.runtime.scene.objects import canonical, fields, strict_json, nu
 from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
 from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from xpotato_sim.runtime.scene.objects import ObjectInstance
+from xpotato_sim.runtime.scene.force_presentation import default_presentation, validate_presentation
 
 SCHEMA = "workbench-condition/v1"
 MAX_BYTES = 60000
@@ -29,6 +30,7 @@ def preset_condition(name, limits=None):
         "model_configuration_sha256": p.model_registration().configuration_sha256,
         "configuration": {k: raw[k] for k in ("robot", "model", "input", "mapping", "coordination", "execution")},
         "environment": raw.get("environment"), "task": raw.get("task"), "evaluation": None,
+        "display_comparison": default_presentation() if p.scene_plan and p.scene_plan.dynamics else None,
         "limits": asdict(limits or TrialLimits(p.steps, wall_s=360))}
 
 
@@ -57,6 +59,8 @@ def descriptors(document):
         if "coordination" in path or "contact" in path or "keyboard_config" in path or legacy_execution:
             editable = False
         choices = None
+        if path == ("display_comparison", "mode"):
+            choices, editable = ["no_force_cue", "force_cue"], True
         if key == "motion_type":
             choices = ["fixed", "dynamic"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
             editable = True
@@ -79,10 +83,15 @@ def descriptors(document):
                 break
         if label == "orientation_wxyz":
             unit = "単位quaternion (w,x,y,z)"
+        if path[0] == "display_comparison":
+            unit = "m/N" if key == "scale_m_per_n" else "N" if key == "normal_load_full_scale_n" else unit
         if label in {"sliding_friction", "gamepad_deadzone", "neutral_threshold", "rgba", "signs"}:
             unit = "無次元"
         minimum, maximum, exclusive = None, None, False
         if editable and numeric:
+            if path[0] == "display_comparison":
+                minimum, exclusive = 0, True
+                maximum = .2 if key == "max_sample_age_s" else 1. if key == "max_arrow_m" else None
             if label in {"half_extents_m", "mass_kg", "dt_s", "physics_dt_s", "tolerance", "max_joint_speed_rad_s", "max_tracking_error_rad", "duration_s", "input_wait_s", "wall_s", "prepare_s"}:
                 minimum, exclusive = 0, True
             if label in {"gamepad_speed_m_s", "gamepad_deadzone", "gamepad_max_delta_m", "sliding_friction", "torsional_friction_m", "rolling_friction_m", "interval_s", "grace_period_s"}:
@@ -122,10 +131,17 @@ def resolve_condition(document):
         if len(encoded) > MAX_BYTES:
             raise ValueError("条件は60,000 bytes以内です")
         document = strict_json(encoded)
-    fields(document, {"schema_version", "preset_id", "model_configuration_sha256", "configuration", "environment", "task", "evaluation", "limits"}, "condition")
+    # 旧v1 exportの不在fieldは明示的に旧診断表示として維持し、新比較条件へ読み替えない。
+    if type(document) is not dict:
+        raise ValueError("condition object required")
+    document.setdefault("display_comparison", None)
+    fields(document, {"schema_version", "preset_id", "model_configuration_sha256", "configuration", "environment", "task", "evaluation", "limits", "display_comparison"}, "condition")
     if document["schema_version"] != SCHEMA or document["evaluation"] is not None:
         raise ValueError("診断条件/v1のみ対応。正式Evaluation/metricsは未対応です")
     baseline = preset_condition(document["preset_id"])
+    display = validate_presentation(document["display_comparison"])
+    if display is None:
+        baseline["display_comparison"] = None
     robot = baseline["configuration"]["robot"]
     model = document["configuration"].get("model") if type(document["configuration"]) is dict else None
     if type(model) is not dict:
@@ -198,10 +214,13 @@ def resolve_condition(document):
     for key in ("environment", "task"):
         if document[key] is not None:
             raw[key] = deepcopy(document[key])
-    profile = resolve_trial_profile(decode_launch_profile(canonical(raw), source_path=p.source_path))
+    profile = decode_launch_profile(canonical(raw), source_path=p.source_path)
+    profile = replace(profile, display_comparison_json=None if display is None else canonical(display).decode())
+    profile = resolve_trial_profile(profile)
     limits = TrialLimits(**fields(document["limits"], set(asdict(TrialLimits(1))), "limits"))
     # normalize済み値を保存し、同じ展開済み条件をCLI/GUIへ返す。
     normalized = deepcopy(document)
+    normalized["display_comparison"] = display
     normalized["configuration"]["mapping"]["parameters"] = json.loads(profile.effective_parameters_json)
     normalized["limits"] = asdict(limits)
     normalized["configuration"]["execution"] = {"steps": profile.steps, "dt_s": profile.dt_s,

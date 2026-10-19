@@ -30,13 +30,15 @@ class TrialTicket:
 
 class TrialRunner:
     """同期owner。callerがadvanceを継続し、wall/watchdogを監督する。"""
-    def __init__(self, *, result_root: Path, software_revision: str, clock=monotonic, async_terminal_recording=False):
+    def __init__(self, *, result_root: Path, software_revision: str, clock=monotonic, async_terminal_recording=False, viewer_build_identity=None):
         if not isinstance(software_revision, str) or not software_revision.strip():
             raise ValueError("explicit software revision required")
         if not callable(clock):
             raise TypeError("monotonic clock required")
         self._root = Path(result_root).resolve()
         self._revision, self._clock = software_revision, clock
+        from xpotato_sim.runtime.scene.force_presentation import viewer_identity
+        self._viewer_identity = viewer_identity(viewer_build_identity)
         self._owner, self._lock = get_ident(), Lock()
         self._status = "unselected"
         self._execution = None
@@ -157,11 +159,20 @@ class TrialRunner:
                 started = self._now()
                 validated = resolve_trial_profile(profile)
                 parameters = semantic_parameters(validated, limits)
+                if parameters["display_comparison"] is not None:
+                    parameters["display_comparison"] = {"presentation": parameters["display_comparison"],
+                        "viewer": self._viewer_identity}
                 self._stop()
                 if self._parameters != canonical(parameters):
+                    previous = None if self._parameters is None else json.loads(self._parameters)
+                    # 表示条件だけの切替ではnative modelを再buildせず、同じworldをresetする。
+                    same_execution = (previous is not None and self._execution is not None
+                        and canonical({k: v for k, v in previous.items() if k != "display_comparison"})
+                            == canonical({k: v for k, v in parameters.items() if k != "display_comparison"}))
+                    instance = self._execution.instance if same_execution else None
                     self._execution = None
-                    execution = ModelExecution(validated, clock=self._source_clock)
-                    self._model_build_count += 1
+                    execution = ModelExecution(validated, clock=self._source_clock, instance=instance)
+                    self._model_build_count += int(instance is None)
                     condition = freeze_condition(parameters, execution.instance)
                     self._execution = execution
                     self._condition = condition

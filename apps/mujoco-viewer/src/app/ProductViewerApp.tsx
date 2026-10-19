@@ -1,5 +1,6 @@
 import { SceneContactPanel } from "./SceneContactPanel.js";
 import { DynamicsPanel } from "./DynamicsPanel.js";
+import { ForceCuePanel } from "./ForceCuePanel.js";
 import { GamepadTriggerStatus } from "./GamepadTriggerStatus.js";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
@@ -454,7 +455,7 @@ export function ProductViewerApp() {
       {inputSelection.error === null ? null : <p className="workbench-alert" role="alert">{inputSelection.error}</p>}
       {state.qposError === null ? null : <p className="workbench-alert" role="alert">{state.qposError}</p>}
       <div className="workbench-main product-operation-body">
-        <div className="operation-workspace" data-left={!!left} data-right={!!right}>
+        <div className="operation-workspace" data-left={!!left} data-right={!!right} data-force-comparison={state.forcePresentation.comparison}>
           {left&&<aside className="joint-rail joint-rail--left"><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={connection.tone==="warning"||connection.tone==="danger"?connection.label:undefined}/></aside>}
         <section className="workbench-scene" aria-label="3Dロボット表示">
           <div className="scene-toolbar">
@@ -472,6 +473,7 @@ export function ProductViewerApp() {
         </section>
           {right&&<aside className="joint-rail joint-rail--right"><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={connection.tone==="warning"||connection.tone==="danger"?connection.label:undefined}/></aside>}
           <InputStrip state={state} raw={raw} live={state.connectionStatus==="disabled"||connection.tone==="positive"}/>
+          <ForceCuePanel value={state.forcePresentation}/>
         </div>
         <aside className="workbench-inspector" aria-label="状態の概要" hidden={screen!=="setup"}>
           <section className="inspector-section">
@@ -497,8 +499,8 @@ export function ProductViewerApp() {
             <p className="inspector-primary">{state.contactTaskPresentation.taskState?.phase ?? "接触情報なし"}</p>
             {state.contactTaskPresentation.taskState !== null ? <p className="inspector-note">{state.contactTaskPresentation.taskState.classification}</p> : <p className="inspector-note">接触log / payloadの読込みと証拠の詳細は診断にあります。</p>}
           </section> : null}
-          <SceneContactPanel value={state.sceneContactPresentation} live={connection.tone === "positive"} />
-          <DynamicsPanel value={state.dynamicsPresentation} />
+          <SceneContactPanel value={state.sceneContactPresentation} live={connection.tone === "positive"} comparison={state.forcePresentation.comparison}/>
+          <DynamicsPanel value={state.dynamicsPresentation} comparison={state.forcePresentation.comparison}/>
           <div className="inspector-footer">{connection.detail}</div>
         </aside>
       </div>
@@ -524,7 +526,7 @@ export function ProductViewerApp() {
             <h2>Status</h2>
             <div className="viewer-subtle">qpos path is render-only; diagnostics are read-only</div>
           </div>
-        <pre className="viewer-status">{diagnosticState.statusText}</pre>
+        <pre className="viewer-status">{state.forcePresentation.comparison?state.statusText:diagnosticState.statusText}</pre>
         {diagnosticState.qposError === null ? null : <div className="viewer-error">{diagnosticState.qposError}</div>}
         <div className="viewer-endpoint-evaluation">
           <div className="viewer-endpoint-evaluation__header">
@@ -533,7 +535,7 @@ export function ProductViewerApp() {
           </div>
           <EndpointEvaluationPanel state={diagnosticState} />
         </div>
-        <div className="viewer-contact-task">
+        {!state.forcePresentation.comparison&&<div className="viewer-contact-task">
           <div className="viewer-contact-task__header">
             <h3>接触証拠と仮想反力</h3>
             <div className={`viewer-subtle viewer-contact-task__status viewer-contact-task__status--${diagnosticState.contactTaskPresentation.status}`}>
@@ -671,7 +673,7 @@ export function ProductViewerApp() {
             </div>
           </dl>
           <div className="viewer-subtle">力の矢印は表示長を対数スケールかつ上限付きで描画し、表示する N 値は変換しません。導出反力が tool frame の場合は数値だけを示し、world frame の矢印として描画しません。</div>
-        </div>
+        </div>}
         <div className="viewer-input-overlay">
           <div className="viewer-input-overlay__header">
             <h3>Input overlay</h3>

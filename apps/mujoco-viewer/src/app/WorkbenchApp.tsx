@@ -3,6 +3,7 @@ import {createMujocoSceneRenderer, type MujocoSceneRenderer} from "../wasm-scene
 import {createInitialProductViewerState} from "../wasm-scene/productViewerState.js";
 import {SceneContactPanel} from "./SceneContactPanel.js";
 import {DynamicsPanel} from "./DynamicsPanel.js";
+import {ForceCuePanel} from "./ForceCuePanel.js";
 import {JointInstruments} from "../ui/JointInstruments.js";
 import {InputStrip,GamepadDiagnosticDetails} from "../ui/InputStrip.js";
 import {browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
@@ -104,6 +105,7 @@ export function WorkbenchApp() {
         telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
       ws.onerror=()=>{if(isCurrent()) setError("制御接続を確認してください");};
       ws.onmessage=async event=>{
+        const messageReceivedAtMs=performance.now();
         if(disposed || socket.current!==ws) return;
         try {
           const message=JSON.parse(event.data);
@@ -148,7 +150,7 @@ export function WorkbenchApp() {
           if(message.type==="frame") {
             const s=current.current;
             if(!s || !s.ticket || s.busy || message.generation!==s.generation || message.ticket.epoch!==s.ticket.epoch) return;
-            receivedAt.current=performance.now();setFrameStale(false);
+            receivedAt.current=messageReceivedAtMs;setFrameStale(false);
             const epoch=s.ticket.epoch;
             if(failedEpoch.current===epoch) return;
             if(readyEpoch.current!==epoch) {
@@ -158,7 +160,7 @@ export function WorkbenchApp() {
               const valid=()=>!disposed && preparing.current===captured
                 && preparationIsCurrent(captured,socket.current,current.current);
               try {
-                await r.prepareWorkbench(message.payload as TransportPayloadV0,epoch);
+                await r.prepareWorkbench(message.payload as TransportPayloadV0,epoch,messageReceivedAtMs);
                 if(!valid()) return;
                 readyEpoch.current=epoch;failedEpoch.current=null;setReady(epoch);
                 if(claimed.current && current.current?.phase==="ready") command("renderer_ready");
@@ -167,7 +169,7 @@ export function WorkbenchApp() {
               } finally {
                 if(preparing.current===captured) preparing.current=null;
               }
-            } else r.applyWorkbench(message.payload,epoch);
+            } else r.applyWorkbench(message.payload,epoch,messageReceivedAtMs);
           }
         } catch(e) {if(isCurrent()) setError(String(e));}
       };
@@ -276,11 +278,12 @@ function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
   const invalid=!valid?"別epoch / 無効":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
-  return <div className="operation-workspace" data-left={!!left} data-right={!!right}>
+  return <div className="operation-workspace" data-left={!!left} data-right={!!right} data-force-comparison={state.forcePresentation.comparison}>
     {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
     {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
     <InputStrip state={state} raw={raw} selected="gamepad" live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
+    <ForceCuePanel value={state.forcePresentation}/>
   </div>;
 }
 /** 展開中だけ4Hzで詳細を取得する。折り畳み時は詳細JSXも生成しない。 */
@@ -306,7 +309,10 @@ function WorkbenchDetails(props:Telemetry & {connected:boolean;live:boolean;stat
     <p>実行環境: Python {props.status?.runtime_environment?.python??"未計測"} / NumPy {props.status?.runtime_environment?.numpy??"未計測"} / MuJoCo {props.status?.runtime_environment?.mujoco??"未計測"} / 論理CPU {props.status?.runtime_environment?.logical_cpus??"未計測"} / memory profiling {props.status?.runtime_environment==null?"未計測":props.status.runtime_environment.diagnostic_memory?"有効":"無効"}</p>
     <p>OS: {props.status?.runtime_environment?.platform??"未計測"} / OPENBLAS_NUM_THREADS: {props.status?.runtime_environment?.thread_settings.OPENBLAS_NUM_THREADS??"未指定（実スレッド数ではありません）"}</p>
     <p>host receipt: {props.status?.input_diagnostics?.processed_receipt_s?.toFixed(3)??"未計測"} s / host input age: {props.status?.input_diagnostics?.processed_age_s?.toFixed(2)??"未計測"} s（host monotonic、browser時計との減算なし）</p>
-    <SceneContactPanel value={state.sceneContactPresentation} live={props.connected}/><DynamicsPanel value={state.dynamicsPresentation}/>
+    <SceneContactPanel value={state.sceneContactPresentation} live={props.connected} comparison={state.forcePresentation.comparison}/><DynamicsPanel value={state.dynamicsPresentation} comparison={state.forcePresentation.comparison}/>
+    {state.forcePresentation.comparison&&<p>提示sample: {state.forcePresentation.sampleId??"未採用"}<br/>
+      browser受信 / 採用 / 描画提出: {[state.forcePresentation.receivedAtMs,state.forcePresentation.adoptedAtMs,state.forcePresentation.renderSubmittedAtMs].map(v=>v===null?"未取得":v.toFixed(2)).join(" / ")} ms<br/>
+      採用間で省略したsource tick: {state.forcePresentation.skippedSourceTicks}（GPU完了・表示走査時刻ではありません）</p>}
     <GamepadDiagnosticDetails state={state} raw={raw} live={props.live}/><pre>{formatInputOverlayText(state.inputOverlay)}</pre><pre>{state.currentQposText}</pre>
   </>}</details>;
 }
