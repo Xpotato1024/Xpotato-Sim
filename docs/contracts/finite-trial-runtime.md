@@ -89,7 +89,7 @@ resetは全object/Robotのqpos/qvel/actuator/control/time・warmstart等をhome�
 Source/Mapping/Task/filter/dwell/timerは新しい試行objectに置換し、前試行への参照を解放する。
 model、固定asset、FK/candidate用MjDataは再利用可能。runnerは最新結果1件、最大2 streamの最新入力、pending ticket1件までを保持し、
 有界の再利用拒否identity以外に過去trial列・frame列を蓄積しない。条件変更は旧execution参照を解放して再構築する。
-表示比較だけの変更では同じnative modelを再利用し、新しい実行ownerとepochで全状態をresetする。
+表示比較または独立command Mappingだけの変更では同じnative modelを再利用し、新しい実行ownerとepochで全状態をresetする。
 
 ## 接触力の表示比較条件
 
@@ -109,6 +109,20 @@ active中のprepare/編集は既存のrunner/Workbench gateで拒否する。切
 backendは`force-presentation-binding/v1`をmodel/scene/settings/epochへ束縛して各payloadへ投影する。
 raw dynamics取得、派生signal、物理step、Task、有限結果の保存は表示modeへ依存しない。
 連続raw/derived/presentation evidenceの永続保存や正式Evaluationは既存の後続課題として残る。
+
+## 独立したcommand Mapping
+
+展開済み条件のoptional `command_mapping`は`approach-resistance/v1`として別検証し、
+未選択の旧exportはnullへ正規化する。`baseline`、`fixed_gain`、`contact_dependent`のmode、
+対象面・係数・飽和・期限をsemantic conditionへ固定し、active試行の途中では適用しない。
+初期版は明示した固定Task対象に限定する。Input Source/Control Mappingの既存条件と
+`display_comparison`は独立に保存する。式・品質・因果順序は
+[連続速度入力契約](continuous-endpoint-velocity-input.md#接近速度の独立したcommand-mapping632)を参照する。
+
+`command_mapping_v1`は最新commandのinput ref、前commitの原力ref、処理前後velocityを分離する。
+Deviceのinput refでは鮮度用`received_at_s`とproducer順序用`ordering_receipt_s`を別fieldに保存し、
+順序時計を持たない従来入力は後者を省略する。条件切替後もDeviceの個体・profile・role bindingを保持する。
+既存の終端記録やraw dynamicsを正式な連続evidenceに読み替えず、#583/#584の責務を維持する。
 
 ## ローカル結果
 

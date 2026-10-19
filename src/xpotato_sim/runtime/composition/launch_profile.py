@@ -145,6 +145,7 @@ class LaunchProfile:
     task_parameters_json: str = "{}"
     display_comparison_json: str | None = None
     input_parameters_json: str = "{}"
+    command_mapping_json: str | None = None
 
     @property
     def input_parameters(self) -> dict:

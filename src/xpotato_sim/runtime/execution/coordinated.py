@@ -40,11 +40,14 @@ class CoordinatedStepResult:
 class CoordinatedRuntime:
     """faultはlatchする。入力復帰だけで再開せず、明示restartと新鮮な中立を要求。"""
     def __init__(self, provider: CoordinatedMotionProvider, *, epoch: str, dt_s: float,
-                 max_input_age_s: float) -> None:
+                 max_input_age_s: float, command_mapper=None) -> None:
         self.provider = provider
         self.epoch = identifier(epoch, "epoch")
         self.dt_s = number(dt_s, "dt_s", positive=True)
         self.max_input_age_s = number(max_input_age_s, "max_input_age_s", positive=True)
+        if command_mapper is not None and not callable(command_mapper):
+            raise TypeError("callable command Mapping required")
+        self.command_mapper = command_mapper
         if not provider.endpoint_ids or len(set(provider.endpoint_ids)) != len(provider.endpoint_ids):
             raise ValueError("provider must name its endpoints exactly once")
         self.state, self.reason = "waiting_neutral", None
@@ -204,7 +207,14 @@ class CoordinatedRuntime:
                             raise ValueError("preflight_rejected")
                         self.state, self.reason = "running", None
                     return CoordinatedStepResult(self.epoch, self._tick, self.state, self.reason, before, before, None, value)
-                candidate = self.provider.prepare(value.endpoints, self.dt_s)
+                # 同じsource sequenceの入力を保持し、検証後の速度だけを積分ownerへ渡す。
+                commands = value.endpoints if self.command_mapper is None else self.command_mapper(
+                    value.endpoints, source_input=value, epoch=self.epoch, before=before, tick=self._tick, now_s=now, dt_s=self.dt_s)
+                if (type(commands) is not tuple or any(type(c) is not EndpointVelocity for c in commands)
+                        or tuple((c.endpoint_id, c.control_frame) for c in commands)
+                            != tuple((c.endpoint_id, c.control_frame) for c in value.endpoints)):
+                    raise ValueError("command Mapping changed endpoint binding")
+                candidate = self.provider.prepare(commands, self.dt_s)
                 if candidate.before != before:
                     raise ValueError("candidate_snapshot_mismatch")
                 after = self.provider.commit(candidate)

@@ -15,6 +15,7 @@ from xpotato_sim.runtime.scene.force_signal import SceneForceProcessor, default_
 from xpotato_sim.runtime.scene.force_presentation import presentation_binding
 from xpotato_sim.schemas import ViewerControlMessage
 from xpotato_sim.runtime.experiment.session_input import SessionInputMessage
+from xpotato_sim.runtime.scene.command_mapping import profile_command_mapping, ContactResistanceCommandMapping
 
 
 class ModelExecution:
@@ -66,6 +67,25 @@ class ModelExecution:
             object_ids=tuple(self.scene_binding["object_ids"]),
             target_object_ids=tuple(signal_condition["target_object_ids"]),
             config=default_force_config(profile.max_input_age_s))
+        command = profile_command_mapping(profile)
+        self.command_mapping = None if command is None else ContactResistanceCommandMapping(command,
+            epoch=epoch, model_sha256=self.instance.viewer.metadata["model_sha256"],
+            scene_digest=profile.scene_plan.manifest.digest, settings_digest=profile.scene_plan.dynamics.digest)
+        self._command_sample = self._command_signal = None
+        self.runtime.runtime.command_mapper = None if self.command_mapping is None else self._map_commands
+
+    def _map_commands(self, commands, **context):
+        contacts = () if self._command_sample is None or self._command_sample.dynamics is None else self._command_sample.dynamics["contacts"]
+        return self.command_mapping.apply(commands, signal=self._command_signal, contacts=contacts, **context)
+
+    def _capture_command_sample(self, *, armed=False):
+        """中立での初期化またはcommit直後だけ観測。GUI更新は制御sampleを更新しない。"""
+        sample = self.instance.provider.sample(frame_index=self.tick_count, metadata={})
+        if armed:
+            self.force_processor.reset()
+        self._command_sample = sample
+        self._command_signal = self.force_processor.process(sample.dynamics, epoch=self.epoch,
+            tick=self.tick_count, frame_index=self.tick_count, simulation_time_s=sample.state.time_s, now_s=self.clock())
 
     def reset(self, epoch):
         """modelを保持し、全dataとSource/Mapping/Taskの試行参照を置換する。"""
@@ -101,6 +121,7 @@ class ModelExecution:
 
     def tick(self, *, freshness_barrier=None):
         """中立待ちはstepしない。戻り値は実際にcommitされたtick数。"""
+        previous_state, previous_tick = self.state, self.tick_count
         if (self.runtime.source.last_received_at_s is None
                 and self.runtime.runtime.state == "waiting_neutral"):
             self.state, self.reason = "waiting_neutral", self.runtime.initial_wait_reason
@@ -109,6 +130,16 @@ class ModelExecution:
             if result is None:
                 return self.tick_count
             self.state, self.reason, self.tick_count = result.state, result.reason, result.tick
+        if self.command_mapping is not None and self.state == "running":
+            armed = previous_state == "waiting_neutral"
+            if armed or self.tick_count != previous_tick:
+                try:
+                    self._capture_command_sample(armed=armed)
+                except Exception as exc:
+                    self.runtime.runtime.fail(f"command_observation_failed:{type(exc).__name__}:{exc}")
+                    self.state, self.reason = self.runtime.runtime.state, self.runtime.runtime.reason
+        if self.command_mapping is not None and self.state in {"stopped", "faulted"}:
+            self.command_mapping.invalidate(self.reason or self.state)
         return self.tick_count
 
     def _metadata(self):
@@ -130,13 +161,23 @@ class ModelExecution:
                 metadata[name] = value
         if self.force_presentation is not None:
             metadata["force_presentation_v1"] = deepcopy(self.force_presentation)
+        if self.command_mapping is not None and self.command_mapping.latest is not None:
+            metadata["command_mapping_v1"] = deepcopy(self.command_mapping.latest)
         return metadata
 
     def sample(self, frame_index, *, advance_task=False, budget_exhausted=False, stopped_reason=None):
         """同一model/dataの描画とTask観測を照合する。表示のみではTaskを進めない。"""
         bundle = self.instance.viewer
         metadata = self._metadata()
-        sample = self.instance.provider.sample(frame_index=frame_index, metadata=metadata)
+        sample = self._command_sample
+        if sample is None or sample.robot != self.instance.provider.snapshot():
+            sample = self.instance.provider.sample(frame_index=frame_index, metadata=metadata)
+        else:
+            # 同じ確定観測を表示frameへ投影する。原力/poseを再計算・再取得しない。
+            sample = replace(sample,
+                state=replace(sample.state, frame_index=frame_index, metadata=metadata),
+                geometry=None if sample.geometry is None else replace(sample.geometry, frame_index=frame_index),
+                dynamics=None if sample.dynamics is None else {**deepcopy(sample.dynamics), "frame_index": frame_index})
         snapshot, state, addresses = sample.robot, sample.state, sample.robot_qpos_addresses
         if (snapshot.model_sha256 != metadata["model_sha256"]
                 or snapshot.joint_names != bundle.declaration.joint_names
@@ -175,6 +216,8 @@ class ModelExecution:
                     self.stop()
                     if self.force_processor is not None:
                         metadata["scene_force_signal_v1"] = self.force_processor.latest.to_document()
+                    if self.command_mapping is not None and self.command_mapping.latest is not None:
+                        metadata["command_mapping_v1"] = deepcopy(self.command_mapping.latest)
                     metadata.update({
                         "motion_status": self.runtime.runtime.state, "source_active": False,
                         "coordinated_runtime_v1": {**metadata["coordinated_runtime_v1"],
@@ -193,3 +236,6 @@ class ModelExecution:
         self.state, self.reason = self.runtime.runtime.state, self.runtime.runtime.reason
         if self.force_processor is not None:
             self.force_processor.invalidate(self.reason or self.state)
+        if self.command_mapping is not None:
+            self.command_mapping.invalidate(self.reason or self.state)
+        self._command_sample = self._command_signal = None

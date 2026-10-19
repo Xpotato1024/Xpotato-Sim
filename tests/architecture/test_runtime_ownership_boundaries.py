@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
     "application": {"device_bridge", "workbench_control", "workbench_service", "workbench_worker", "workbench_client", "workbench_metrics", "workbench_projection", "owned_processes", "publisher_session"},
-    "scene": {"composition", "contracts", "objects", "observation", "measurement", "task", "world", "world_composition", "dynamics_observation", "force_signal", "force_presentation"},
+    "scene": {"composition", "contracts", "objects", "observation", "measurement", "task", "world", "world_composition", "dynamics_observation", "force_signal", "force_presentation", "command_mapping"},
     "composition": {
         "fast_arm_coordinated",
         "robot_model",

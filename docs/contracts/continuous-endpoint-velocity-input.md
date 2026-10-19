@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: input contract
-last_verified: 2026-07-16
+last_verified: 2026-10-19
 canonical_for:
   - evaluation-ready continuous endpoint velocity input
 related:
@@ -146,3 +146,52 @@ keyboard、buttonのZ補助、速度・deadzone・frame resolution、最終指�
 `sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`の標準XYZ操作は、stick XY + analog trigger Zへ移行した。
 trigger量・bumper符号ラッチ・取得session・表示の規約は[Gamepad trigger操作契約](gamepad-trigger-control.md)を参照する。
 旧XY/XZ切替は退役した。[Gamepad平面操作契約](gamepad-plane-control.md)はhistorical記録であり、旧設定は拒否する。
+
+## 接近速度の独立したcommand Mapping（#632）
+
+初期版は`approach-resistance/v1`のsoftware条件であり、固定した単純なTask対象面への
+world速度を変更する。通常のInput Source/Control Mappingを通ったm/sの要求を入力とし、
+正規化された無次元の指入力をNへ読み替えない。能動力覚や知覚効果の成立を意味しない。
+
+`n`はtoolから対象面へ向かうworld単位法線で、対象object IDとともに条件へ固定する。
+当該pairの全native接触法線が同じ向きにcos値0.99以上（条件でさらに厳格化可）で一致する場合だけ、
+`F_n = max(0, -dot(raw_object_on_tool_force_n, n))`を使う。表示のclampやfilter値は使わない。
+別面、反対面、欠測、partial、対象不一致、時刻/epoch不一致を平均法線へ丸めない。
+
+出力は `v_out = v_in - (1-s) * max(dot(v_in,n),0) * n` とする。
+
+| mode | 係数s | 条件差 |
+|---|---|---|
+| baseline | 1 | 元のvelocityを保持 |
+| fixed_gain | 固定した0〜1の値 | 荷重と無関係に接近成分だけを減衰 |
+| contact_dependent | `max(minimum_gain, 1 / (1 + F_n / half_gain_load_n))` | 圧縮荷重に対し非増加 |
+
+離脱と接線成分は維持し、ゼロ入力から運動を生成しない。fixed gainの比較でも方向の選別を同じにし、
+単に速度が下がった結果を知覚効果と解釈しない。実機gainや普遍的な安定性の証明は対象外である。
+
+確定済みtick kの観測をcommand k+1へ使う。freshな中立でrunningへ移るときだけ初期状態の観測を取り直し、
+以後はcommit後だけ更新する。原力のbrowser表示・再送では制御観測を更新しない。
+`contact_dependent`は前commitの品質が不明、固定法線が不正、期限切れ（最大0.2 s）、対象変更なら
+次のprovider.prepareより前にfaultをlatchする。baseline/fixed gainは原力欠測をtraceへ残し、
+力を使わない式を維持する。全modeで元入力の鮮度・sequence・中立・STOP検査は共通である。
+
+最終velocityだけを既存providerへ渡すため、抑制前のtargetを積み上げる独自integratorはない。
+可変dtは既存command routeの積分規則に従い、このprimitive自身には時間積分や仮想ばねを持たせない。
+STOP/new epochで保持sampleとtraceを失効/交換する。同じnative sampleを描画側へ再利用して、
+原力とgeometryの重複取得を避ける。参照数は最新sample・trace各1件である。
+Taskの自然終了・予算終端では、停止を反映した同じframeへ失効後のtraceを複製する。
+既に公開したframeや写像時のtraceを変更せず、終端projectionのためのnative観測・prepare・commitは追加しない。
+
+条件は既存の展開済みJSONへ`command_mapping`として明示してimportする。未選択時はnullであり、
+既定presetへ抵抗を自動追加しない。例は[software比較note](../experiment-notes/2026-10-19-contact-resistance.md)を参照する。
+WorkbenchのAdvanced「Mapping」でmodeと数値を編集し、準備時に固定する。
+提示効果と運動応答を混同しないため、この比較では`display_comparison`を同じ値へ固定する。
+
+`command_mapping_v1`の最新traceにはinputのsource epoch/sequence/timestamp/receipt/payload SHA、
+原力のsource tick/simulation time/host観測時刻、command tick/host時刻/dt、
+処理前後velocity m/s、対象ごとのraw force N・圧縮成分N・係数を別fieldで記録する。
+Deviceでは`input_ref.received_at_s`がSim時計上の保守的な最古receiptであり、
+producerの順序時計はoptional `input_ref.ordering_receipt_s`へ分けて保存する。
+異なる時計原点を直接減算して遅延と扱わない。ordering時計のない従来入力では追加fieldを省略する。
+raw dynamicsと実際のqposは既存payloadへ残す。これは最新状態の診断であり、
+#583/#584の正式metricや連続記録の完成を主張しない。

@@ -177,10 +177,11 @@ class TrialRunner:
                 self._stop()
                 if self._parameters != canonical(parameters):
                     previous = None if self._parameters is None else json.loads(self._parameters)
-                    # 表示条件だけの切替ではnative modelを再buildせず、同じworldをresetする。
+                    # 表示/command写像だけの切替では同じworldをresetする。
+                    nonphysical = {"display_comparison", "command_mapping"}
                     same_execution = (previous is not None and self._execution is not None
-                        and canonical({k: v for k, v in previous.items() if k != "display_comparison"})
-                            == canonical({k: v for k, v in parameters.items() if k != "display_comparison"}))
+                        and canonical({k: v for k, v in previous.items() if k not in nonphysical})
+                            == canonical({k: v for k, v in parameters.items() if k not in nonphysical}))
                     instance = self._execution.instance if same_execution else None
                     self._execution = None
                     execution = ModelExecution(validated, clock=self._source_clock, instance=instance)

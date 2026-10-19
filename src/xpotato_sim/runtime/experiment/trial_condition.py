@@ -14,6 +14,7 @@ from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from xpotato_sim.runtime.scene.objects import canonical
 from xpotato_sim.runtime.scene.force_signal import force_condition
 from xpotato_sim.runtime.scene.force_presentation import profile_presentation
+from xpotato_sim.runtime.scene.command_mapping import profile_command_mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +81,9 @@ def resolve_trial_profile(profile: LaunchProfile) -> LaunchProfile:
     if validated.route != profile.route:
         raise ValueError("resolved execution route differs from effective profile")
     display = profile_presentation(profile)
-    return replace(validated, display_comparison_json=None if display is None else canonical(display).decode())
+    command = profile_command_mapping(profile)
+    return replace(validated, display_comparison_json=None if display is None else canonical(display).decode(),
+        command_mapping_json=None if command is None else canonical(command).decode())
 
 
 def semantic_parameters(profile, limits):
@@ -109,6 +112,7 @@ def semantic_parameters(profile, limits):
             "parameters": json.loads(profile.task_parameters_json)},
         "evaluation": None, "display_comparison": profile_presentation(profile), "physical_output": "disabled",
         "force_signal": force_condition(profile),
+        "command_mapping": profile_command_mapping(profile),
     }
 
 

@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-10-03
+last_verified: 2026-10-19
 canonical_for:
   - runtime composition root
 related:
@@ -14,6 +14,14 @@ related:
 ---
 
 # runtime composition
+
+接近速度の独立比較（#632）は、`ModelExecution`が中立による初期化と各commitの直後に
+取得した同一worldのraw接触観測を次commandへ渡す。`runtime/scene/command_mapping.py`が
+固定した対象・法線・時刻を照合し、Mapping配下の純粋primitiveを呼ぶ。
+`CoordinatedRuntime`のinput検証後・provider.prepare前のhookで速度だけを変え、
+source sequence/receiptと既存Robotのservo・IK・積分を維持する。同じ確定sampleを描画へ投影し、
+GUI更新で制御力の取得時刻や履歴を更新しない。設定と式の正本は
+[連続速度入力契約](../contracts/continuous-endpoint-velocity-input.md#接近速度の独立したcommand-mapping632)とする。
 
 ## Runtime owner map
 
