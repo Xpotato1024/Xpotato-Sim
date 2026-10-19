@@ -49,7 +49,7 @@ class ModelExecution:
             resolve_task_plugin(profile.task_selection).task_event_identity)
         self.task_view = None
         self.tick_count = 0
-        self.state, self.reason = "waiting_neutral", "awaiting_source_input"
+        self.state, self.reason = "waiting_neutral", self.runtime.initial_wait_reason
         self.scene_binding = None if profile.scene_plan is None else {
             "schema_version": "scene-contact-binding/v1",
             "scene_digest": profile.scene_plan.manifest.digest,
@@ -103,7 +103,7 @@ class ModelExecution:
         """中立待ちはstepしない。戻り値は実際にcommitされたtick数。"""
         if (self.runtime.source.last_received_at_s is None
                 and self.runtime.runtime.state == "waiting_neutral"):
-            self.state, self.reason = "waiting_neutral", "awaiting_source_input"
+            self.state, self.reason = "waiting_neutral", self.runtime.initial_wait_reason
         else:
             result = self.runtime.tick(epoch=self.epoch, freshness_barrier=freshness_barrier)
             if result is None:

@@ -172,6 +172,105 @@ Sim側には証拠文書の未commit差分があったが、製品moduleは公�
 独立に確認した。上記時間は同じLinux環境の単発software確認であり、serial sampleのlatency、
 Windows配布物の終了時間、実操作者の入力性能を示すものではない。
 
+## 公開Hostの模擬時計補正後に行ったbridge追試
+
+[Host PR #28](https://github.com/Xpotato1024/Selfrionette-Device/pull/28)は
+`b7198d8148c98e5acbe1b714ef8075864a0b6faa`で、developer-onlyの`ScriptedTransport`の
+device時刻を`sequence × 50 ms`から実際の生成時monotonic経過時間へ修正した。
+GUI/IPCの待ちを偽のbacklogと扱うことを防ぎ、実Hostの250 ms鮮度/遅延上限は維持している。
+その上の[bridge PR #29](https://github.com/Xpotato1024/Selfrionette-Device/pull/29)を
+`21e85ac58c90913da7096966df6a0d8cbb80d57c`へ積み直した。新bridgeのGit treeは
+`aad1397da94e0f58e0a27f0c5c45458fde598e15`である。
+
+旧Host→旧bridgeと新Host→新bridgeの`git diff --binary`は84,885 byteで完全一致し、
+SHA-256は`c3b69bcac3758fc5384b1b9d384f7c5f6816015e656555d6a51861e4da1d69fb`だった。
+旧bridge `dd828017…`からの差はHostの模擬入力時計と関連文書3件であり、bridge機能差分は同じである。
+前節の旧commit対応表、旧binary hash、測定値は当時の履歴として保持する。
+
+### 新しい公開stampのbuild
+
+2026-10-19 01:20:56.565997 UTCにbuild記録を保存した。新bridgeのclean checkoutから、
+同じ`Cargo.lock`と既存targetを再利用し、Rust `1.99.1 (58cf8f9c3 2026-10-13)`で
+`dev (unoptimized + debuginfo)` binaryを生成した。
+
+```sh
+SELFRIONETTE_BRIDGE_REVISION=21e85ac58c90913da7096966df6a0d8cbb80d57c \
+  cargo build --locked --offline -p selfrionettectl
+```
+
+build所要時間は0.918109416 s、binaryは29,589,136 byte、SHA-256は
+`63c9ac1f911d0bdeeb342a3e1647ab08b5b49a0a7cd35e69ca780131af572827`だった。
+既存targetを再利用した1回の時間であり、clean build性能を測っていない。旧stampのbinaryは別に保持した。
+
+### 実Simとのconfigure / status / EOF
+
+smokeの記録開始時刻は2026-10-19 01:22:00.651982 UTC。
+Linux 6.18.55 x86_64 / glibc 2.39 / Python 3.12.14で、実Simの`BridgeProcess`を使用した。
+実行の前後ともSimは`7e07cbd36ba1eb1d83c930e578039842df9c784d`、
+Git tree `9c6b40f536407970f90562edfae4ef5bf4ed7cdd`でcleanだった。
+import前後および終了時のmodule byte一致も確認した。
+
+| 実行module | SHA-256 |
+|---|---|
+| `runtime/application/device_bridge.py` | `9548b99f3f185bae0d99aade2bcbb0bf55e726056485592df3f3fea71b3376de` |
+| `plugins/input_sources/selfrionette_device/source.py` | `5c087b446af67f9e3bf7b84a095c30e783a37c713e5844d8f6f387593d35eb0e` |
+
+bridge moduleは旧stampの追試と同じ保存byteであり、今回のHEADのblobとも一致した。
+一時的な`software-only.srncal`と架空port `SOFTWARE_ONLY_DO_NOT_OPEN`を用い、
+送信する要求を`configure` ID 1と専用`status` ID 2だけに制限した。
+期待個体IDは`srn-0123456789abcdef0123456789abcdef`、operatorは`software-fixture`、
+postureは`seated`、gripは`supported`、methodは`diagonal`である。
+connect/tare/neutral/apply/startやserial操作は行っていない。
+
+| 観測 | 結果 |
+|---|---|
+| handshake成立まで | 3.784392 ms |
+| 専用statusの観測RTT | 0.175449 ms |
+| stdin EOFからcleanup終了 | 1.150341 ms |
+| 準備状態 | `configured`、clock同期true、ready=false、neutral無効、error=null |
+| 入力とqueue | sample 0件、queued event 0件、queue上限64件、未応答要求なし |
+| 子processとpipe | exit 0、terminate / kill呼出し0、stdin / stdout / stderrすべてclose |
+| 所有thread | events / commands / errorsの3本すべて終了 |
+| 終了状態 | `stopped`、ready=false、neutral無効、error=null、sample/queueとも0件 |
+
+応答はすべて`selfrionette-bridge-event/v1`のstatusで、revisionは新公開SHAと一致した。
+writer時計は`bridge_process_elapsed_us`であり、元request IDと時刻は次の通りだった。
+
+| request ID | phase | writer経過時間µs | harness観測monotonic s |
+|---:|---|---:|---:|
+| 0 | `unconfigured` | 257 | 30981.858274957 |
+| 1 | `configured` | 446 | 30981.858427246 |
+| 2 | `configured` | 1156 | 30981.859134349 |
+
+status送信monotonicは30981.8589589 s、対応付けたclock下限offsetは30981.857802900002 sだった。
+offsetは時計原点の対応値であり、遅延値ではない。RTTはharnessのstatus行記録時刻と送信時刻の差で、
+serial sampleやViewer描画の遅延を測っていない。全体の結果はPASSである。
+
+元記録と再現scriptの保存byteを次に示す。再現scriptは上記build条件と実`BridgeProcess`、
+configure/status以外の送信拒否、全返信のrevision/時計検査、EOF/thread/pipe検査を実行する。
+
+| 記録・再現script | byte数 | SHA-256 |
+|---|---:|---|
+| `device-bridge-21e85ac5-build.json` | 1104 | `1df3b3b3e330c79c889c28c15bb4fffc3e70808744f142ac9f43dcbe62254f4b` |
+| `device-bridge-21e85ac5-build.py` | 2791 | `ee80527c9e9ff3d1f1971ec81bba0f160086609e38b414a1270f1b0546b36b0d` |
+| `device-bridge-21e85ac5-smoke.json` | 5236 | `4dddfef0cbd664862afb84fc867a8980ee239da5d711741726612fcb9e5f9245` |
+| `device-bridge-21e85ac5-smoke.py` | 7484 | `258fc433de22c55ba734ff3dfd5972fffa6c2c500fb0d4e4895bf4a7c10dd483` |
+
+### Simの既存Gamepad診断との互換修正
+
+[Sim PR #636](https://github.com/Xpotato1024/Xpotato-Sim/pull/636)の初回CIでは、
+Input Source catalogの期待ID/aliasesにDeviceが未追加だった検査と、Gamepad未受信時の理由が
+`awaiting_gamepad_input`から`awaiting_source_input`へ変わった検査の2件が失敗した。
+上記Sim commitでcatalog/schema/汎用CLI除外を明示し、Sourceが宣言する`initial_wait_reason`を
+初期化・restart・ModelExecutionへ共通に渡すよう修正した。Gamepadの既存理由とDeviceの
+`awaiting_device_input`を保持し、共通runtimeへprovider名分岐を追加していない。
+
+元CI 2件、新規の空入力/片側Device/reset/restart/宣言検査5件、ownership 8件の15件が成功し、
+追加した汎用CLI除外も1件成功した。別の関連runでは既存Source/Mapping/Gamepad/Device 104件が成功した。
+これらは重複を含む検証数である。新規restart検査の初回3件は試験のSTOP前提不足で拒否されたため、
+試験へ明示STOPを補い、稼働中のrestart拒否を維持して上記の再検証を通した。
+localでの互換確認を、公開した新HEADのCI全体や実機受入の完了と同一視しない。
+
 ## pipe readerのCPU仕事量
 
 実装時に`Popen(..., bufsize=0)`のbinary `readline`が小さいreadを繰り返す可能性を検出した。

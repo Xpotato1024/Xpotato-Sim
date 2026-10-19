@@ -37,6 +37,7 @@ class SessionInputMessage:
 class SessionInputSource(Protocol):
     """factoryは取得を開始しない。runnerがsource receiptとlifecycleを単一所有する。"""
     last_received_at_s: float | None
+    initial_wait_reason: str
 
     def parse_message(self, message: str) -> SessionInputMessage: ...
     def ingest_session_message(self, message: SessionInputMessage) -> None: ...

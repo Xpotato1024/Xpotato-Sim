@@ -64,6 +64,8 @@ future receipt、旧ticket、記録中のreceiptは区別して拒否する。�
 
 全mutatorはowner thread限定、非再入guard付き。二重start、active中prepare/retry、旧epoch、終端後入力を拒否する。
 `SessionInputMessage`はstream/session、元timestamp/sequence、payload、取得済みage、availabilityを持つ共通契約である。
+未受信時の理由は`SessionInputSource.initial_wait_reason`の宣言を使い、初期化・restart・ModelExecutionで揃える。
+Gamepadは従来の`awaiting_gamepad_input`、Deviceは`awaiting_device_input`を保持し、共通runtimeでprovider名を分岐しない。
 GamepadとDeviceは一度受領したsampleを再受領して鮮度を更新しない。未知providerを別Inputへ読み替えない。
 Deviceは最大2 roleを別々に順序検査し、全roleの最古の有効receiptでfreshnessを判定する。
 producerの元receiptは順序検査にだけ使い、保守的なageのms切上げによる小さな後退をsource時刻逆転と誤判定しない。

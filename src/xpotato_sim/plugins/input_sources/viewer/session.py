@@ -5,6 +5,8 @@ from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_messa
 
 
 class GamepadSessionSource(ViewerInputSource):
+    initial_wait_reason: str = "awaiting_gamepad_input"
+
     def __init__(self, *, parameters, clock):
         if parameters:
             raise ValueError("Gamepad session does not accept device parameters")

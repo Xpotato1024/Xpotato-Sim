@@ -21,7 +21,7 @@ Selfrionette-Deviceの共有Rust `LiveService`が検証・補正した入力を�
 極性、deadzone、filterをSimへ複製しない。
 
 Deviceとのwire契約は
-[Selfrionette-Device host bridge契約（公開revision）](https://github.com/Xpotato1024/Selfrionette-Device/blob/dd828017e8ae328b4d4bc09b78653fc12d57a95f/docs/contracts/host-input-bridge.md)
+[Selfrionette-Device host bridge契約（公開revision）](https://github.com/Xpotato1024/Selfrionette-Device/blob/21e85ac58c90913da7096966df6a0d8cbb80d57c/docs/contracts/host-input-bridge.md)
 を正とする。本書はSimのbinding、時刻対応、試行への渡し方、操作と終了を所有する。
 共通の試行・記録は[有限試行runtime](finite-trial-runtime.md)、操作権・renderer・監督は
 [Workbench](workbench.md)、登録規則は[Input Source registry](runtime-input-source-registry.md)に従う。
@@ -152,7 +152,7 @@ browserから任意の実行file、port、server上のpathを指定する操作�
 ## exact revisionを埋め込んだRust binary
 
 Selfrionette-Deviceのclean checkoutでHEADを確認し、build時だけrevisionを指定する。
-build対象の公開bridge sourceは`dd828017e8ae328b4d4bc09b78653fc12d57a95f`である。
+build対象の公開bridge sourceは`21e85ac58c90913da7096966df6a0d8cbb80d57c`である。
 
 ```sh
 # Selfrionette-Device repositoryで、差分がないことと対象HEADを確認する。

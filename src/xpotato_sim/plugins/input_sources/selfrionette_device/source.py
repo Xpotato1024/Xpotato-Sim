@@ -116,6 +116,8 @@ class DeviceSample:
 class DeviceSessionSource:
     """最大2個体の最新値だけを保持し、両者の鮮度のうち古い側を採用する。"""
     requires_new_session = True
+    initial_wait_reason: str = "awaiting_device_input"
+
     def __init__(self, *, parameters, clock=monotonic):
         self.parameters = validate_parameters(parameters)
         self.bound_roles = frozenset(self.parameters["bindings"])
@@ -126,7 +128,7 @@ class DeviceSessionSource:
         self._updates = 0
         self._frame = RawInputFrame("selfrionette_device", 0., metadata={
             "source_kind": "selfrionette_device", "source_active": False,
-            "stale_reason": "awaiting_device_input", "input_unit": "1"})
+            "stale_reason": self.initial_wait_reason, "input_unit": "1"})
         self._started = False
 
     def start(self):

@@ -29,6 +29,7 @@ def test_production_input_source_catalog_is_versioned_and_deterministic() -> Non
         "programmed_target",
         "replay",
         "selfrionette",
+        "selfrionette_device",
         "viewer",
     )
     assert INPUT_SOURCE_CATALOG.aliases == (
@@ -37,13 +38,18 @@ def test_production_input_source_catalog_is_versioned_and_deterministic() -> Non
         "programmed_target",
         "replay",
         "selfrionette",
+        "selfrionette_device",
         "viewer",
     )
     assert INPUT_SOURCE_CATALOG.resolve("selfrionette").plugin.produced_sample_schema == VersionedIdentity(
         "loadcell_vector_sample", 1
     )
+    assert INPUT_SOURCE_CATALOG.resolve("selfrionette_device").plugin.produced_sample_schema == VersionedIdentity(
+        "selfrionette_device_normalized_sample", 1
+    )
 def test_cli_projection_excludes_specialized_sources() -> None:
     assert "selfrionette" not in CLI_INPUT_SOURCE_NAMES
+    assert "selfrionette_device" not in CLI_INPUT_SOURCE_NAMES
     assert "analog_fixture" not in CLI_INPUT_SOURCE_NAMES
 
 

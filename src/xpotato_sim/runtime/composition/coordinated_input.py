@@ -4,8 +4,9 @@ from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from xpotato_sim.plugins.input_sources.viewer.session import GamepadSessionSource
 from xpotato_sim.runtime.execution.coordinated import CoordinatedRuntime, CoordinatedStepResult
+from xpotato_sim.runtime.experiment.session_input import SessionInputSource
 from xpotato_sim.schemas import ViewerControlMessage
-from xpotato_sim.schemas.coordinated import number
+from xpotato_sim.schemas.coordinated import identifier, number
 
 
 class CoordinatedInputRuntime:
@@ -13,7 +14,7 @@ class CoordinatedInputRuntime:
     def __init__(self, *, provider, mapping_parameters: Mapping[str, object],
                  mapping_factory: Callable[[], object], side_to_arm: Mapping[str, str],
                  epoch: str, dt_s: float, max_input_age_s: float, clock: Callable[[], float],
-                 source_factory=GamepadSessionSource, source_parameters=None) -> None:
+                 source_factory: Callable[..., SessionInputSource]=GamepadSessionSource, source_parameters=None) -> None:
         if (not isinstance(side_to_arm, Mapping) or not set(side_to_arm) <= {"left", "right"}
                 or len(side_to_arm) != len(provider.endpoint_ids)
                 or set(side_to_arm.values()) != set(provider.endpoint_ids)):
@@ -26,14 +27,19 @@ class CoordinatedInputRuntime:
         self._source_parameters = {} if source_parameters is None else dict(source_parameters)
         self.side_to_arm = MappingProxyType(dict(side_to_arm))
         self.clock = clock
-        self.source = self._source_factory(parameters=self._source_parameters, clock=clock)
-        self.mapping = self._mapping_factory()
         self.runtime = CoordinatedRuntime(provider, epoch=epoch,
                                           dt_s=dt_s, max_input_age_s=max_input_age_s)
+        self._reset_input_session()
+
+    def _reset_input_session(self) -> None:
+        """初期化とrestartで同じSource宣言から入力待機とMapping表示を揃える。"""
+        self.source: SessionInputSource = self._source_factory(parameters=self._source_parameters, clock=self.clock)
+        self.initial_wait_reason = identifier(self.source.initial_wait_reason, "source initial wait reason")
+        self.mapping = self._mapping_factory()
         self.last_frame = None
         self._consumed_value = None
         self.mapping.reset_coordinated_presentation(
-            self.parameters, reason="awaiting_gamepad_input")
+            self.parameters, reason=self.initial_wait_reason)
 
     def ingest(self, message: ViewerControlMessage) -> None:
         try:
@@ -96,12 +102,7 @@ class CoordinatedInputRuntime:
 
     def restart(self, *, epoch: str) -> None:
         self.runtime.restart(epoch=epoch, now_s=self.clock())
-        self.source = self._source_factory(parameters=self._source_parameters, clock=self.clock)
-        self.mapping = self._mapping_factory()
-        self.last_frame = None
-        self._consumed_value = None
-        self.mapping.reset_coordinated_presentation(
-            self.parameters, reason="awaiting_gamepad_input")
+        self._reset_input_session()
 
     def stop(self) -> None:
         self.runtime.stop()
