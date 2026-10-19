@@ -1,0 +1,211 @@
+{
+  "schema_version": "xpotato-sim-launch-profile/v4",
+  "name": "dynamic-fixed-contact-bimanual-device",
+  "workspace": "..",
+  "mode": "simulation",
+  "robot": {
+    "name": "fast_arm",
+    "version": 1
+  },
+  "input": {
+    "plugin": {
+      "name": "selfrionette_device",
+      "version": 1
+    },
+    "provider": "selfrionette-device/v1",
+    "preset": null,
+    "parameters": {
+      "bridge_revision": "0123456789abcdef0123456789abcdef01234567",
+      "bindings": {
+        "left": {
+          "operator": {
+            "operator": "fixture-operator",
+            "posture": "seated",
+            "grip": "supported"
+          },
+          "profile": {
+            "record": "calibration-1.srncal",
+            "revision": 1,
+            "assembly_revision": 1,
+            "config_revision": 1,
+            "method": "diagonal"
+          },
+          "domain": "normalized_input",
+          "settings_generation": 1,
+          "source": {
+            "device_id": "srn-0123456789abcdef0123456789abcdef",
+            "firmware_version": "1.0.0",
+            "source_sha": "0123456789abcdef0123456789abcdef01234567",
+            "protocol": 3
+          }
+        },
+        "right": {
+          "operator": {
+            "operator": "fixture-operator",
+            "posture": "seated",
+            "grip": "supported"
+          },
+          "profile": {
+            "record": "calibration-1.srncal",
+            "revision": 1,
+            "assembly_revision": 1,
+            "config_revision": 1,
+            "method": "diagonal"
+          },
+          "domain": "normalized_input",
+          "settings_generation": 1,
+          "source": {
+            "device_id": "srn-fedcba9876543210fedcba9876543210",
+            "firmware_version": "1.0.0",
+            "source_sha": "0123456789abcdef0123456789abcdef01234567",
+            "protocol": 3
+          }
+        }
+      }
+    }
+  },
+  "mapping": {
+    "plugin": {
+      "name": "normalized_endpoint_velocity",
+      "version": 1
+    },
+    "parameters": {
+      "channel_axis_weights": {
+        "left": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "right": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "speed_m_s": 0.02,
+      "max_speed_m_s": 0.05,
+      "control_frame": "world"
+    }
+  },
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60,
+    "dynamics": {
+      "schema_version": "dynamics-settings/v1",
+      "semantics": "coordinated_actuator_servo_dynamic/v1",
+      "physics_dt_s": 0.0016666666666666668,
+      "integrator": "implicitfast",
+      "solver": "Newton",
+      "iterations": 50,
+      "tolerance": 1e-10,
+      "max_joint_speed_rad_s": 10.0,
+      "max_tracking_error_rad": 0.75
+    }
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5174,
+    "websocket_port": 8767,
+    "open_browser": true
+  },
+  "model": {
+    "name": "bimanual",
+    "version": 1
+  },
+  "coordination": {
+    "side_to_endpoint": {
+      "left": "left",
+      "right": "right"
+    },
+    "epoch": "dynamic-fixed-contact-bimanual-device-1",
+    "max_input_age_s": 0.2
+  },
+  "environment": {
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "parameters": {
+      "preset": "fixed_contact"
+    },
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "task": {
+    "plugin": {
+      "name": "contact_observation_task",
+      "version": 1
+    },
+    "parameters": {
+      "target_object_ids": [
+        "cube"
+      ],
+      "duration_s": 60.0
+    }
+  }
+}

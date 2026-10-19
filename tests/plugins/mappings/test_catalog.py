@@ -35,6 +35,7 @@ def test_production_mapping_catalog_is_deterministic_and_source_compatible_where
     assert CONTROL_MAPPING_REGISTRY.ids == (
         "analog_fixture_mapping",
         "loadcell_endpoint_mapping",
+        "normalized_endpoint_velocity",
         "replay_mapping",
         "viewer_keyboard_gamepad_mapping",
     )
@@ -44,6 +45,7 @@ def test_production_mapping_command_semantics_classification_is_explicit() -> No
     expected_routes = {
         "analog_fixture_mapping": LOCAL_ENDPOINT_VELOCITY_TO_JOINT_POSITION_V1,
         "loadcell_endpoint_mapping": ENDPOINT_DELTA_TO_JOINT_POSITION_V1,
+        "normalized_endpoint_velocity": LOCAL_ENDPOINT_VELOCITY_TO_JOINT_POSITION_V1,
         "replay_mapping": REPLAY_COMMAND_TO_JOINT_POSITION_V1,
         "viewer_keyboard_gamepad_mapping": (
             LOCAL_ENDPOINT_VELOCITY_TO_JOINT_POSITION_V1

@@ -76,7 +76,17 @@ function KeyboardStrip({input}:{input:ProductViewerInputOverlayState}) {
   return <><div className="strip-buttons">{entries.length?entries.map(([key,pressed])=><kbd key={key} data-active={pressed}>{key} {pressed?'●':'○'}</kbd>):<span>記録キー未取得（未押下とは判定しません）</span>}</div>
     <small>backend記録: {input.keyboardActiveKeyCodes.join(' / ')||'押下キー情報なし'} / {input.keyboardFocusState??'focus未取得'}</small></>;
 }
-const sourceRenderers={gamepad:GamepadStrip,keyboard:KeyboardStrip,selfrionette:SelfrionetteStrip};
+function DeviceNormalizedStrip({input}:{input:ProductViewerInputOverlayState}) {
+  const value=input.deviceNormalized;
+  if(!value)return <p>Device品質・profile・正規化入力が未取得 / 無効</p>;
+  return <div className="device-normalized">{value.devices.map(device=><section key={device.role} aria-label={`${device.role}の正規化入力`}>
+    <strong>{device.role==="left"?"左":"右"} · Device command（無次元、固定範囲 −1〜1）</strong>
+    <div className="strip-channels">{device.command.map((v,i)=><div key={i}><span>CH{i+1}</span><output>{v.toFixed(3)}</output>
+      <meter min={-1} max={1} value={v} aria-label={`${device.role} CH${i+1} 無次元入力`}/></div>)}</div>
+    <small>元sequence {device.sequence} / device {device.deviceMs} ms / profile {device.profileRecord} / tare epoch {device.tareEpoch}</small>
+  </section>)}<small>最も古い入力のage {input.commandAgeMs??"未取得"} ms · 指・軸への割当はMapping条件で指定</small></div>;
+}
+const sourceRenderers={gamepad:GamepadStrip,keyboard:KeyboardStrip,selfrionette:SelfrionetteStrip,selfrionette_device:DeviceNormalizedStrip};
 export function InputStrip({state,raw=null,selected,live=true}:{state:ProductViewerState;raw?:BrowserGamepadDisplay|null;selected?:InputKind;live?:boolean}) {
   const input=state.inputOverlay;
   const unavailable=inputAvailability(input,selected,live);

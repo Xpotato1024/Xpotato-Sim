@@ -20,6 +20,12 @@ INPUT_FINISHED = {"finalizing", "terminal", "recording_failed"}
 ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
+def owner_disconnect_requires_stop(state, busy):
+    """接続済みDeviceのreadyもoperator所有。画面断でneutralの準備を持ち越さない。"""
+    return bool(state["phase"] in ACTIVE or busy
+        or state["phase"] == "ready" and state.get("device_input") is not None)
+
+
 def validate_late_input(message):
     """終了済み同ticketの有効なGamepadだけを棄却する。不正入力は正常化しない。"""
     if not isinstance(message, str) or len(message.encode("utf-8")) > 65536:
@@ -216,6 +222,8 @@ class WorkbenchControl:
             raise ValueError("入力messageは文字列です")
         if self.state.get("fixture_mode"):
             raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
+        if self.state.get("input_provider", "gamepad/v1") != "gamepad/v1":
+            raise ValueError("選択Inputはbrowser Gamepadを受け付けません")
         if ((not self.busy and self.state["phase"] in {"terminal", "recording_failed"})
                 or (self.stop_id is not None and self.state["phase"] in INPUT_ACTIVE | INPUT_FINISHED)):
             validate_late_input(r["message"])
@@ -233,7 +241,9 @@ class WorkbenchControl:
             fields.add("profile_id")
             if "condition" in r:
                 fields.add("condition")
-        if set(r) != fields or op not in {"prepare", "start", "retry", "stop", "renderer_ready"}:
+        if op == "device":
+            fields.update({"role", "action", "confirmed", "observed_phase"})
+        if set(r) != fields or op not in {"prepare", "start", "retry", "stop", "renderer_ready", "device"}:
             raise ValueError("未知operationまたはfieldです")
         rid = r["id"]
         if not isinstance(rid, str) or not ID.fullmatch(rid):
@@ -276,6 +286,17 @@ class WorkbenchControl:
         elif op == "start":
             if phase != "ready" or (self.require_renderer and self.renderer_epoch != r["ticket"]["epoch"]):
                 raise ValueError("初期scene・shader準備完了後に開始してください")
+            if self.state.get("device_input") is not None and not self.state["device_input"].get("ready"):
+                raise ValueError("Deviceの接続・tare・使用姿勢neutral・profile適用を完了してください")
+        elif op == "device":
+            from xpotato_sim.runtime.application.device_bridge import OPERATOR_PHASES
+            device = self.state.get("device_input") or {}
+            role = device.get("roles", {}).get(r["role"], {})
+            if (phase != "ready" or r["confirmed"] is not True or r["action"] not in OPERATOR_PHASES
+                    or role.get("phase") != r["observed_phase"]
+                    or r["observed_phase"] != OPERATOR_PHASES[r["action"]]
+                    or role.get("pending") is not None or not role.get("clock_synchronized")):
+                raise ValueError("現在のDevice準備手順を確認し、停止中に個別操作してください")
         elif op == "stop" and not self.busy and phase not in ACTIVE | {"ready"}:
             raise ValueError("停止対象がありません")
         self.revision += 1

@@ -7,6 +7,7 @@ from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
 def run_finite_trial(profile, *, fixture, limits, result_root, software_revision,
                      clock=monotonic, sleeper=sleep):
     """physics/Taskを再実装せず、有限記録sampleを一度ずつdispatchする。"""
+    fixture.assert_profile(profile)
     runner = TrialRunner(result_root=result_root, software_revision=software_revision, clock=clock)
     try:
         ticket = runner.prepare(profile, limits)

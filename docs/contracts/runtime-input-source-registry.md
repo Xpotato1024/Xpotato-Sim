@@ -49,6 +49,7 @@ hot reload、implicit noop fallbackは持たない。
 | `programmed_target` | 1 | `programmed_target_sample/v1` | offline | `programmed_target` | yes | `target_metadata_input_execution/v1` |
 | `replay` | 1 | `replay_raw_input_frame/v1` | replay | `replay` | yes | `replay_compatibility_input_execution/v1` |
 | `selfrionette` | 1 | `loadcell_vector_sample/v1` | live | `selfrionette` | no | `loadcell_input_execution/v1` |
+| `selfrionette_device` | 1 | `selfrionette_device_normalized_sample/v1` | live | `selfrionette_device` | no | `normalized_device_input_execution/v1` |
 | `viewer` | 1 | `viewer_control_sample/v1` | viewer_bridge | `viewer` | yes | `viewer_local_endpoint_input_execution/v1` |
 
 Plugin identityとsample schema identityは別のversioned identityである。`selfrionette/v1`が7 channel
@@ -65,11 +66,21 @@ noop
 viewer
 ```
 
-`selfrionette`と`analog_fixture`はgeneric replay CLI choicesへ追加せず、専用runnerまたは明示的な
+`selfrionette`、`selfrionette_device`と`analog_fixture`はgeneric replay CLI choicesへ追加せず、専用runnerまたは明示的な
 runtime dependency / fixture boundaryから到達する。generic CLIの表示順は
 `cli/main.py::CLI_INPUT_SOURCE_NAMES`だけが所有し、plugin registrationへglobal ordinalを置かない。
 
 ## Plugin contract
+
+### Named-model session binding
+
+registrationはtyped `InputSourceSessionBinding`を宣言できる。compositionの`resolve_source_session`が
+plugin versionとproviderを解決し、共通`SessionInputSource`を生成する。catalog解決だけで入力取得を開始しない。
+現在のsessionは`viewer`→`gamepad/v1`、`selfrionette_device`→`selfrionette-device/v1`。
+後者は`selfrionette-bridge/v1` application transportを明示するが、generic physicsへsource名分岐を追加しない。
+Device normalized sourceの契約は[Device input](selfrionette-device-input.md)を正本とし、旧raw sourceと互換扱いしない。
+convenience Mapping pairingは独立したpolicyが`normalized_endpoint_velocity/v1`を返す。
+実行には全roleの7×3軸写像と速度上限が必須であり、既定の身体部位やgainを推測しない。
 
 ### Identity、parameter、factory
 

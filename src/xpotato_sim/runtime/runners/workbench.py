@@ -20,6 +20,12 @@ from xpotato_sim.runtime.application import workbench_service, workbench_worker
 
 def run_workbench(args):
     workspace = repository_workspace()
+    device_connection = None
+    if getattr(args, "device_config", None):
+        from xpotato_sim.runtime.application.device_bridge import load_connection_config
+        if args.fixture or args.run_once:
+            raise ValueError("Device connection config is exclusive with fixture/run-once")
+        device_connection = load_connection_config(args.device_config)
     condition = None
     if getattr(args, "condition", None):
         if args.profile or args.ticks or any(getattr(args, key) is not None for key in ("input_wait_s", "wall_s", "prepare_s")):
@@ -62,6 +68,7 @@ def run_workbench(args):
         config["condition"] = condition
         config["diagnostic_memory"] = args.diagnostic_memory
         config["viewer_build_identity"] = build_identity
+        config["device_connection"] = device_connection
         (directory / "worker.json").write_text(json.dumps(config), encoding="utf-8")
         with OwnedApplicationWorkers() as web_workers, OwnedApplicationWorkers() as workers:
             env = {**os.environ, "PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1",

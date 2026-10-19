@@ -6,13 +6,15 @@ from copy import deepcopy
 import json
 
 from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
+from xpotato_sim.runtime.composition.input_sessions import resolve_source_session
 from xpotato_sim.runtime.composition.coordinated_input import CoordinatedInputRuntime
 from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.scene.task import GeometryTaskObservation
 from xpotato_sim.runtime.scene.force_signal import SceneForceProcessor, default_force_config, force_condition
 from xpotato_sim.runtime.scene.force_presentation import presentation_binding
-from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_message_json
+from xpotato_sim.schemas import ViewerControlMessage
+from xpotato_sim.runtime.experiment.session_input import SessionInputMessage
 
 
 class ModelExecution:
@@ -30,14 +32,16 @@ class ModelExecution:
         profile = replace(self.profile, coordination_json=json.dumps(coordination))
         selected = select_runtime_input_source(profile.input_source.plugin_id, steps=1,
             control_mapping_selection=profile.mapping,
-            control_mapping_parameters=profile.mapping_parameters)
+            control_mapping_parameters=profile.mapping_parameters, source_parameters=profile.input_parameters)
         mapping = selected.control_mapping
         if mapping is None or mapping.session_strategy_factory is None:
             raise ValueError("session Mapping required")
+        session = resolve_source_session(profile.input_source, profile.provider_id)
         self.runtime = CoordinatedInputRuntime(
             provider=self.instance.provider, mapping_factory=mapping.session_strategy_factory,
             mapping_parameters=profile.mapping_parameters, side_to_arm=profile.side_to_endpoint,
-            epoch=epoch, dt_s=profile.dt_s, max_input_age_s=profile.max_input_age_s, clock=self.clock)
+            epoch=epoch, dt_s=profile.dt_s, max_input_age_s=profile.max_input_age_s, clock=self.clock,
+            source_factory=session.factory, source_parameters=profile.input_parameters)
         self.epoch = epoch
         self.task_binding = profile.bind_scene_task()
         self.task_state = None if self.task_binding is None else self.task_binding.initial_state()
@@ -45,7 +49,7 @@ class ModelExecution:
             resolve_task_plugin(profile.task_selection).task_event_identity)
         self.task_view = None
         self.tick_count = 0
-        self.state, self.reason = "waiting_neutral", "awaiting_gamepad_input"
+        self.state, self.reason = "waiting_neutral", "awaiting_source_input"
         self.scene_binding = None if profile.scene_plan is None else {
             "schema_version": "scene-contact-binding/v1",
             "scene_digest": profile.scene_plan.manifest.digest,
@@ -76,22 +80,20 @@ class ModelExecution:
         if self.runtime.runtime.state in {"faulted", "stopped"}:
             return
         try:
-            parsed = parse_viewer_control_message_json(message)
+            parsed = self.parse_input_message(message)
         except Exception as exc:
             self.runtime.runtime.fail(f"source_ingress_failed:{type(exc).__name__}:{exc}")
             raise
         self._ingest_parsed(parsed)
 
-    def _ingest_parsed(self, parsed: ViewerControlMessage):
+    def parse_input_message(self, message):
+        return self.runtime.source.parse_message(message)
+
+    def _ingest_parsed(self, parsed: SessionInputMessage | ViewerControlMessage):
         """wire検証を終えたownerから同じtyped sampleを受け取り、再decodeしない。"""
         if self.runtime.runtime.state in {"faulted", "stopped"}:
             return
         try:
-            if type(parsed) is not ViewerControlMessage:
-                raise TypeError("validated ViewerControlMessage required")
-            if (parsed.source_kind != "gamepad" or parsed.provider_id != "gamepad/v1"
-                    or parsed.provider_schema != "viewer_gamepad_sample/v1"):
-                raise ValueError("coordinated viewer requires explicit gamepad/v1 input")
             self.runtime.ingest(parsed)
         except Exception as exc:
             self.runtime.runtime.fail(f"source_ingress_failed:{type(exc).__name__}:{exc}")
@@ -101,7 +103,7 @@ class ModelExecution:
         """中立待ちはstepしない。戻り値は実際にcommitされたtick数。"""
         if (self.runtime.source.last_received_at_s is None
                 and self.runtime.runtime.state == "waiting_neutral"):
-            self.state, self.reason = "waiting_neutral", "awaiting_gamepad_input"
+            self.state, self.reason = "waiting_neutral", "awaiting_source_input"
         else:
             result = self.runtime.tick(epoch=self.epoch, freshness_barrier=freshness_barrier)
             if result is None:
@@ -113,6 +115,9 @@ class ModelExecution:
         runtime = self.runtime
         metadata = {} if runtime.last_frame is None else dict(runtime.last_frame.metadata)
         metadata.update(dict(self.instance.viewer.metadata))
+        if runtime.source.last_received_at_s is not None:
+            metadata.update(input_received_at_s=runtime.source.last_received_at_s,
+                command_age_ms=max(0, round((self.clock() - runtime.source.last_received_at_s) * 1000)))
         metadata.update(physical_output="disabled", motion_status=self.state,
             motion_rejection_reason=self.reason,
             coordinated_runtime_v1={"schema_version": "coordinated-runtime-presentation/v1",

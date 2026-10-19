@@ -151,6 +151,7 @@ def test_catalog_and_mapping_identities_remain_canonical() -> None:
         "programmed_target",
         "replay",
         "selfrionette",
+        "selfrionette_device",
         "viewer",
     )
     assert tuple(
@@ -162,6 +163,7 @@ def test_catalog_and_mapping_identities_remain_canonical() -> None:
         "programmed_target/v1",
         "replay/v1",
         "selfrionette/v1",
+        "selfrionette_device/v1",
         "viewer/v1",
     )
     assert INPUT_SOURCE_CATALOG.aliases == (
@@ -170,17 +172,20 @@ def test_catalog_and_mapping_identities_remain_canonical() -> None:
         "programmed_target",
         "replay",
         "selfrionette",
+        "selfrionette_device",
         "viewer",
     )
     assert CONTROL_MAPPING_REGISTRY.ids == (
         "analog_fixture_mapping",
         "loadcell_endpoint_mapping",
+        "normalized_endpoint_velocity",
         "replay_mapping",
         "viewer_keyboard_gamepad_mapping",
     )
     assert tuple(plugin.identity.canonical_id for plugin in CONTROL_MAPPING_PLUGINS) == (
         "analog_fixture_mapping/v1",
         "loadcell_endpoint_mapping/v1",
+        "normalized_endpoint_velocity/v1",
         "replay_mapping/v1",
         "viewer_keyboard_gamepad_mapping/v1",
     )
@@ -222,6 +227,13 @@ def test_source_contracts_and_explicit_mappings_are_preserved() -> None:
             VersionedIdentity("loadcell_input_execution", 1),
             VersionedIdentity("loadcell_normalized_input_intent", 1),
             "loadcell_endpoint_mapping/v1",
+        ),
+        "selfrionette_device": (
+            VersionedIdentity("selfrionette_device_normalized_sample", 1),
+            InputSourceMode.LIVE,
+            VersionedIdentity("normalized_device_input_execution", 1),
+            VersionedIdentity("selfrionette_device_normalized_sample", 1),
+            "normalized_endpoint_velocity/v1",
         ),
         "analog_fixture": (
             VersionedIdentity("analog_fixture_sample", 1),

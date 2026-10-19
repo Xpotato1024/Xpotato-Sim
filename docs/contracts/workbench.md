@@ -33,13 +33,14 @@ Gamepad操作帯は中央の左Z/左XY/右XY/右Zのみ。Zは確定符号付き
 停止はsimulationの操作であり実機非常停止ではない。障害・記録失敗の明示復旧契約は以下の従来手順を維持する。
 
 Input stripは共通のsource/availability/age/frameとsource-specific投影を分離する。
-Workbenchの入力consumerはGamepad-onlyのままで、選択Gamepadと受信sourceが一致しなければ計器を消す。
-Selfrionette/Keyboard/unknownの共通表示は従来Viewerまたはsoftware fixture consumerの表示能力であり、
-WorkbenchへのSource追加・physical接続・校正ではない。鮮度、切断、別epochでは旧active値を表示しない。
+Workbenchは選択したGamepadまたは品質付きDevice sourceだけを受け付け、受信sourceが一致しなければ計器を消す。
+Deviceは7 channelの正規化command、role、個体、sequence、元時刻、profile/tareを表示する。
+値は無次元で、raw countやNへの換算、filter、neutral再補正をViewerに置かない。
+旧raw Selfrionette、Keyboard、unknownの表示能力と本Device取得経路は別契約である。鮮度、切断、別epochでは旧active値を表示しない。
 正常終端後は入力を現在値として表示せず、関節は「終了時」として保持する。Setupから終端の操作画面への再表示は開始を伴わない。
 関節表示・source表示・補助cameraの詳細は [viewer操作契約](../operations/product-viewer-wasm-scene-renderer.md) に従う。
 
-Quad、研究条件のfreeze、全表示へのfeedback非公開policyは未実装であり、研究条件受入の完了を意味しない。
+接触力の表示比較は下記の固定条件を使う。Quad、正式Evaluation、連続evidenceの受入は後続課題であり、本表示を研究条件受入の完了と扱わない。
 
 ## 対応範囲と操作
 
@@ -51,7 +52,8 @@ drop/fixed-contact/push、片腕/双腕、幾何/動力学を共通`TrialRunner`
 v1や非対応Sourceは理由付きで不可表示し、別profileやneutral入力へ置換しない。
 Basicは登録preset、Advancedはbackend descriptorによるparameter/物体editorである。
 Robotモデル、物体定義・配置、Mapping、Task期間、有限予算を編集できる。
-Inputはnamed-model経路で`viewer`/`gamepad/v1`だけに対応する。別Source/Mapping、正式Evaluation、
+Inputはnamed-model経路で`viewer`/`gamepad/v1`と`selfrionette_device`/`selfrionette-device/v1`に対応する。
+Deviceは`normalized_endpoint_velocity/v1`と明示的なrole/個体/軸写像を要求する。未登録Source/Mapping、正式Evaluation、
 Robot固有寸法・gain、任意物体集合・形状型追加は理由付きで無効にし、別機能へ代用しない。
 
 GUIと`--run-once`は同じ制御service、worker、TrialRunnerを使用する。既存`trial` CLIも
@@ -112,7 +114,13 @@ byte digestを持ち、現在sourceと照合する。callerの`software_revision
 
 `--profile`だけでは初期選択を表示するだけでprepare/Startしない。`--run-once`はprofileとfixtureを
 必須とし、明示された有限実行後にexitする。fixtureとbrowser入力は排他で、fixtureはlive input証拠ではない。
-`--startup-check`はWebとworkerの起動確認後に終了する。通常GUIはfixtureを指定せずGamepadを使う。
+`--startup-check`はWebとworkerの起動確認後に終了する。通常GUIはfixtureを指定せず、適用条件のInputを使う。
+
+Device用の`--device-config`は起動側だけが読む明示local JSONであり、bridge executableとrole別port/profile pathを指定する。
+選択条件にはbridge revision、個体/firmware/profile/operator、7×3のMappingを固定する。
+「検証・準備」はbridgeのconfigureと時計照合までで、serial接続は行わない。
+Setupで個体確認・接続、無荷重tare、使用姿勢neutral取得、profile適用をそれぞれ実行し、全roleのready後に開始する。
+sourceの詳細、設定schema、software fixtureの再現手順は[Device input contract](selfrionette-device-input.md)を正本とする。
 
 | option | 既定・意味 |
 | --- | --- |
@@ -124,6 +132,7 @@ byte digestを持ち、現在sourceと照合する。callerの`software_revision
 | `--prepare-s` | 30秒。runner準備上限、親の監督期限は追加2秒 |
 | `--diagnostic-memory` | 指定時だけtracemallocを開始。通常はPython heap未測定（null） |
 | `--control-stdin` | 自動検証用の一時capabilityをstdinの1行から取得。保存しない |
+| `--device-config` | 明示bridge executableとrole別local接続情報。fixture/run-onceと排他。接続操作はSetupで別途実行 |
 
 ## 制御と停止
 
@@ -149,15 +158,23 @@ STOPは専用1slot・固有ID・2秒期限を持ち、pendingが満杯でも先�
 同じID・generationのSTOP完了で、inactiveな状態とerrorなしを確認して解除する。
 期限超過やworker死亡は一度だけfaultを通知し、所有process/job終了を待つ。2秒は強制停止手続き開始の上限であり、
 OSのprocess回収時間までのhard realtime保証ではない。結果確定は保存記録で確認する。
-owner切断もactive/処理中なら同じ監督を開始する。閲覧peerの不正要求でowner試行を停止しない。
+owner切断もactive/処理中、またはDeviceが準備済みなら同じ監督を開始する。閲覧peerの不正要求でowner試行を停止しない。
 
 開始前STOPは準備を破棄して未選択へ戻る。active STOPはoperator_abortを保存し、次のprepare/retryも明示操作とする。
 prepare/reset失敗後は自動再開しない。生存workerで明示「検証・準備」を行うと、失敗したrunnerをcloseし、
 新しいrunnerで検証・準備する。記録失敗後は原因確認後の明示prepareを許可し、失敗runnerをcloseして新trial ID/epochで準備する。失敗file・失敗分類は保持し、retry・自動開始は拒否する。active/finalizing中は適用しない。
 過去結果と不完全fileは保持し、記録失敗をsuccessへ変換しない。
+Deviceを含むprepare/retryの途中失敗は、bridge・asset参照・ready ticketを全て撤回する。
+retryは同じnative modelを再利用できるが、新bridge sessionと全operator準備、新しい試行中立を必要とする。
 worker死亡・強制終了後はアプリを終了して明示再起動する。GUIだけの再接続ではworkerを復活させない。
 
 ## 入力と資源所有
+
+Device選択中はbrowser Gamepad schedulerを起動せず、backendもGamepad注入を拒否する。
+Rust共有LiveServiceが校正/filter/quality/tare/neutral/profileを所有し、workerの有界bridge adapterが正規化sampleを
+共通TrialRunnerへ渡す。Deviceのsource sequence/timeを維持し、pipe/queue遅延をageから消さない。
+STOP、入力失効、終端、owner切断、prepare/retry失敗、アプリ終了で所有bridgeを閉じる。
+品質失効した片側だけを零に補完して両手試行を継続しない。
 
 browserの取得寿命は従来Viewerと同じ`gamepadLifecycle`が所有する。Workbenchは描画rAFから独立した
 約60 Hz（周期`1000 / 60` ms）のtimerで毎回実sampleを取得する。描画fpsによる間引きやcached heartbeatの再送を行わない。
@@ -180,6 +197,7 @@ CONNECTING/OPENの重複socketを作らず、callbackは現socketを確認する
 | --- | --- | --- |
 | Web/process/job、worker、async service task | launcher / `OwnedApplicationWorkers` | アプリ終了、監督fault |
 | Python MjModel/MjData、Source/Mapping/Task/input | workerの単一thread上のTrialRunner | 同条件retryはmodel再利用、状態ownerをreset。条件変更/復旧/closeで旧参照を解放 |
+| Device bridge processとpipe | application、最大2 process。各stdout FIFO64×最大64 KiB、command 1件、stderr 8×1024 byte | STOP/失効/終端/owner切断/準備失敗/close。EOF→terminate→killを各有限待機で回収 |
 | private async socket、IO入口FIFO256、入力FIFO256、制御FIFO32、STOP専用slot | IO thread / ExecutionInboxのreader | STOP/closeはExecution FIFOより優先。元順序を維持。overflow/切断はtechnical_invalid記録 |
 | 表示最新1slot、制御応答FIFO32、JSON整形/送信 | ProjectionSenderのsender | 制御遷移で旧表示slot失効。send/overflow障害は終了へ伝える |
 | immutable終端snapshotの検証済みstaging | TrialRecorder専用spawn process、同時1件 | Start gateで起動確認。finalizingではphysics/retry禁止。期限内のmarker公開はExecution owner。期限/closeで回収 |

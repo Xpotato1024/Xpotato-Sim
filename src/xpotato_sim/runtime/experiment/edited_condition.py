@@ -58,6 +58,8 @@ def descriptors(document):
         legacy_execution = path[:2] == ("configuration", "execution") and key in {"steps", "interval_s", "grace_period_s"}
         if "coordination" in path or "contact" in path or "keyboard_config" in path or legacy_execution:
             editable = False
+        if path[:3] == ("configuration", "input", "parameters"):
+            editable = key not in {"protocol", "domain"}
         choices = None
         if path == ("display_comparison", "mode"):
             choices, editable = ["no_force_cue", "force_cue"], True
@@ -72,6 +74,9 @@ def descriptors(document):
             editable = True
         if key == "output_side":
             choices = ["left", "right"]
+            editable = True
+        if key == "control_frame":
+            choices = ["world", "tool"]
             editable = True
         if parent in {"signs", "axis_signs"} and editable:
             choices = [-1, 1]
@@ -104,7 +109,7 @@ def descriptors(document):
                 minimum = 0
             if key in {"steps", "max_ticks", "iterations"}:
                 minimum, maximum = 1, 1000 if key == "iterations" else 2**31-1
-        integer = key in {"steps", "max_ticks", "iterations", "trigger_button", "sign_button", "mode_button"} or parent in {"axes", "axis_indices", "signs", "axis_signs"}
+        integer = key in {"steps", "max_ticks", "iterations", "trigger_button", "sign_button", "mode_button", "revision", "assembly_revision", "config_revision", "settings_generation"} or parent in {"axes", "axis_indices", "signs", "axis_signs"}
         result.append({"path": list(path), "type": "integer" if numeric and integer else "number" if numeric else "enum" if choices else "string",
             "unit": unit, "minimum": minimum, "maximum": maximum, "exclusive_minimum": exclusive,
             "choices": choices, "available": editable,
@@ -114,7 +119,7 @@ def descriptors(document):
             "reason": None if editable else ("旧app専用設定で有限TrialRunnerには適用されません。試行予算はlimits.max_ticksで編集してください" if legacy_execution else
                 "接触数値条件はpreset固定（初期貫通判定の安全閾値を含む）" if "contact" in path else
                 "keyboard parameterはnamed-model/Gamepad経路では使用しません" if "keyboard_config" in path else
-                "Inputはnamed-model試行でviewer/gamepad/v1だけに対応します" if "input" in path else
+                "Input identity/role構造は選択presetの契約に固定されています" if "input" in path else
                 "正式Evaluation/metricsは未対応です" if path[0] == "evaluation" else
                 "登録identity/bindingはpresetの契約に固定されています。対応presetで選択してください")})
     return result

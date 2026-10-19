@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 
 from xpotato_sim.plugins.input_sources.catalog import INPUT_SOURCE_CATALOG
+from xpotato_sim.runtime.composition.input_sessions import resolve_source_session
 from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
 from xpotato_sim.plugins.environments.catalog import resolve_environment_plugin
 from xpotato_sim.plugins.tasks.catalog import resolve_task_plugin
@@ -143,6 +144,11 @@ class LaunchProfile:
     task_selection: PluginSelection | None = None
     task_parameters_json: str = "{}"
     display_comparison_json: str | None = None
+    input_parameters_json: str = "{}"
+
+    @property
+    def input_parameters(self) -> dict:
+        return json.loads(self.input_parameters_json)
 
     @property
     def side_to_endpoint(self) -> dict[str, str]:
@@ -233,10 +239,16 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if not (workspace / "pyproject.toml").is_file() or not (workspace / "apps/mujoco-viewer/package.json").is_file():
         raise ValueError("workspace must contain the Python project and mujoco-viewer")
     robot = _selection(raw["robot"], "robot")
-    source = _object(raw["input"], {"plugin", "provider", "preset"}, "input")
+    input_fields = {"plugin", "provider", "preset"}
+    if isinstance(raw["input"], dict) and "parameters" in raw["input"]:
+        input_fields.add("parameters")
+    source = _object(raw["input"], input_fields, "input")
+    input_parameters = source.get("parameters", {})
+    if type(input_parameters) is not dict:
+        raise ValueError("input.parameters must be an object")
     source_selection = _selection(source["plugin"], "input.plugin")
     provider, preset = source["provider"], source["preset"]
-    if provider not in (None, "keyboard/v1", "gamepad/v1") or preset not in (None, "sweep_x"):
+    if (provider is not None and (type(provider) is not str or not provider)) or preset not in (None, "sweep_x"):
         raise ValueError("unsupported input provider or preset")
     mapping = _object(raw["mapping"], {"plugin", "parameters"}, "mapping")
     mapping_selection = _selection(mapping["plugin"], "mapping.plugin")
@@ -264,13 +276,17 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     canonical = _json(raw)
     plugin = INPUT_SOURCE_CATALOG.resolve_plugin(source_selection)
     if mode == "simulation":
-        if plugin.mode is not InputSourceMode.VIEWER_BRIDGE or provider is None or preset is not None:
-            raise ValueError("simulation requires a viewer-bridge input, one provider, and no preset")
+        if plugin.mode not in (InputSourceMode.VIEWER_BRIDGE, InputSourceMode.LIVE) or provider is None or preset is not None:
+            raise ValueError("simulation requires a registered input session, one provider, and no preset")
+        if schema == LAUNCH_PROFILE_SCHEMA and (plugin.mode is not InputSourceMode.VIEWER_BRIDGE
+                or provider not in ("keyboard/v1", "gamepad/v1") or input_parameters):
+            raise ValueError("legacy simulation requires a viewer provider without device parameters")
     elif plugin.mode not in (InputSourceMode.OFFLINE, InputSourceMode.REPLAY) or provider is not None:
         raise ValueError("replay requires an offline source without browser input")
     # 有限readiness sample数でschema/parameter/routeを検査し、全trialを先行生成しない。
     selected = select_runtime_input_source(source_selection.plugin_id, steps=1, preset=preset,
-        control_mapping_selection=mapping_selection, control_mapping_parameters=mapping["parameters"])
+        control_mapping_selection=mapping_selection, control_mapping_parameters=mapping["parameters"],
+        source_parameters=input_parameters)
     if selected.plugin_selection != source_selection or selected.control_mapping is None:
         raise ValueError("resolved input/mapping identity differs from profile")
     model_selection = None
@@ -278,13 +294,18 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         model_selection = _selection(raw["model"], "model")
         model = ROBOT_CATALOG.resolve_model(robot, model_selection)
-        if mode != "simulation" or provider != "gamepad/v1":
-            raise ValueError("named-endpoint model execution requires simulation and gamepad/v1")
+        if mode != "simulation":
+            raise ValueError("named-endpoint model execution requires simulation")
+        session_binding = resolve_source_session(source_selection, provider)
+        session_source = session_binding.create(input_parameters, clock=lambda: 0.)
         coordination = _object(raw["coordination"], {"side_to_endpoint", "epoch", "max_input_age_s"}, "coordination")
         sides = coordination["side_to_endpoint"]
         if (type(sides) is not dict or not sides or not set(sides) <= {"left", "right"}
                 or len(sides) != len(model.endpoint_ids) or set(sides.values()) != set(model.endpoint_ids)):
             raise ValueError("side_to_endpoint must cover each selected model endpoint exactly once")
+        bound_roles = getattr(session_source, "bound_roles", None)
+        if bound_roles is not None and set(bound_roles) != set(sides):
+            raise ValueError("input role bindings must cover every selected endpoint")
         epoch = _string(coordination["epoch"], "coordination.epoch")
         if len(epoch) > 256:
             raise ValueError("coordination epoch is too long")
@@ -293,9 +314,12 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
         if factory is None:
             raise ValueError("named-endpoint execution requires a session Mapping")
         strategy = factory()
-        controls = {"gamepad_trigger_control"} & set(mapping["parameters"])
-        if not callable(getattr(strategy, "map_coordinated_input", None)) or len(controls) != 1:
-            raise ValueError("Mapping does not support exactly one explicit named-endpoint Gamepad control")
+        if not callable(getattr(strategy, "map_coordinated_input", None)):
+            raise ValueError("Mapping does not support explicit named-endpoint input")
+        strategy.reset_coordinated_presentation(mapping["parameters"], reason="readiness")
+        mapping_roles = mapping["parameters"].get("channel_axis_weights")
+        if mapping_roles is not None and set(mapping_roles) != set(sides):
+            raise ValueError("Mapping role bindings must cover every selected endpoint")
         route = VersionedIdentity("coordinated_endpoint_velocity_to_joint_position", 1)
     else:
         bundle = ROBOT_CATALOG.resolve_bundle(robot)
@@ -320,7 +344,7 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     result = LaunchProfile(source_path, workspace, name, mode, robot, source_selection, mapping_selection,
         _json(mapping["parameters"]), route, provider, preset, steps, dt, interval, grace,
         host, web_port, backend_port, web["open_browser"], canonical, _json(_projection(selected.control_mapping_parameters)),
-        model_selection, _json(coordination), scene_plan, task_selection, _json(task_parameters))
+        model_selection, _json(coordination), scene_plan, task_selection, _json(task_parameters), input_parameters_json=_json(input_parameters))
     result.bind_scene_task()
     return result
 

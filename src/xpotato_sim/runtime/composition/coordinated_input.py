@@ -2,7 +2,7 @@
 from __future__ import annotations
 from collections.abc import Callable, Mapping
 from types import MappingProxyType
-from xpotato_sim.plugins.input_sources.viewer import ViewerInputSource
+from xpotato_sim.plugins.input_sources.viewer.session import GamepadSessionSource
 from xpotato_sim.runtime.execution.coordinated import CoordinatedRuntime, CoordinatedStepResult
 from xpotato_sim.schemas import ViewerControlMessage
 from xpotato_sim.schemas.coordinated import number
@@ -12,7 +12,8 @@ class CoordinatedInputRuntime:
     """ソフトウェア専用の明示composition。旧launch profile/v1を双腕へ読み替えない。"""
     def __init__(self, *, provider, mapping_parameters: Mapping[str, object],
                  mapping_factory: Callable[[], object], side_to_arm: Mapping[str, str],
-                 epoch: str, dt_s: float, max_input_age_s: float, clock: Callable[[], float]) -> None:
+                 epoch: str, dt_s: float, max_input_age_s: float, clock: Callable[[], float],
+                 source_factory=GamepadSessionSource, source_parameters=None) -> None:
         if (not isinstance(side_to_arm, Mapping) or not set(side_to_arm) <= {"left", "right"}
                 or len(side_to_arm) != len(provider.endpoint_ids)
                 or set(side_to_arm.values()) != set(provider.endpoint_ids)):
@@ -21,12 +22,11 @@ class CoordinatedInputRuntime:
             raise TypeError("host monotonic clock required")
         self.parameters = dict(mapping_parameters)
         self._mapping_factory = mapping_factory
-        controls = {"gamepad_trigger_control"} & set(self.parameters)
-        if len(controls) != 1:
-            raise ValueError("exactly one coordinated Gamepad control Mapping is required")
+        self._source_factory = source_factory
+        self._source_parameters = {} if source_parameters is None else dict(source_parameters)
         self.side_to_arm = MappingProxyType(dict(side_to_arm))
         self.clock = clock
-        self.source = ViewerInputSource(clock=clock)
+        self.source = self._source_factory(parameters=self._source_parameters, clock=clock)
         self.mapping = self._mapping_factory()
         self.runtime = CoordinatedRuntime(provider, epoch=epoch,
                                           dt_s=dt_s, max_input_age_s=max_input_age_s)
@@ -37,7 +37,7 @@ class CoordinatedInputRuntime:
 
     def ingest(self, message: ViewerControlMessage) -> None:
         try:
-            self.source.ingest_control_message(message)
+            self.source.ingest_session_message(message)
             self._consumed_value = None
         except Exception as exc:
             self.runtime.fail(f"source_ingress_failed:{type(exc).__name__}")
@@ -78,6 +78,9 @@ class CoordinatedInputRuntime:
         """各sampleのMapping離散状態を順に更新し、古いmotionは積分しない。"""
         frame = self.source.read_frame()
         received = self.source.last_received_at_s
+        if received is None:
+            # 複数個体の初回入力は全roleが揃うまで中立を証明しない。
+            return
         value = self.mapping.map_coordinated_input(
             frame, self.parameters, side_to_endpoint=self.side_to_arm, received_at_s=received)
         self.last_frame = frame
@@ -93,7 +96,7 @@ class CoordinatedInputRuntime:
 
     def restart(self, *, epoch: str) -> None:
         self.runtime.restart(epoch=epoch, now_s=self.clock())
-        self.source = ViewerInputSource(clock=self.clock)
+        self.source = self._source_factory(parameters=self._source_parameters, clock=self.clock)
         self.mapping = self._mapping_factory()
         self.last_frame = None
         self._consumed_value = None

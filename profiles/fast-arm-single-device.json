@@ -1,0 +1,118 @@
+{
+  "schema_version": "xpotato-sim-launch-profile/v2",
+  "name": "fast-arm-single-device",
+  "workspace": "..",
+  "mode": "simulation",
+  "robot": {
+    "name": "fast_arm",
+    "version": 1
+  },
+  "input": {
+    "plugin": {
+      "name": "selfrionette_device",
+      "version": 1
+    },
+    "provider": "selfrionette-device/v1",
+    "preset": null,
+    "parameters": {
+      "bridge_revision": "0123456789abcdef0123456789abcdef01234567",
+      "bindings": {
+        "left": {
+          "operator": {
+            "operator": "fixture-operator",
+            "posture": "seated",
+            "grip": "supported"
+          },
+          "profile": {
+            "record": "calibration-1.srncal",
+            "revision": 1,
+            "assembly_revision": 1,
+            "config_revision": 1,
+            "method": "diagonal"
+          },
+          "domain": "normalized_input",
+          "settings_generation": 1,
+          "source": {
+            "device_id": "srn-0123456789abcdef0123456789abcdef",
+            "firmware_version": "1.0.0",
+            "source_sha": "0123456789abcdef0123456789abcdef01234567",
+            "protocol": 3
+          }
+        }
+      }
+    }
+  },
+  "mapping": {
+    "plugin": {
+      "name": "normalized_endpoint_velocity",
+      "version": 1
+    },
+    "parameters": {
+      "channel_axis_weights": {
+        "left": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "speed_m_s": 0.02,
+      "max_speed_m_s": 0.05,
+      "control_frame": "world"
+    }
+  },
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5174,
+    "websocket_port": 8767,
+    "open_browser": true
+  },
+  "model": {
+    "name": "single_original",
+    "version": 1
+  },
+  "coordination": {
+    "side_to_endpoint": {
+      "left": "arm"
+    },
+    "epoch": "fast-arm-single-gamepad-1",
+    "max_input_age_s": 0.2
+  }
+}

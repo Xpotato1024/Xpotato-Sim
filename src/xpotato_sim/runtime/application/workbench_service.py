@@ -245,7 +245,8 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
             if control.owner is peer:
                 control.owner = None
                 control.renderer_epoch = None
-                if control.state["phase"] in ACTIVE or control.busy:
+                from xpotato_sim.runtime.application.workbench_control import owner_disconnect_requires_stop
+                if owner_disconnect_requires_stop(control.state, control.busy):
                     enqueue_stop(control.supervise_stop())
 
     async with serve(handler, "127.0.0.1", config["port"], process_request=process_request,

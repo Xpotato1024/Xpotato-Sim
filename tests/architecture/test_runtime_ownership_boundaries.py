@@ -10,12 +10,13 @@ import xpotato_sim.runtime.safety.collision_policy as collision_policy
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = ROOT / "src" / "xpotato_sim" / "runtime"
 EXPECTED_MODULES = {
-    "application": {"workbench_control", "workbench_service", "workbench_worker", "workbench_client", "workbench_metrics", "workbench_projection", "owned_processes", "publisher_session"},
+    "application": {"device_bridge", "workbench_control", "workbench_service", "workbench_worker", "workbench_client", "workbench_metrics", "workbench_projection", "owned_processes", "publisher_session"},
     "scene": {"composition", "contracts", "objects", "observation", "measurement", "task", "world", "world_composition", "dynamics_observation", "force_signal", "force_presentation"},
     "composition": {
         "fast_arm_coordinated",
         "robot_model",
         "coordinated_input",
+        "input_sessions",
         "launch_profile",
         "config",
         "concrete_mujoco_pipeline",
@@ -71,6 +72,7 @@ EXPECTED_MODULES = {
         "pipeline",
     },
     "experiment": {
+        "session_input",
         "edited_condition",
         "trial_condition",
         "trial_fixture",

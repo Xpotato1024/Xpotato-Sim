@@ -18,6 +18,7 @@ from xpotato_sim.runtime.application.workbench_metrics import process_memory, St
 from xpotato_sim.transport import mujoco_state_to_payload
 
 from xpotato_sim.runtime.application.workbench_control import ACTIVE, INPUT_ACTIVE, INPUT_FINISHED, validate_late_input
+from xpotato_sim.runtime.application.device_bridge import create_application_input
 
 
 def execution_worker(url, config):
@@ -37,6 +38,7 @@ def execution_worker(url, config):
         "thread_settings": {key: os.environ.get(key) for key in
             ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")}}
     profile = None
+    application_input = None
     generation = 0
     assets = []
     prepared_assets = ()
@@ -63,6 +65,9 @@ def execution_worker(url, config):
     timing = {"hot_path_ns": 0, "deadline_lag_ns": 0, "actual_rtf": None, "deadline_clock": "perf_counter_ns", "rtf_window_s": None}
     input_diagnostics = {"batch_size": 0, "batch_limit_hit": False, "last_receipt_s": None,
                          "last_ingest_s": None, "processed_sequence": None, "tick_duration_s": None}
+    def current_device_samples(samples):
+        return tuple((message, receipt) for message, receipt in samples
+            if receipt - json.loads(message)["source_age_s"] >= runner.input_accepting_monotonic_s)
     def state():
         return {"phase": runner.status, "ticket": None if runner.ticket is None else asdict(runner.ticket),
             "ticks": runner.tick_count, "profile_id": None if profile is None else profile.name,
@@ -70,6 +75,8 @@ def execution_worker(url, config):
             "result": None if runner.result is None else runner.result.to_document(), "error": runner.error,
             "condition": None if runner.condition is None else runner.condition.to_document(),
             "applied_condition": applied_condition,
+            "input_provider": None if profile is None else profile.provider_id,
+            "device_input": None if application_input is None else application_input.state(),
             "worker_pid": os.getpid(),
             "execution_timing": dict(timing),
             "control_period_s": None if profile is None else profile.dt_s,
@@ -83,6 +90,8 @@ def execution_worker(url, config):
             "native_builds": retired_builds + runner.model_build_count, "native_live": int(runner.viewer_resources is not None),
             "python_heap": tracemalloc.get_traced_memory()[0] if tracemalloc.is_tracing() else None, **process_memory()}
     def send_state(ws, rid=None, error=None, completed_op=None, operation=None):
+        if application_input is not None and runner.status in INPUT_FINISHED | {"faulted", "closed"}:
+            application_input.close()
         started_ns = perf_counter_ns()
         measuring = runner.status in INPUT_ACTIVE
         sender.put({"type": "worker_status", "id": rid, "state": state(),
@@ -96,6 +105,14 @@ def execution_worker(url, config):
         if deferred_raw is not None:
             return None
         samples = []
+        if application_input is not None:
+            # control inboxのSTOPを先に見る。bridgeのpipe readは別の有界readerが所有。
+            try:
+                deferred_raw = inbox.recv(timeout=0)
+                return None
+            except TimeoutError:
+                pass
+            return current_device_samples(application_input.poll())
         while len(samples) < 64:
             try:
                 raw = inbox.recv(timeout=0)
@@ -183,7 +200,14 @@ def execution_worker(url, config):
                                 config["input_wait_s"], config["wall_s"], config["prepare_s"])
                             candidate = preset_condition(cmd["profile_id"], limits)
                             profile, limits, candidate = resolve_condition(candidate)
+                        if fixture is not None:
+                            fixture.assert_profile(profile)
+                        if application_input is not None:
+                            application_input.close()
+                            application_input = None
                         runner.prepare(profile, limits)
+                        if fixture is None:
+                            application_input = create_application_input(profile, config.get("device_connection"))
                         applied_condition = candidate
                         generation = cmd["generation"]
                         asset_root = Path(config["asset_root"])
@@ -196,7 +220,12 @@ def execution_worker(url, config):
                         prepared_viewer = runner.viewer_resources
                         assets = list(prepared_assets)
                     elif op == "retry":
+                        if application_input is not None:
+                            application_input.close()
+                            application_input = None
                         runner.retry()
+                        if fixture is None:
+                            application_input = create_application_input(profile, config.get("device_connection"))
                         # 再試行は状態だけを初期化し、同じ準備済みモデルの資源を再利用する。
                         if not prepared_assets or runner.viewer_resources is not prepared_viewer:
                             raise RuntimeError("retry model resources differ from prepared assets")
@@ -205,8 +234,19 @@ def execution_worker(url, config):
                         stages.clear()
                         timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                         hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
+                    elif op == "device":
+                        if application_input is None or runner.status != "ready":
+                            raise ValueError("Device operator steps require a prepared Device trial")
+                        application_input.operate(cmd["role"], cmd["action"], cmd["confirmed"], cmd["observed_phase"])
                     elif op == "start":
-                        runner.start(runner.ticket, input_provenance=fixture.identity() if fixture else {"source": "workbench-gamepad/v1"})
+                        if application_input is not None and not application_input.state()["ready"]:
+                            raise ValueError("Device preparation is incomplete")
+                        provenance = fixture.identity() if fixture else ({"source": "selfrionette-bridge/v1",
+                            "bridge_revision": profile.input_parameters["bridge_revision"],
+                            "operator_preparation": application_input.state()} if application_input is not None else {"source": "workbench-gamepad/v1"})
+                        runner.start(runner.ticket, input_provenance=provenance)
+                        if application_input is not None:
+                            application_input.start()
                         input_diagnostics.update(batch_size=0, batch_limit_hit=False, last_receipt_s=None,
                             last_ingest_s=None, processed_sequence=None, tick_duration_s=None)
                         fixture_start, fixture_index = monotonic(), 0
@@ -216,8 +256,8 @@ def execution_worker(url, config):
                         timing.update(hot_path_ns=0, deadline_lag_ns=0, actual_rtf=None, rtf_window_s=None)
                         hot_samples.clear(); lag_samples.clear(); apply_samples.clear(); rtf_window.clear()
                     elif op == "input":
-                        if fixture is not None:
-                            raise ValueError("明示fixture実行ではbrowser入力を受け付けません")
+                        if fixture is not None or application_input is not None:
+                            raise ValueError("選択Inputはbrowser Gamepadを受け付けません")
                         if runner.ticket is None or cmd["ticket"] != asdict(runner.ticket):
                             raise ValueError("旧ticket")
                         if runner.status in INPUT_FINISHED:
@@ -237,6 +277,8 @@ def execution_worker(url, config):
                                 check_freshness=False)
                             input_diagnostics["processed_sequence"] = runner.processed_input_sequence
                     elif op == "stop":
+                        if application_input is not None:
+                            application_input.close()
                         generation = cmd["generation"]
                         if runner.status in ACTIVE:
                             runner.abort(runner.ticket)
@@ -254,11 +296,22 @@ def execution_worker(url, config):
                             send_state(ws, cmd.get("id"), completed_op=op)
                 except Exception as exc:
                     if op in {"prepare", "retry"}:
+                        # bridge構築後のasset失敗も含め、失敗した準備の所有物を全て解放する。
+                        # retry途中のreadyを残すと、adapter無しでStartできてしまう。
+                        try:
+                            if application_input is not None:
+                                application_input.close()
+                        finally:
+                            application_input = None
+                        if runner.status == "ready":
+                            runner.discard_prepared()
                         assets = []
-                    if op == "prepare" and runner.status == "ready":
-                        runner.discard_prepared()
-                        assets = []
-                        profile = None
+                        prepared_assets, prepared_viewer = (), None
+                        profile = applied_condition = None
+                    if op == "start" and runner.status in INPUT_ACTIVE:
+                        runner.fail(runner.ticket, exc)
+                        if application_input is not None:
+                            application_input.close()
                     send_state(ws, cmd.get("id"), str(exc), operation=op)
                 if measuring and op == "input":
                     stages.observe("input_dispatch", perf_counter_ns() - input_started_ns)
@@ -274,12 +327,28 @@ def execution_worker(url, config):
                     continue
             sender.check()
             now = monotonic()
+            if application_input is not None:
+                try:
+                    device_samples = application_input.poll()
+                    if runner.status in INPUT_ACTIVE and device_samples:
+                        # 保守的なclock boundで開始前に位置するsampleは捨て、次の新規sampleを待つ。
+                        # age/sequenceは書き換えない。readyでのneutralと試行の新規中立gateは別。
+                        current_samples = current_device_samples(device_samples)
+                        if current_samples:
+                            runner.ingest_batch(runner.ticket, current_samples, check_freshness=False)
+                except Exception as exc:
+                    if runner.status in INPUT_ACTIVE:
+                        runner.fail(runner.ticket, exc)
+                    send_state(ws, error=str(exc))
+                if now - last_status >= .5 and runner.status not in INPUT_ACTIVE:
+                    send_state(ws)
+                    last_status = now
             if runner.status in ACTIVE and perf_counter_ns() >= next_tick:
                 hot_started_ns = perf_counter_ns()
                 timing["deadline_lag_ns"] = max(0, perf_counter_ns() - next_tick)
                 old_phase = runner.status
                 try:
-                    if fixture is not None:
+                    if fixture is not None and runner.status in INPUT_ACTIVE:
                         while fixture_index < len(fixture.samples) and fixture_start + fixture.samples[fixture_index][0] <= now:
                             offset, message = fixture.samples[fixture_index]
                             runner.ingest(runner.ticket, message, received_at_s=fixture_start + offset)
@@ -314,6 +383,8 @@ def execution_worker(url, config):
                     else:
                         send_state(ws)
                     last_status = now
+            if application_input is not None and runner.status in INPUT_FINISHED | {"faulted", "closed"}:
+                application_input.close()
             if assets and runner.status in {"ready", "waiting_input", "running", "terminal"} and runner.ticket and runner.viewer_resources is not None:
                 frame_key = (generation, runner.ticket, runner.status, runner.tick_count)
                 if frame_key == last_frame_key:
@@ -329,6 +400,8 @@ def execution_worker(url, config):
                 timing["hot_path_ns"] = perf_counter_ns() - hot_started_ns
                 hot_samples.append(timing["hot_path_ns"])
                 lag_samples.append(timing["deadline_lag_ns"])
+        if application_input is not None:
+            application_input.close()
         runner.close()
         sender.close(discard=True)
         sender = None
@@ -340,6 +413,8 @@ def execution_worker(url, config):
         raise
     finally:
         try:
+            if application_input is not None:
+                application_input.close()
             runner.close()
         finally:
             try:
