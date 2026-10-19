@@ -106,6 +106,72 @@ native build数1、Gamepad送信0、page error 0を再確認した。取得間�
 
 fontはQA用環境へだけ追加し、製品の依存・設定は変更していない。
 
+## 固定commitからの有限CLI実行
+
+追加presetと上記証拠をcommitした`9b70861f95c8b7fc1c266ba87e6bda5f1ad84122`のclean checkoutから、
+同梱の単手・両手fixtureを実Workbench service / worker / TrialRunnerで実行した。
+どちらも12 tick / 0.2 simulation sで`simulation_budget`、`recording=complete`、`error=null`となった。
+初期・終了状態と条件・入力provenanceは正式記録に保存され、開始記録とterminalのsoftware revisionは
+同じ40桁commitだった。試行開始後の中立gateを通した有限実行であり、実Rust processやserialは起動しない。
+
+| preset | trial ID | condition SHA-256 |
+|---|---|---|
+| `fast-arm-single-device` | `571dfb3cebb84338bda575bf631423f0` | `c11ccb797b0e0021aaf18035a8d9563fada18859de809d43e6f64b066605bff8` |
+| `fast-arm-bimanual-device` | `555dbefd3aeb4b3e8d72686a04978553` | `6379a634790d3ca68b2a88808c99966e20450c010a461c4c7d0c849f745ca665` |
+
+単手の実行方法は次のとおり。`QA_ROOT`は事前に作成した測定用directoryである。
+両手はprofile / fixtureを`fast-arm-bimanual-device`、出力を`dual`、portを5280 / 8880へ変えた。
+
+```sh
+.venv/bin/xpotato-sim workbench \
+  --temporary-root "$QA_ROOT" --result-root "$QA_ROOT/single" \
+  --software-revision 9b70861f95c8b7fc1c266ba87e6bda5f1ad84122 \
+  --run-once --profile fast-arm-single-device \
+  --fixture tests/fixtures/selfrionette_device/fast-arm-single-device.json \
+  --ticks 12 --web-port 5279 --backend-port 8879
+```
+
+## 公開sourceと実Rust binaryの互換確認
+
+公開経路ではcommit metadataが変わったため、測定時の元commitと公開commitのGit treeを照合した。
+次の対応はいずれもtree完全一致であり、過去の開始記録や観測ラベルは書き換えていない。
+
+| 対象 | 測定時の元commit | 同一treeの公開commit | Git tree |
+|---|---|---|---|
+| Device入力を統合したSim | `9b70861f95c8b7fc1c266ba87e6bda5f1ad84122` | `b7e8a2dd6177bc85ccce1a7e0628f3667a9b1c53` | `10ce4cba21d230e7d4db7c3b6d4d4f46a93b689a` |
+| 共通Rust bridge | `058e6eda65509d1e4e1d51543d7f5fe6d2888d9f` | `dd828017e8ae328b4d4bc09b78653fc12d57a95f` | `4d17878303154462c6b64819f1ad46e0b537305f` |
+
+公開Device sourceのclean checkoutから、同じ公開revisionをstampして実binaryを再buildした。
+Rust 1.99.1、固定`Cargo.lock`、既存targetを再利用したdebug buildである。
+
+```sh
+SELFRIONETTE_BRIDGE_REVISION=dd828017e8ae328b4d4bc09b78653fc12d57a95f \
+  cargo build --locked --offline -p selfrionettectl
+```
+
+取得binaryは29,589,136 byte、SHA-256は
+`c30b20ab5955fec44ffe36ab785c84627404937a2ea1e1cb7185cc4f10b179eb`。
+2026-10-19 00:56:48 UTCに、上記Sim公開commitの実`BridgeProcess`とstdin / stdoutで接続した。
+Sim側には証拠文書の未commit差分があったが、製品moduleは公開treeと同じ保存byteだった。
+`device_bridge.py`のSHA-256は`9548b99f3f185bae0d99aade2bcbb0bf55e726056485592df3f3fea71b3376de`。
+
+要求送信を`configure` ID 1と専用`status` ID 2だけに制限する検査を置き、
+起動status ID 0から返信ID、公開bridge revision、単調なwriter時刻を照合した。
+架空port名を設定し、実profileを開くconnect要求は送っていない。
+
+| 観測 | 結果 |
+|---|---|
+| 準備状態 | `configured`、clock同期済み、ready=false、sample 0件 |
+| process起動からhandshake成立 | 3.592 ms |
+| 専用statusの観測RTT | 0.244 ms |
+| stdin EOFからcleanup終了 | 1.223 ms |
+| 子processとpipe | exit 0、terminate / kill呼出し0、stdin / stdout / stderrすべてclose |
+| 所有thread | events / commands / errorsの3本すべて終了 |
+
+旧revisionの実binaryでも同じconfigure / status / EOFを確認していたが、公開stampの一致はこの追試で
+独立に確認した。上記時間は同じLinux環境の単発software確認であり、serial sampleのlatency、
+Windows配布物の終了時間、実操作者の入力性能を示すものではない。
+
 ## pipe readerのCPU仕事量
 
 実装時に`Popen(..., bufsize=0)`のbinary `readline`が小さいreadを繰り返す可能性を検出した。
@@ -176,6 +242,9 @@ architecture、既存Gamepad、有限試行、Device、反力、Workbenchの統�
 この数に上記の追加接触4件は含めない。unit testやcompileの成功自体を研究実験やhardware acceptanceと呼ばない。
 Viewerは`npm test`のTypeScript compileと33本のtest scriptがすべて成功し、production buildも成功した。
 Deviceを持たない既存keyboard / Gamepadのnullableな表示fieldも互換回帰の完全一致期待値へ反映した。
+SimのDevice bridge / SourceとRustの実装を独立に読み取り、schema、ready中の継続取得と失効、
+有界queue、時計対応、部分準備・STOP・retryの確認範囲では新規P1/P2の問題を見つけなかった。
+このread-only reviewも実serialやWindows process回収の実証へ読み替えない。
 
 実機に進むには、個体IDとfirmware / bridge build、保存profileの由来、7 channelの身体・軸対応、
 無荷重tareと使用姿勢neutralの操作条件を確定する必要がある。ADC 10 / 80 SPSと出力80 Hzの対応、

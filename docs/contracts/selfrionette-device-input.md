@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-18
+last_verified: 2026-10-19
 canonical_for:
   - normalized Selfrionette-Device input to finite simulation trials
 related:
@@ -21,7 +21,7 @@ Selfrionette-Deviceの共有Rust `LiveService`が検証・補正した入力を�
 極性、deadzone、filterをSimへ複製しない。
 
 Deviceとのwire契約は
-[Selfrionette-Device host bridge契約（検証済みrevision）](https://github.com/Xpotato1024/Selfrionette-Device/blob/058e6eda65509d1e4e1d51543d7f5fe6d2888d9f/docs/contracts/host-input-bridge.md)
+[Selfrionette-Device host bridge契約（公開revision）](https://github.com/Xpotato1024/Selfrionette-Device/blob/dd828017e8ae328b4d4bc09b78653fc12d57a95f/docs/contracts/host-input-bridge.md)
 を正とする。本書はSimのbinding、時刻対応、試行への渡し方、操作と終了を所有する。
 共通の試行・記録は[有限試行runtime](finite-trial-runtime.md)、操作権・renderer・監督は
 [Workbench](workbench.md)、登録規則は[Input Source registry](runtime-input-source-registry.md)に従う。
@@ -152,7 +152,7 @@ browserから任意の実行file、port、server上のpathを指定する操作�
 ## exact revisionを埋め込んだRust binary
 
 Selfrionette-Deviceのclean checkoutでHEADを確認し、build時だけrevisionを指定する。
-検証したbridgeのsourceは`058e6eda65509d1e4e1d51543d7f5fe6d2888d9f`である。
+build対象の公開bridge sourceは`dd828017e8ae328b4d4bc09b78653fc12d57a95f`である。
 
 ```sh
 # Selfrionette-Device repositoryで、差分がないことと対象HEADを確認する。
@@ -346,10 +346,10 @@ source / Mapping検証は各plugin配下、clock / pipe / process検証は
 再利用することを検査する。観測条件・実行方法・証拠の限界は
 [software統合note](../experiment-notes/2026-10-19-device-input-integration.md)へ分けて記録する。
 
-実Rust source `058e6eda65509d1e4e1d51543d7f5fe6d2888d9f`を同revisionのbuild stamp付きでbuildし、
-Simの実`BridgeProcess`とstdin/stdoutで接続した。serialを開かないconfigure → dedicated statusで
-`configured`、clock同期済み、ready=false、sample 0件を確認し、stdin EOFからexit 0と
-Pythonの全3 pipe thread終了を確認した。この検証ではconnect要求を送っていない。
+実Rust binaryとの互換確認では、build時の公開revisionを固定し、Simの実`BridgeProcess`から
+serialを開かないconfigure → dedicated status → stdin EOFを実行する。
+`configured`、clock同期済み、ready=false、sample 0件、exit 0と全pipe thread終了を確認し、
+connect要求は送らない。観測したsource、binary digest、時刻と限界は上記software統合noteを参照する。
 
 実serial、実board、実操作者による無荷重tare・使用姿勢neutral、個人校正、二台同時運転、
 Windows配布binaryのserial / pipe挙動、ADC rateと絶対latency、robot運動の受入は未実施である。
