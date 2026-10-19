@@ -30,6 +30,9 @@ providerが公開する関節・actuator・controller数値条件をcanonical JS
 不変のJSON bytesを保存し、閲覧用objectはcopyとする。host/port/workspace/result root、旧profile epoch、trial ID、
 profile名・保存pathは意味digestへ含めない。元profileのcanonical bytesとSHA-256は別のprovenanceとして保持する。
 Evaluation、表示比較条件、participant、seedによる乱数試験は本経路で選択せず、未評価を明示する。
+sceneがある場合の`force_signal`は、明示した手先・Task対象物集合、world/N/作用方向、
+filter設定、観測位相を固定する。signalはcontrol commitの最後のsubstep後に取得し、
+表示間引き値を全区間のforce最大値や正式metricにしない。詳細は[反力signal契約](virtual-reaction-force.md)。
 
 ## 状態と時計
 

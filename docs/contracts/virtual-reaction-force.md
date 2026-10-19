@@ -111,3 +111,34 @@ deterministic fixtureに置く。
 このAPIはsoftware-onlyである。force device選定、device-specific command mapping、OSC、network、
 serial、Arduino、robot output、actuator control、participant study、physical stabilityの主張を含まない。
 software validationは実機の力覚・安全・安定性を検証しない。
+
+## 現行dynamic sceneの手先・対象別signal
+
+`runtime/scene/force_signal.py`は`scene-dynamics-observation/v1`から
+`scene-force-signal/v1`を導出する。旧単一cubeのContactTaskManifestを作らず、
+model/scene/settings digestと明示した手先×Task対象物集合を独立manifestに固定する。
+`trial-condition/v1.force_signal`へ設定・集約規則・観測位相を保存し、source revisionとtrial/epochは
+既存trial記録で追跡する。任意の物体を対象へ追加せず、非対象の固定台・支持面を荷重へ混ぜない。
+
+rawの`force_on_geom2_world_n`に対して、geom1がtoolなら負、geom2がtoolなら正の符号を適用し、
+対象物が手先へ加えるworld力に統一する。同じ手先・対象のベクトル和と、各接触における
+圧縮法線成分の和`normal_load_n`を別量として保持する。異なる法線や左右の荷重が相殺しても、
+法線荷重が0になるとは限らない。矢印の原点は接触点の算術平均であり、合力の物理的な作用点や
+等価wrenchを保証しない。contact indicesは同じraw観測の配列を参照する。
+
+各pairは`active`、`no_contact`、`measurement_unavailable`、`partial_missing`を区別する。
+部分欠測では観測済み成分だけを完全な合力とせず、ベクトル和・法線荷重・派生値を全てnullにする。
+全体の欠測は`missing`、kinematicは`not_evaluated_kinematic`、不正identity/値は`invalid`、
+時計の停滞・過大gapは`stale`。有効な無接触のみstatus付き0 Nである。
+
+ModelExecutionは同じprovider sampleを使い、control commitごとに一度だけ導出する。
+観測位相は最後のphysics substep後であり、substep間のpeakや全区間最大値ではない。
+表示再送は元のcontrol tick、source frame、simulation time、host観測時刻を維持し、鮮度を更新しない。
+STOP、欠測、stale、不正値、trial/epoch resetでfilterを破棄し、残留cueを失効させる。
+初期設定は加工なしのworld力で、filterの時計はsimulation time。
+window上限256、手先・物体各32、raw contact上限4096、保持sampleは最新1件である。
+
+旧R7-Hと新sceneは`runtime/contact/force_filter.py`の同じベクトルfilterを使用する。
+旧API、manifest bytes、clock/quality判定は維持し、raw evidenceやTask判定を派生signalで上書きしない。
+連続evidenceの永続記録、正式Task/Evaluation、人体・実機の効果検証はこのsignalの完了条件に含めず、
+既存#583/#584の責務を維持する。
