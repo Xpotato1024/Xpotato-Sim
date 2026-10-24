@@ -5,12 +5,14 @@ import sys
 import time
 
 fixture = json.loads((Path(__file__).parent / "bridge-sample-v1.json").read_text())
-origin = time.monotonic()
+# Rust Instant相当の高分解能時計とし、合成2ms ageが負の受領時刻にならないよう待つ。
+origin = time.perf_counter()
+time.sleep(.002)
 phase, scenario, config = "unconfigured", "normal", {}
 
 
 def stamp():
-    return int((time.monotonic() - origin) * 1e6)
+    return int((time.perf_counter() - origin) * 1e6)
 
 
 def status(request_id):
