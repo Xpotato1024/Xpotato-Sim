@@ -159,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     workbench.add_argument("--run-once", action="store_true", help="明示profile/fixtureで同じserviceを有限実行する（headlessの明示Start）")
     workbench.add_argument("--control-stdin", action="store_true", help="自動検証用の一時制御資格をstdinの1行から読む（保存しない）")
     workbench.add_argument("--fixture", type=Path, help="明示software検証fixture。通常のGamepad入力とは排他")
+    workbench.add_argument("--device-config", type=Path, help="Device bridge executableとrole別port/profile pathを明示するlocal JSON。接続・tare・neutral・適用は別のoperator操作")
     workbench.add_argument("--ticks", type=_positive_int, help="明示した有限検証予算。省略時は選択profileのsteps")
     workbench.add_argument("--input-wait-s", type=_positive_float, default=None, help="入力待機上限秒（既定5、conditionと排他）")
     workbench.add_argument("--wall-s", type=_positive_float, default=None, help="実時間上限秒（既定360、conditionと排他）")

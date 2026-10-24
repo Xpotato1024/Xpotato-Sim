@@ -131,8 +131,12 @@ class CoordinatedRuntime:
         if old is not None:
             if value.source_epoch != old.source_epoch:
                 raise ValueError("input_source_changed")
+            if (value.ordering_receipt_s is None) != (old.ordering_receipt_s is None):
+                raise ValueError("input_ordering_clock_changed")
+            ordering = value.received_at_s if value.ordering_receipt_s is None else value.ordering_receipt_s
+            old_ordering = old.received_at_s if old.ordering_receipt_s is None else old.ordering_receipt_s
             if (value.source_sequence < old.source_sequence or value.source_timestamp_s < old.source_timestamp_s
-                    or value.received_at_s < old.received_at_s):
+                    or ordering < old_ordering):
                 raise ValueError("input_out_of_order")
             if value.source_sequence == old.source_sequence and value != old:
                 raise ValueError("input_sequence_reused_with_changed_content")
@@ -152,7 +156,9 @@ class CoordinatedRuntime:
                 raise RuntimeError("input requires an active runtime")
             try:
                 if self._last is not None:
-                    self.last_receipt_gap_s = value.received_at_s - self._last.received_at_s
+                    self.last_receipt_gap_s = ((value.received_at_s - self._last.received_at_s)
+                        if value.ordering_receipt_s is None or self._last.ordering_receipt_s is None
+                        else value.ordering_receipt_s - self._last.ordering_receipt_s)
                 self._validate_input(value, value.received_at_s)
                 if value.neutral:
                     self._neutral_input = value

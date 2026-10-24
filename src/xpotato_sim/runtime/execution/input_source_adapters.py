@@ -14,6 +14,7 @@ class InputSourceExecutionSemantics(str, Enum):
     VIEWER_LOCAL_ENDPOINT_COMPATIBILITY = "viewer_local_endpoint_compatibility"
     LOADCELL_SOURCE = "loadcell_source"
     ANALOG_FIXTURE_SOURCE = "analog_fixture_source"
+    NORMALIZED_DEVICE_SOURCE = "normalized_device_source"
 
 
 @dataclass(frozen=True, slots=True)

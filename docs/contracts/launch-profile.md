@@ -134,7 +134,15 @@ cameraを手動回転してもMapping自体は追従させない。設定・符�
 
 `coordination.side_to_endpoint`は入力側とモデルの手先IDの明示対応であり、選択した全手先を重複なく覆う。
 単腕も1要素の対応として同じ制御loopを通る。バインドしないスティックは表示上も入力診断と区別する。
-現行v2実行はsimulation・gamepad/v1・名前付き手先を扱える明示Gamepad control Mappingを要求する。他の組合せは代用せず拒否する。
+現行v2実行はsimulation・登録済みsession provider・名前付き手先を扱える明示Mappingを要求する。
+`gamepad/v1`と`selfrionette-device/v1`を受理し、後者は`input.parameters`に固定bridge revisionとrole別source/profile/operator bindingを必須とする。
+provider/Source/Mapping/endpoint roleが一致しない組合せは代用せず拒否する。v1の入力対応範囲は変更しない。
+`fast-arm-single-device`と`fast-arm-bimanual-device`は架空identityと明示software軸写像を持つ検証presetであり、実機の校正値ではない。
+`dynamic-fixed-contact-single-device`と`dynamic-fixed-contact-bimanual-device`は同じDevice bindingと
+Mappingへ、既存の固定cube・native dynamics・接触観測Taskを組み合わせたv4 presetである。
+Workbenchで条件を展開すると、既存の物体位置編集と`no_force_cue` / `force_cue`の選択ができる。
+追加presetの既定gainや軸対応もsoftware検証用で、実個体の校正・操作受入を表さない。
+詳細は[Device input contract](selfrionette-device-input.md)を参照する。
 
 モデル構築は登録factoryを通し、同じ生成modelからproviderとViewer resourceを作り、artifact digest、関節順、
 次元を照合する。v2の入力開始は腕数に関係なくscene準備後で、physical outputはdisabledのまま。

@@ -6,7 +6,7 @@ import {DynamicsPanel} from "./DynamicsPanel.js";
 import {ForceCuePanel} from "./ForceCuePanel.js";
 import {JointInstruments} from "../ui/JointInstruments.js";
 import {InputStrip,GamepadDiagnosticDetails} from "../ui/InputStrip.js";
-import {browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
+import {inputKind,browserGamepadDisplay,type BrowserGamepadDisplay} from "../ui/inputStripPresentation.js";
 import {SceneViewport,scenePanes} from "../ui/SceneViewport.js";
 import {jointRailGroups} from "../wasm-scene/jointPresentation.js";
 import type {ViewLayout} from "../wasm-scene/viewportPresentation.js";
@@ -17,6 +17,7 @@ import "./workbench.css";
 import "../ui/operation.css";
 import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
+import {DeviceInputPanel,type DevicePreparation} from "./DeviceInputPanel.js";
 
 type TimingStage = {count:number;observed:number;last_ns:number|null;mean_ns:number|null;p50_ns:number|null;p95_ns:number|null;p99_ns:number|null;max_ns:number|null};
 type RuntimeEnvironment = {python:string;platform:string;logical_cpus:number|null;mujoco:string;numpy:string;websockets:string;diagnostic_memory:boolean;thread_settings:Record<string,string|null>};
@@ -26,6 +27,7 @@ type Status = {phase: string; revision: number; generation: number; busy: string
   result?:{runner_stop_reason:string; error?:string|null}|null;
   profiles: {id:string; available:boolean; reason:string|null}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
+  input_provider?:string|null;device_input?:DevicePreparation|null;
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
   rss_bytes?:number; private_bytes?:number; execution_timing?:{actual_rtf:number|null;rtf_window_s:number|null;hot_path_ns:number;deadline_lag_ns:number}; control_period_s?:number|null; timing_breakdown?:Record<string,TimingStage>; runtime_environment?:RuntimeEnvironment; timing_sample_scope?:string; input_diagnostics?:{processed_receipt_s?:number|null;processed_age_s?:number|null;tick_duration_s?:number|null}};
 const phases: Record<string,string> = {unselected:"未選択・待機",ready:"開始待ち",waiting_input:"新しい中立入力を待機",
@@ -182,7 +184,7 @@ export function WorkbenchApp() {
     const gamepad=createWorkbenchGamepadLifecycle({window,document,getGamepads:()=>navigator.getGamepads(),
       nowSeconds:()=>performance.now()/1000,
       context:()=>{const s=current.current;return s?.ticket?{epoch:s.ticket.epoch,
-        enabled:!disposed&&!s.busy&&claimed.current&&!s.fixture_mode&&["waiting_input","running"].includes(s.phase)}:null;},
+        enabled:!disposed&&!s.busy&&claimed.current&&!s.fixture_mode&&s.input_provider==="gamepad/v1"&&["waiting_input","running"].includes(s.phase)}:null;},
       publish:(message,pads)=>{
         const s=current.current;if(!s?.ticket) return;
         const observed=browserGamepadDisplay(pads,performance.now());
@@ -213,7 +215,7 @@ export function WorkbenchApp() {
       <div className="operation-controls__actions">
       <button disabled={active||busy} onClick={()=>setScreen("setup")} aria-pressed={screen==="setup"}>設定・準備</button>
       <button disabled={screen==="setup"&&(!ready||!["ready","terminal"].includes(status?.phase??""))} onClick={()=>setScreen("operate")} aria-pressed={screen==="operate"}>操作画面へ</button>
-      <button className="primary-control" disabled={screen!=="operate"||!owned||busy||editingBusy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch} onClick={()=>command("start")}>開始</button>
+      <button className="primary-control" disabled={screen!=="operate"||!owned||busy||editingBusy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch||!!status.device_input&&!status.device_input.ready} onClick={()=>command("start")}>開始</button>
       <button disabled={!owned||busy||editingBusy||status?.phase!=="terminal"} onClick={()=>{setReady(null);command("retry");}}>同じ条件で再試行</button>
       <button aria-pressed={layout==="single"} onClick={()=>setLayout("single")}>Single</button>
       <button aria-pressed={layout==="assist"} onClick={()=>setLayout("assist")}>Assist</button>
@@ -232,12 +234,14 @@ export function WorkbenchApp() {
       <button disabled={!owned||!selected||active||busy||editingBusy} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,...(edited?{condition:edited}:{})});}}>検証・準備</button>
       <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phases[status?.phase??"unselected"]??status?.phase}</p>
       <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
-      <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":"開始後にGamepadの新しい中立入力を確認"}</p>
+      <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":status?.input_provider==="selfrionette-device/v1"?"Deviceの個別準備後、開始時に新しい中立入力を確認":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       {notice && <p role="alert">{notice}</p>}
     </section>}
+    {screen==="setup"&&<DeviceInputPanel value={status?.device_input} enabled={owned&&!busy&&!editingBusy&&status?.phase==="ready"}
+      onAction={(role,action,phase)=>command("device",{role,action,confirmed:true,observed_phase:phase})}/>}
     <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)}
-      connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase}
+      connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase} inputProvider={status?.input_provider}
       canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
       {screen==="setup" && <aside className="setup-inspector"><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
         onError={setError} onValidate={()=>editRequest("edit",{condition:edited})} onImport={async file=>{
@@ -267,7 +271,7 @@ export function WorkbenchApp() {
 type ViewerState = ReturnType<typeof createInitialProductViewerState>;
 type Telemetry = {identityMailbox:RefObject<string|null>;identity:string|null;stateMailbox:RefObject<ViewerState>;rawMailbox:RefObject<BrowserGamepadDisplay|null>};
 /** 計器だけが10Hzで購読し、setup/editorと入力送信を再描画しない。 */
-function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;phase?:string;
+function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;phase?:string;inputProvider?:string|null;
   canvas:RefObject<HTMLCanvasElement|null>;interaction:RefObject<HTMLDivElement|null>;
   renderer:RefObject<MujocoSceneRenderer|null>;layout:ViewLayout}) {
   const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current}));
@@ -282,7 +286,7 @@ function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|
     {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
     {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
-    <InputStrip state={state} raw={raw} selected="gamepad" live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
+    <InputStrip state={state} raw={raw} selected={inputKind(props.inputProvider)} live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
     <ForceCuePanel value={state.forcePresentation}/>
   </div>;
 }

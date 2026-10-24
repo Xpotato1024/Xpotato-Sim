@@ -17,7 +17,6 @@ from xpotato_sim.runtime.experiment.trial_condition import (
 )
 from xpotato_sim.runtime.experiment.trial_record import TrialRecorder, TrialResult, TerminalRecordingJob
 from xpotato_sim.runtime.scene.objects import canonical
-from xpotato_sim.schemas import parse_viewer_control_message_json
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +46,9 @@ class TrialRunner:
         self._ticket = self._result = self._recorder = self._start_ref = None
         self._last_now = self._started = self._ingress_time = None
         self._last_input = None
+        self._input_streams = {}
+        self._retired_input_sessions = set()
+        self._input_requires_new_session = False
         self._input_accepting = None
         self._committed_projection = None
         self._frame = 0
@@ -113,6 +115,9 @@ class TrialRunner:
         return {"processed_sequence": None if value is None else value[1],
                 "processed_source_timestamp_s": None if value is None else value[2],
                 "processed_receipt_s": None if value is None else value[3],
+                "processed_oldest_receipt_s": min((item[3] for item in self._input_streams.values()), default=None),
+                "streams": {stream: {"sequence": item[1], "source_timestamp_s": item[2], "received_at_s": item[3], "ordering_receipt_s": item[4]}
+                            for stream, item in self._input_streams.items()},
                 "last_receipt_gap_s": None if self._execution is None else
                     self._execution.runtime.runtime.last_receipt_gap_s}
 
@@ -138,6 +143,13 @@ class TrialRunner:
             raise ValueError("foreign or old trial ticket")
 
     def _new_ticket(self):
+        if self._input_requires_new_session:
+            retired = self._retired_input_sessions | {value[0] for value in self._input_streams.values()}
+            if len(retired) > 256:
+                raise ValueError("retired input session bound reached; close and create a new owner")
+            self._retired_input_sessions = retired
+        self._input_streams = {}
+        self._input_requires_new_session = False
         trial_id = uuid4().hex
         self._ticket = TrialTicket(trial_id, "trial-" + trial_id, self._condition.digest)
         self._recorder = self._start_ref = self._started = self._last_input = None
@@ -295,22 +307,31 @@ class TrialRunner:
             if age < 0:
                 raise ValueError(f"input_future: {diagnostic}")
             if type(message) is not str or len(message.encode("utf-8")) > 65536:
-                raise ValueError("bounded Gamepad message required")
-            parsed = parse_viewer_control_message_json(message)
-            if parsed.gamepad is None or parsed.gamepad.stale or not parsed.gamepad.connected:
-                raise ValueError("unavailable or stale Gamepad input")
-            session = parsed.metadata.get("viewer_provider_session_id")
-            identity = (session, parsed.sequence, parsed.timestamp_s, float(received_at_s))
-            if not isinstance(session, str) or not session or parsed.sequence is None:
-                raise ValueError("explicit input session/sequence required")
-            if self._last_input is not None:
-                old = self._last_input
+                raise ValueError("bounded source message required")
+            parsed = self._execution.parse_input_message(message)
+            if not parsed.available:
+                raise ValueError("unavailable or stale source input")
+            session = parsed.session_id
+            effective_receipt = float(received_at_s) - parsed.source_age_s
+            if effective_receipt < self._input_accepting:
+                raise ValueError("input_pre_recording: source acquisition predates trial acceptance")
+            # source ageは切上げ/滞留推定で過去側へ揺れ得る。順番は元receiptで検査する。
+            ordering_receipt = effective_receipt if parsed.producer_receipt_s is None else parsed.producer_receipt_s
+            identity = (session, parsed.sequence, parsed.timestamp_s, effective_receipt, ordering_receipt)
+            if session in self._retired_input_sessions:
+                raise ValueError("previous execution Device session; tare/neutral must be renewed")
+            old = self._input_streams.get(parsed.stream_id)
+            if old is not None:
                 if (session != old[0] or parsed.sequence <= old[1]
-                        or parsed.timestamp_s < old[2] or received_at_s < old[3]):
+                        or parsed.timestamp_s < old[2] or ordering_receipt < old[4]):
                     raise ValueError("duplicate, changed-source, or out-of-order input")
+            if old is None and len(self._input_streams) >= 2:
+                raise ValueError("at most two explicit input streams are supported")
             self._ingress_time = float(received_at_s)
             self._execution._ingest_parsed(parsed)
             self._execution.runtime.consume_received_input()
+            self._input_streams[parsed.stream_id] = identity
+            self._input_requires_new_session = bool(getattr(self._execution.runtime.source, "requires_new_session", False))
             self._last_input = identity
         finally:
             self._ingress_time = None

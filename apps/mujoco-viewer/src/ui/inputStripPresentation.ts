@@ -1,10 +1,11 @@
 import type { ProductViewerInputOverlayState } from "../wasm-scene/productViewerState.js";
-export type InputKind = "gamepad"|"keyboard"|"selfrionette"|"unknown";
+export type InputKind = "gamepad"|"keyboard"|"selfrionette"|"selfrionette_device"|"unknown";
 export interface BrowserGamepadDisplay {mapping:string; id:string; index:number; sampledAtMs:number; sessionId?:string|null; axes:number[]; buttons:{pressed:boolean;value:number}[]}
 export function inputKind(source:string|null|undefined):InputKind {
   if (["viewer_gamepad","gamepad","gamepad/v1"].includes(source ?? "")) return "gamepad";
   if (["viewer_keyboard","keyboard","keyboard/v1"].includes(source ?? "")) return "keyboard";
   if (["selfrionette","selfrionette/v1"].includes(source ?? "")) return "selfrionette";
+  if (["selfrionette_device","selfrionette-device/v1"].includes(source ?? "")) return "selfrionette_device";
   return "unknown";
 }
 /** 既存pollerの同じ取得結果だけを投影。deviceの選択順序も既存providerと同じ。 */

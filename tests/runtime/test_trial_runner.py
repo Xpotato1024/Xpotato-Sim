@@ -73,24 +73,24 @@ def test_unselected_and_ready_are_not_physics(tmp_path):
 
 
 def test_trial_ingress_hands_the_validated_message_to_execution_once(tmp_path, monkeypatch):
-    from xpotato_sim.runtime.experiment import trial_runner
-    from xpotato_sim.runtime.execution import model_execution
+    from xpotato_sim.plugins.input_sources.viewer import session
+    provenance = load_trial_fixture(FIXTURE).identity()
+    inputs = [message(sequence) for sequence in range(3)]
     parses = []
-    original = trial_runner.parse_viewer_control_message_json
+    original = session.parse_viewer_control_message_json
     def counted(wire):
         parsed = original(wire)
         parses.append(parsed)
         return parsed
-    monkeypatch.setattr(trial_runner, "parse_viewer_control_message_json", counted)
-    monkeypatch.setattr(model_execution, "parse_viewer_control_message_json", counted)
+    monkeypatch.setattr(session, "parse_viewer_control_message_json", counted)
     runner, ticket, clock = prepared(tmp_path)
-    runner.start(ticket, input_provenance=load_trial_fixture(FIXTURE).identity())
+    runner.start(ticket, input_provenance=provenance)
     for sequence in range(3):
-        runner.ingest(ticket, message(sequence), received_at_s=clock())
+        runner.ingest(ticket, inputs[sequence], received_at_s=clock())
         assert len(parses) == sequence + 1
         assert runner._execution.runtime.source.last_control_message is parses[-1]
     with pytest.raises(ValueError, match="duplicate"):
-        runner.ingest(ticket, message(2), received_at_s=clock())
+        runner.ingest(ticket, inputs[2], received_at_s=clock())
     assert runner._last_input[1] == 2
     assert runner._execution.runtime.source.last_control_message is parses[-2]
     runner.close()

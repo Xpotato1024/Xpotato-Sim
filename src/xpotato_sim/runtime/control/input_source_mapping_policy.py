@@ -14,6 +14,7 @@ _DEFAULT_MAPPING_BY_INPUT_SOURCE = MappingProxyType(
         "programmed_target": PluginSelection("replay_mapping", 1),
         "replay": PluginSelection("replay_mapping", 1),
         "selfrionette": PluginSelection("loadcell_endpoint_mapping", 1),
+        "selfrionette_device": PluginSelection("normalized_endpoint_velocity", 1),
         "viewer": PluginSelection("viewer_keyboard_gamepad_mapping", 1),
     }
 )

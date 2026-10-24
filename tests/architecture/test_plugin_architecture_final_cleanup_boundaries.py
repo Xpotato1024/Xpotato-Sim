@@ -45,6 +45,7 @@ def test_final_source_identity_and_mixed_owners_are_retired() -> None:
         "programmed_target",
         "replay",
         "selfrionette",
+        "selfrionette_device",
         "viewer",
     )
     for retired in (

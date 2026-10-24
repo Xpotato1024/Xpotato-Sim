@@ -18,7 +18,9 @@ related:
 `TrialRunner`はprofile未選択で生成でき、その時点ではモデルも入力も作らずphysicsを進めない。
 名前付きモデルv2/v3/v4の原型・左・右・双腕、幾何診断・動力学を同じ`ModelExecution`へ接続する。
 モデルproviderが唯一のMuJoCo step/reset所有者、Taskが課題の終端所有者、runnerが試行寿命と記録の所有者である。
-CLIと[Workbench GUI](workbench.md)はrunnerを呼ぶ。v1、serial、OSC、未知Source/Mapping、任意plugin codeは新trialの対象外として拒否する。
+CLIと[Workbench GUI](workbench.md)はrunnerを呼ぶ。Inputは登録済みsession bindingから解決する。
+Gamepadと品質付きDeviceは同じ実行を使う。Deviceのserialはapplication所有の共有Rust bridgeだけが扱い、runnerへserial parserを追加しない。
+v1、OSC、未知Source/Mapping、任意plugin codeは新trialの対象外として拒否する。
 旧publisherは同じ実行を使用するが、従来の表示frame予算、入力時刻、payload、旧CLIを維持する。
 
 ## 固定条件と来歴
@@ -61,8 +63,18 @@ future receipt、旧ticket、記録中のreceiptは区別して拒否する。�
 ## 入力・所有権・reset
 
 全mutatorはowner thread限定、非再入guard付き。二重start、active中prepare/retry、旧epoch、終端後入力を拒否する。
-Gamepad inputは明示epochと元のtimestamp/sequence/sessionを保ち、一度受領したsampleを再受領して鮮度を更新しない。
-fixtureは有限の時刻付きGamepad message列で、受領予定時刻を実monotonicへ一度だけ対応させる。
+`SessionInputMessage`はstream/session、元timestamp/sequence、payload、取得済みage、availabilityを持つ共通契約である。
+未受信時の理由は`SessionInputSource.initial_wait_reason`の宣言を使い、初期化・restart・ModelExecutionで揃える。
+Gamepadは従来の`awaiting_gamepad_input`、Deviceは`awaiting_device_input`を保持し、共通runtimeでprovider名を分岐しない。
+GamepadとDeviceは一度受領したsampleを再受領して鮮度を更新しない。未知providerを別Inputへ読み替えない。
+Deviceは最大2 roleを別々に順序検査し、全roleの最古の有効receiptでfreshnessを判定する。
+producerの元receiptは順序検査にだけ使い、保守的なageのms切上げによる小さな後退をsource時刻逆転と誤判定しない。
+`CoordinatedInput.ordering_receipt_s`もこの分離を保つ。省略した従来Gamepadはhost receiptによる順序検査を維持する。
+再試行で旧Device sessionを再利用しない。retired session集合は最大256件で、上限時は新ownerを要求する。
+fixtureは有限の時刻付きmessage列で、受領予定時刻を実monotonicへ一度だけ対応させる。
+従来`trial-gamepad-fixture/v1`に加え、`trial-input-fixture/v1`はplugin/provider/parametersを明示し、凍結profileとの完全一致を確認する。
+上限は1 MiB、10,000 sample、1時間、2 stream、message当たり64 KiB。Scene JSONの256 KiB上限は変更しない。
+非同期終端保存中はfixtureの残りをingestせず、physicsと入力受付の終了状態を維持する。
 遅延dispatchで古いsampleを現在時刻へ繰り上げない。欠測・stale・切断をneutralへ補完しない。
 
 ingressの受信時刻検査は`input_invalid_timestamp`（型・非finite）、`input_pre_trial`（Startより前）、
@@ -75,8 +87,8 @@ browserのsource timestampは同source内の順序検査用で、host receiptへ
 
 resetは全object/Robotのqpos/qvel/actuator/control/time・warmstart等をhomeへ戻し、pending ticketを無効化する。
 Source/Mapping/Task/filter/dwell/timerは新しい試行objectに置換し、前試行への参照を解放する。
-model、固定asset、FK/candidate用MjDataは再利用可能。runnerは最新結果1件、入力1件、pending ticket1件までを保持し、
-過去trial列・旧epoch列・frame列を蓄積しない。実行条件変更は旧execution参照を解放して再構築する。
+model、固定asset、FK/candidate用MjDataは再利用可能。runnerは最新結果1件、最大2 streamの最新入力、pending ticket1件までを保持し、
+有界の再利用拒否identity以外に過去trial列・frame列を蓄積しない。条件変更は旧execution参照を解放して再構築する。
 表示比較だけの変更では同じnative modelを再利用し、新しい実行ownerとepochで全状態をresetする。
 
 ## 接触力の表示比較条件

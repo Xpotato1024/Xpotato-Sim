@@ -1,0 +1,39 @@
+{
+  "schema": "selfrionette-bridge-event/v1",
+  "event": "sample",
+  "bridge_revision": "0123456789abcdef0123456789abcdef01234567",
+  "host_clock": "bridge_process_elapsed_us",
+  "host_received_us": 1000000,
+  "host_emitted_us": 1001500,
+  "sample_age_ms": 2,
+  "relative_backlog_ms": 0,
+  "source": {
+    "device_id": "srn-0123456789abcdef0123456789abcdef",
+    "firmware_version": "1.0.0",
+    "source_sha": "0123456789abcdef0123456789abcdef01234567",
+    "protocol": 3
+  },
+  "profile": {
+    "record": "calibration-1.srncal",
+    "revision": 1,
+    "assembly_revision": 1,
+    "config_revision": 1,
+    "method": "diagonal"
+  },
+  "operator": {"operator": "fixture-operator", "posture": "seated", "grip": "supported"},
+  "domain": "normalized_input",
+  "session": 2147,
+  "sequence": 81,
+  "device_ms": 2000,
+  "settings_generation": 1,
+  "tare_epoch": 1,
+  "quality_flags": [1, 1, 1, 1, 1, 1, 1],
+  "normalized": [0.25, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
+  "command": [0.25, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
+  "span_exceeded": [false, false, false, false, false, false, false],
+  "unsupported_direction": [false, false, false, false, false, false, false],
+  "active": [true, true, false, false, false, false, false],
+  "ready": true,
+  "missing": false,
+  "hardware_acceptance": false
+}

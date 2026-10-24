@@ -55,7 +55,7 @@ def test_input_source_is_the_sixth_composition_axis_and_catalog_is_singleton() -
         "noop",
         "viewer",
         "selfrionette",
-        "selfrionette",
+        "selfrionette_device",
         "analog_fixture",
     }
     assert tuple(sorted(registration.plugin.identity.name for registration in INPUT_SOURCE_REGISTRATIONS)) == INPUT_SOURCE_CATALOG.ids
@@ -75,6 +75,7 @@ def test_input_source_is_the_sixth_composition_axis_and_catalog_is_singleton() -
         "loadcell_endpoint_mapping",
         "replay_mapping",
         "viewer_keyboard_gamepad_mapping",
+        "normalized_endpoint_velocity",
     }
 
 

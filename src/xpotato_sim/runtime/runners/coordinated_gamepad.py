@@ -51,7 +51,11 @@ def run_document(raw: dict) -> dict:
             if message is not None:
                 app.ingest(message)
             row=app.tick(epoch=raw["epoch"])
-            rows.append(asdict(row))
+            document = asdict(row)
+            if document["input"] is not None:
+                # この既存Gamepad診断schemaにはDeviceの任意producer時計を追加しない。
+                document["input"].pop("ordering_receipt_s", None)
+            rows.append(document)
             if row.state == "faulted":
                 break
     finally:

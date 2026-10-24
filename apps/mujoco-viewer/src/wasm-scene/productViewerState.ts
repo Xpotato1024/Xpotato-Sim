@@ -14,6 +14,7 @@ import { emptyForcePresentation, type ForcePresentation } from "./forcePresentat
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
 import { parseGamepadTriggerPresentation, type GamepadTriggerPresentation } from "../app/gamepadTriggerPresentation.js";
 import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
+import {parseDeviceInputPresentation,type DeviceInputPresentation} from "../input/deviceInputPresentation.js";
 import type { JointDisplayLayout } from "./jointPresentation.js";
 import { formatQpos } from "./mujocoQposSync.js";
 import type { ViewerFrameTimingSnapshot } from "./viewerFrameTiming.js";
@@ -37,6 +38,7 @@ export interface ProductViewerInputOverlayState {
   endpointPresentation: EndpointPresentationState;
   sourceKind: string;
   rawSignal: RawInputSignal | null;
+  deviceNormalized?: DeviceInputPresentation | null;
   intentKind: string | null;
   inputContinuity: string | null;
   sourceActive: boolean;
@@ -346,6 +348,7 @@ function parseInputOverlayState(
     endpointPresentation: buildEndpointPresentationState(metadata),
     sourceKind: typeof metadata.source_kind === "string" ? metadata.source_kind : "n/a",
     rawSignal: isPayload ? parseRawInputSignal(metadata.input_signal_v1, payloadOrMetadata.frame_index, payloadOrMetadata.time_s) : null,
+    deviceNormalized: parseDeviceInputPresentation(metadata.selfrionette_device_input_v1),
     intentKind: parseOptionalString(metadata.intent_kind),
     inputContinuity: parseOptionalString(metadata.input_continuity),
     sourceActive: metadata.source_active === true,

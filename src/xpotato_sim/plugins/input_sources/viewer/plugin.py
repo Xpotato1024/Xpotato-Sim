@@ -28,6 +28,8 @@ from xpotato_sim.runtime.experiment.input_source import (
     InputSourcePlugin,
 )
 from xpotato_sim.schemas import RawInputFrame
+from xpotato_sim.plugins.input_sources.viewer.session import GamepadSessionSource
+from xpotato_sim.runtime.experiment.session_input import InputSourceSessionBinding
 
 
 _SAFE_ENDPOINT = viewer.DEFAULT_VIEWER_SAFE_ENDPOINT_M
@@ -95,6 +97,7 @@ INPUT_SOURCE_PLUGIN = InputSourcePluginRegistration(
     cli_aliases=("viewer",),
     request_builder=_request,
     execution_adapter=VIEWER_LOCAL_ENDPOINT_EXECUTION_ADAPTER,
+    session_bindings=(InputSourceSessionBinding("gamepad/v1", "viewer_gamepad_sample/v1", GamepadSessionSource),),
 )
 
 

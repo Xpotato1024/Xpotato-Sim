@@ -49,7 +49,7 @@ class EndpointVelocity:
 
 @dataclass(frozen=True, slots=True)
 class CoordinatedInput:
-    """Mapping発行の要求。未取得と新規中立測定は別。received_at_sはhost monotonic。"""
+    """Mapping発行の要求。鮮度用host receiptと任意のproducer順序時計は区別する。"""
     endpoints: tuple[EndpointVelocity, ...]
     source_epoch: str | None
     source_sequence: int | None
@@ -58,6 +58,7 @@ class CoordinatedInput:
     available: bool
     neutral: bool
     source_payload_sha256: str
+    ordering_receipt_s: float | None = None
 
     def __post_init__(self) -> None:
         if type(self.endpoints) is not tuple or not 1 <= len(self.endpoints) <= 2:
@@ -76,6 +77,8 @@ class CoordinatedInput:
             raise ValueError("unavailable input cannot prove neutral")
         number(self.source_timestamp_s, "source_timestamp_s")
         number(self.received_at_s, "received_at_s")
+        if self.ordering_receipt_s is not None:
+            number(self.ordering_receipt_s, "ordering_receipt_s")
         if (type(self.source_payload_sha256) is not str or len(self.source_payload_sha256) != 64
                 or any(c not in "0123456789abcdef" for c in self.source_payload_sha256)):
             raise ValueError("source_payload_sha256 requires lowercase SHA-256")

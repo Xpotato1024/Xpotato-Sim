@@ -52,7 +52,7 @@ def canonical(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
-def strict_json(document: bytes) -> dict:
+def strict_json(document: bytes, *, max_bytes: int = MAX_SCENE_BYTES) -> dict:
     """bounded JSONから重複key、BOM、非有限数を拒否する。"""
     def unique(pairs):
         result = {}
@@ -63,7 +63,7 @@ def strict_json(document: bytes) -> dict:
         return result
     def invalid(value):
         raise ValueError("nonfinite JSON constant")
-    if type(document) is not bytes or len(document) > MAX_SCENE_BYTES or document.startswith(b"\xef\xbb\xbf"):
+    if type(document) is not bytes or len(document) > max_bytes or document.startswith(b"\xef\xbb\xbf"):
         raise ValueError("bounded UTF-8 JSON required")
     try:
         value = json.loads(document.decode("utf-8"), object_pairs_hook=unique, parse_constant=invalid)

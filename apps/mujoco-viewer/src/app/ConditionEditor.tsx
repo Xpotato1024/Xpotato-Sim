@@ -54,14 +54,14 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
             if(d.model_configuration_digests) next.model_configuration_sha256=d.model_configuration_digests[e.target.value];
             onChange(next);
           }}>
-            {d.choices.map(v=><option key={v} value={v}>{v==="no_force_cue"?"追加接触力なし":v==="force_cue"?"反力ベクトル・法線荷重":v}</option>)}</select>:<input aria-label={path} type="number" value={value}
+            {d.choices.map(v=><option key={v} value={v}>{v==="no_force_cue"?"追加接触力なし":v==="force_cue"?"反力ベクトル・法線荷重":v}</option>)}</select>:<input aria-label={path} type={d.type==="string"?"text":"number"} value={value??""} maxLength={d.type==="string"?256:undefined}
               min={d.minimum??undefined} max={d.maximum??undefined} step={d.type==="integer"?1:"any"}
-              onChange={e=>onChange(changedCondition(condition,d.path,e.target.value===""?null:Number(e.target.value)))}/>):
+              onChange={e=>onChange(changedCondition(condition,d.path,d.type==="string"?e.target.value:e.target.value===""?null:Number(e.target.value)))}/>):
             <><input aria-label={path} disabled value={value===null?"未対応 / 未選択":String(value)} readOnly/><small>{d.reason}</small></>}
         </label>;
       })}</div>
       {index===1 && <p>物体定義の半寸法・質量・表面と、同じworld内の配置を別項目として編集します。初期貫通はnative準備時に検査します。</p>}
-      {index===2 && <p>named-model試行はviewer / gamepad/v1のみ対応。keyboard/offline/実機Sourceへの切替はこの経路では未対応です。</p>}
+      {index===2 && <p>入力は選択presetで固定します。Deviceでは個体ID・profile revision・operator条件を明示し、準備画面でtareと使用姿勢neutralを別々に確認します。</p>}
       {index===5 && <p>正式experimentのEvaluation・metricsは未対応です。接触観測Taskは診断であり、未評価を0や成功にしません。</p>}
       {index===7 && <p>通常映像と物理条件は共通です。提示条件・縮尺は準備時に固定し、試行中は変更できません。旧条件で未選択の診断表示は比較試行と区別されます。</p>}
       {index===0 && <p>model選択は表示された登録endpoint bindingも変更します。他のRobot固有寸法・gain編集はこのcatalogに公開されていません。</p>}

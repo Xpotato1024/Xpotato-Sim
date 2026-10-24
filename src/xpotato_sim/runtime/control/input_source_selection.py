@@ -143,6 +143,7 @@ def select_runtime_input_source(
     control_mapping_selection: PluginSelection | None = None,
     control_mapping_parameters: Mapping[str, object] | None = None,
     command_semantics_route_selection: VersionedIdentity | None = None,
+    source_parameters: Mapping[str, object] | None = None,
 ) -> RuntimeInputSourceSelection:
     registration = INPUT_SOURCE_CATALOG.resolve(source_name)
     plugin_selection = PluginSelection(
@@ -157,6 +158,7 @@ def select_runtime_input_source(
         samples=samples,
         preset=preset,
         replay_initial_metadata=replay_initial_metadata,
+        source_parameters=source_parameters,
     )
     source_state = build_runtime_input_source_state_from_health(
         plugin.initial_health,
