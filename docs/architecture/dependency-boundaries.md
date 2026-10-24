@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-09-28
+last_verified: 2026-10-19
 canonical_for:
   - import boundaries
 related:
@@ -98,6 +98,11 @@ Mappingに追加registration情報がない限り`mappings/registration.py`は�
 Mappingのaxis-local private shared ownerは、algorithm primitiveの
 `plugins/mappings/_continuous_endpoint_velocity.py`と、declaration / route factoryの
 `plugins/mappings/_command_routes.py`である。どちらもdiscoverable plugin entryではない。
+`plugins/mappings/_contact_resistance.py`は原力Nに対する係数とworld速度m/sの接近成分を変換する
+純粋なcommand Mapping primitiveである。scene観測と試行条件のcompositionは
+`runtime/scene/command_mapping.py`、中立初期化/commit後の原力保持は`ModelExecution`が所有する。
+generic `CoordinatedRuntime`はSource入力の検査後に注入されたcommand hookを呼ぶだけで、
+具体方式、反力取得、plugin選択、別の積分器を持たない。
 
 - `xpotato_sim.plugins.robots.discovery`は`xpotato_sim.plugins.robots`直下packageだけを列挙し、
   固定`plugin.py`の固定`ROBOT_PLUGIN`だけを読む。configuration値、robot ID、external entry pointを

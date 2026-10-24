@@ -13,6 +13,7 @@ from xpotato_sim.plugins.robots.catalog import ROBOT_CATALOG
 from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from xpotato_sim.runtime.scene.objects import ObjectInstance
 from xpotato_sim.runtime.scene.force_presentation import default_presentation, validate_presentation
+from xpotato_sim.runtime.scene.command_mapping import validate_command_mapping
 
 SCHEMA = "workbench-condition/v1"
 MAX_BYTES = 60000
@@ -31,6 +32,7 @@ def preset_condition(name, limits=None):
         "configuration": {k: raw[k] for k in ("robot", "model", "input", "mapping", "coordination", "execution")},
         "environment": raw.get("environment"), "task": raw.get("task"), "evaluation": None,
         "display_comparison": default_presentation() if p.scene_plan and p.scene_plan.dynamics else None,
+        "command_mapping": None,
         "limits": asdict(limits or TrialLimits(p.steps, wall_s=360))}
 
 
@@ -63,6 +65,8 @@ def descriptors(document):
         choices = None
         if path == ("display_comparison", "mode"):
             choices, editable = ["no_force_cue", "force_cue"], True
+        if path == ("command_mapping", "mode"):
+            choices, editable = ["baseline", "fixed_gain", "contact_dependent"], True
         if key == "motion_type":
             choices = ["fixed", "dynamic"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
             editable = True
@@ -90,10 +94,20 @@ def descriptors(document):
             unit = "単位quaternion (w,x,y,z)"
         if path[0] == "display_comparison":
             unit = "m/N" if key == "scale_m_per_n" else "N" if key == "normal_load_full_scale_n" else unit
+        if path[0] == "command_mapping":
+            unit = "N" if key == "half_gain_load_n" else "単位法線" if parent == "approach_normal_world" else unit
         if label in {"sliding_friction", "gamepad_deadzone", "neutral_threshold", "rgba", "signs"}:
             unit = "無次元"
         minimum, maximum, exclusive = None, None, False
         if editable and numeric:
+            if path[0] == "command_mapping":
+                if key in {"fixed_gain", "minimum_gain"}:
+                    minimum, maximum = 0, 1
+                elif key == "normal_match_cos_min":
+                    minimum, maximum = .99, 1
+                elif key in {"half_gain_load_n", "max_sample_age_s"}:
+                    minimum, exclusive = 0, True
+                    maximum = .2 if key == "max_sample_age_s" else None
             if path[0] == "display_comparison":
                 minimum, exclusive = 0, True
                 maximum = .2 if key == "max_sample_age_s" else 1. if key == "max_arrow_m" else None
@@ -140,13 +154,17 @@ def resolve_condition(document):
     if type(document) is not dict:
         raise ValueError("condition object required")
     document.setdefault("display_comparison", None)
-    fields(document, {"schema_version", "preset_id", "model_configuration_sha256", "configuration", "environment", "task", "evaluation", "limits", "display_comparison"}, "condition")
+    document.setdefault("command_mapping", None)
+    fields(document, {"schema_version", "preset_id", "model_configuration_sha256", "configuration", "environment", "task", "evaluation", "limits", "display_comparison", "command_mapping"}, "condition")
     if document["schema_version"] != SCHEMA or document["evaluation"] is not None:
         raise ValueError("診断条件/v1のみ対応。正式Evaluation/metricsは未対応です")
     baseline = preset_condition(document["preset_id"])
     display = validate_presentation(document["display_comparison"])
     if display is None:
         baseline["display_comparison"] = None
+    command = validate_command_mapping(document["command_mapping"])
+    # 閉じたversioned追加条件を別検証する。既存Source/Mappingのshapeは変更しない。
+    baseline["command_mapping"] = command
     robot = baseline["configuration"]["robot"]
     model = document["configuration"].get("model") if type(document["configuration"]) is dict else None
     if type(model) is not dict:
@@ -220,12 +238,14 @@ def resolve_condition(document):
         if document[key] is not None:
             raw[key] = deepcopy(document[key])
     profile = decode_launch_profile(canonical(raw), source_path=p.source_path)
-    profile = replace(profile, display_comparison_json=None if display is None else canonical(display).decode())
+    profile = replace(profile, display_comparison_json=None if display is None else canonical(display).decode(),
+        command_mapping_json=None if command is None else canonical(command).decode())
     profile = resolve_trial_profile(profile)
     limits = TrialLimits(**fields(document["limits"], set(asdict(TrialLimits(1))), "limits"))
     # normalize済み値を保存し、同じ展開済み条件をCLI/GUIへ返す。
     normalized = deepcopy(document)
     normalized["display_comparison"] = display
+    normalized["command_mapping"] = command
     normalized["configuration"]["mapping"]["parameters"] = json.loads(profile.effective_parameters_json)
     normalized["limits"] = asdict(limits)
     normalized["configuration"]["execution"] = {"steps": profile.steps, "dt_s": profile.dt_s,

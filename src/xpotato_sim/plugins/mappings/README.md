@@ -33,6 +33,11 @@ Input Sourceとschema compatibilityを検証してから呼び出す。
 intent primitive、[`_command_routes.py`](_command_routes.py)はtyped route factoryを所有する。
 どちらもdiscoverable pluginではなく、具体plugin IDを列挙しない。
 
+[`_contact_resistance.py`](_contact_resistance.py)はworld速度の接近成分だけを減衰する
+純粋なcommand Mapping primitiveを所有する。原力取得、前commitの保持、試行条件の解決は
+`runtime/scene/command_mapping.py`と`ModelExecution`へ残す。Input Sourceの正規化や
+既存Control Mapping Pluginを置き換える登録軸ではない。
+
 ## concrete pluginの追加
 
 direct-child packageへimplementation、固定entry point、README、mapping testを追加する。
