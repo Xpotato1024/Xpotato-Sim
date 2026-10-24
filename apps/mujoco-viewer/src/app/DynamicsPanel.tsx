@@ -1,7 +1,7 @@
 import type { DynamicsPresentation } from "../wasm-scene/dynamicsPresentation.js";
 /** solver由来の観測値。実機の力・安全性と混同しない。 */
-export function DynamicsPanel({value}:{value:DynamicsPresentation}){
- if(value.status==="absent")return null;
+export function DynamicsPanel({value,comparison=false}:{value:DynamicsPresentation;comparison?:boolean}){
+ if(comparison||value.status==="absent")return null;
  if(value.status!=="available")return <section className="inspector-section"><h2>動力学</h2><p>{value.reason}</p></section>;
  return <section className="inspector-section" data-testid="dynamics-panel" data-frame-index={value.frame}>
   <div className="inspector-heading"><h2>動力学・反力</h2><span className="section-kicker">DYNAMICS</span></div><p>{value.time.toFixed(3)} s · frame {value.frame}</p>

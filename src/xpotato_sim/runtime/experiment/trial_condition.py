@@ -1,7 +1,7 @@
 """旧profileの保存byteを保持し、実行fieldから別の有限試行条件を固定する。"""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 import json
 from math import isfinite
@@ -13,6 +13,7 @@ from xpotato_sim.runtime.composition.launch_profile import (
 from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from xpotato_sim.runtime.scene.objects import canonical
 from xpotato_sim.runtime.scene.force_signal import force_condition
+from xpotato_sim.runtime.scene.force_presentation import profile_presentation
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,8 @@ def resolve_trial_profile(profile: LaunchProfile) -> LaunchProfile:
     validated = decode_launch_profile(canonical(raw), source_path=profile.source_path)
     if validated.route != profile.route:
         raise ValueError("resolved execution route differs from effective profile")
-    return validated
+    display = profile_presentation(profile)
+    return replace(validated, display_comparison_json=None if display is None else canonical(display).decode())
 
 
 def semantic_parameters(profile, limits):
@@ -103,7 +105,7 @@ def semantic_parameters(profile, limits):
         "dynamics": None if scene is None or scene.dynamics is None else scene.dynamics.to_document(),
         "task": None if profile.task_selection is None else {"plugin": _selection(profile.task_selection),
             "parameters": json.loads(profile.task_parameters_json)},
-        "evaluation": None, "display_comparison": None, "physical_output": "disabled",
+        "evaluation": None, "display_comparison": profile_presentation(profile), "physical_output": "disabled",
         "force_signal": force_condition(profile),
     }
 

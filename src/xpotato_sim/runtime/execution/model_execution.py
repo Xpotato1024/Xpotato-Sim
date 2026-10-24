@@ -11,6 +11,7 @@ from xpotato_sim.runtime.control.input_source_selection import select_runtime_in
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.scene.task import GeometryTaskObservation
 from xpotato_sim.runtime.scene.force_signal import SceneForceProcessor, default_force_config, force_condition
+from xpotato_sim.runtime.scene.force_presentation import presentation_binding
 from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_message_json
 
 
@@ -51,6 +52,7 @@ class ModelExecution:
             "model_sha256": self.instance.viewer.metadata["model_sha256"],
             "epoch": epoch, "endpoint_ids": list(self.instance.provider.endpoint_ids),
             "object_ids": [obj.instance_id for obj in profile.scene_plan.manifest.objects]}
+        self.force_presentation = presentation_binding(profile, epoch, self.instance.viewer.metadata["model_sha256"])
         signal_condition = force_condition(profile)
         self.force_processor = None if signal_condition is None else SceneForceProcessor(
             model_sha256=self.instance.viewer.metadata["model_sha256"],
@@ -121,6 +123,8 @@ class ModelExecution:
         for name, value in (("gamepad_trigger_control_v1", runtime.latest_trigger_presentation),):
             if value is not None:
                 metadata[name] = value
+        if self.force_presentation is not None:
+            metadata["force_presentation_v1"] = deepcopy(self.force_presentation)
         return metadata
 
     def sample(self, frame_index, *, advance_task=False, budget_exhausted=False, stopped_reason=None):

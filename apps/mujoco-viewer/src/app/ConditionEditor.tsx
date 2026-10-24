@@ -25,13 +25,14 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
     onImport:(file:File)=>void;onExport:()=>void;onDiff:()=>void;onError:(text:string)=>void;disabled:boolean}) {
   const [advanced,setAdvanced]=useState(false);
   const [axis,setAxis]=useState(1);
-  const groups=["Robot","Environment","Input","Mapping","Task","Evaluation","有限予算"];
-  const group=(p:(string|number)[])=>p[0]==="limits"?6:p[0]==="environment"?1:p[0]==="task"?4:p[0]==="evaluation"?5:
+  const groups=["Robot","Environment","Input","Mapping","Task","Evaluation","有限予算","表示"];
+  const group=(p:(string|number)[])=>p[0]==="display_comparison"?7:p[0]==="limits"?6:p[0]==="environment"?1:p[0]==="task"?4:p[0]==="evaluation"?5:
     p[1]==="robot"||p[1]==="model"?0:p[1]==="input"?2:p[1]==="mapping"?3:6;
   const labelFor=(path:(string|number)[])=>{
     const labels:Record<string,string>={name:"登録名",version:"版",mass_kg:"質量",half_extents_m:"半寸法",position_m:"world位置",orientation_wxyz:"姿勢 wxyz",motion_type:"固定 / 可動",
       sliding_friction:"滑り摩擦",torsional_friction_m:"ねじり摩擦",rolling_friction_m:"転がり摩擦",rgba:"表示RGBA",gamepad_speed_m_s:"入力速度",gamepad_deadzone:"deadzone",gamepad_max_delta_m:"1入力の最大移動",
-      max_ticks:"有限tick数",input_wait_s:"入力待機上限",wall_s:"実時間上限",prepare_s:"準備上限",dt_s:"制御周期",physics_dt_s:"物理周期",duration_s:"診断観測期間",iterations:"solver反復数",tolerance:"solver許容値",integrator:"積分器",provider:"入力provider",evaluation:"正式Evaluation"};
+      max_ticks:"有限tick数",input_wait_s:"入力待機上限",wall_s:"実時間上限",prepare_s:"準備上限",dt_s:"制御周期",physics_dt_s:"物理周期",duration_s:"診断観測期間",iterations:"solver反復数",tolerance:"solver許容値",integrator:"積分器",provider:"入力provider",evaluation:"正式Evaluation",
+      mode:"接触力の提示",scale_m_per_n:"矢印の縮尺",max_arrow_m:"矢印長の上限",normal_load_full_scale_n:"法線荷重の表示上限",max_sample_age_s:"表示sampleの有効期間"};
     let key=String(path[path.length-1]); const component=typeof path[path.length-1]==="number";
     if(component) key=String(path[path.length-2]);
     const kind=path.includes("definitions")?"物体定義":path.includes("objects")?"world配置":path.includes("world")?"world":path.includes("model")?"モデル":"";
@@ -53,7 +54,7 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
             if(d.model_configuration_digests) next.model_configuration_sha256=d.model_configuration_digests[e.target.value];
             onChange(next);
           }}>
-            {d.choices.map(v=><option key={v}>{v}</option>)}</select>:<input aria-label={path} type="number" value={value}
+            {d.choices.map(v=><option key={v} value={v}>{v==="no_force_cue"?"追加接触力なし":v==="force_cue"?"反力ベクトル・法線荷重":v}</option>)}</select>:<input aria-label={path} type="number" value={value}
               min={d.minimum??undefined} max={d.maximum??undefined} step={d.type==="integer"?1:"any"}
               onChange={e=>onChange(changedCondition(condition,d.path,e.target.value===""?null:Number(e.target.value)))}/>):
             <><input aria-label={path} disabled value={value===null?"未対応 / 未選択":String(value)} readOnly/><small>{d.reason}</small></>}
@@ -62,6 +63,7 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
       {index===1 && <p>物体定義の半寸法・質量・表面と、同じworld内の配置を別項目として編集します。初期貫通はnative準備時に検査します。</p>}
       {index===2 && <p>named-model試行はviewer / gamepad/v1のみ対応。keyboard/offline/実機Sourceへの切替はこの経路では未対応です。</p>}
       {index===5 && <p>正式experimentのEvaluation・metricsは未対応です。接触観測Taskは診断であり、未評価を0や成功にしません。</p>}
+      {index===7 && <p>通常映像と物理条件は共通です。提示条件・縮尺は準備時に固定し、試行中は変更できません。旧条件で未選択の診断表示は比較試行と区別されます。</p>}
       {index===0 && <p>model選択は表示された登録endpoint bindingも変更します。他のRobot固有寸法・gain編集はこのcatalogに公開されていません。</p>}
       {index===0 && <p>endpoint binding: {JSON.stringify(condition.configuration.coordination.side_to_endpoint)}</p>}
     </fieldset>)}

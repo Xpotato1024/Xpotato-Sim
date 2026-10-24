@@ -142,6 +142,7 @@ class LaunchProfile:
     scene_plan: ModelScenePlan | None = None
     task_selection: PluginSelection | None = None
     task_parameters_json: str = "{}"
+    display_comparison_json: str | None = None
 
     @property
     def side_to_endpoint(self) -> dict[str, str]:

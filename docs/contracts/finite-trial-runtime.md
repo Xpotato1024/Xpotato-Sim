@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-03
+last_verified: 2026-10-19
 canonical_for:
   - finite model trial condition lifecycle and local result
 related:
@@ -29,7 +29,8 @@ providerが公開する関節・actuator・controller数値条件をcanonical JS
 変更済みfieldを古い`document_json`や`effective_parameters_json`で置き換えない。矛盾するroute/providerは拒否する。
 不変のJSON bytesを保存し、閲覧用objectはcopyとする。host/port/workspace/result root、旧profile epoch、trial ID、
 profile名・保存pathは意味digestへ含めない。元profileのcanonical bytesとSHA-256は別のprovenanceとして保持する。
-Evaluation、表示比較条件、participant、seedによる乱数試験は本経路で選択せず、未評価を明示する。
+Evaluation、participant、seedによる乱数試験は本経路で選択せず、未評価を明示する。
+dynamic sceneの追加接触力表示は、以下の限定したversion付き比較条件を選択できる。
 sceneがある場合の`force_signal`は、明示した手先・Task対象物集合、world/N/作用方向、
 filter設定、観測位相を固定する。signalはcontrol commitの最後のsubstep後に取得し、
 表示間引き値を全区間のforce最大値や正式metricにしない。詳細は[反力signal契約](virtual-reaction-force.md)。
@@ -75,7 +76,27 @@ browserのsource timestampは同source内の順序検査用で、host receiptへ
 resetは全object/Robotのqpos/qvel/actuator/control/time・warmstart等をhomeへ戻し、pending ticketを無効化する。
 Source/Mapping/Task/filter/dwell/timerは新しい試行objectに置換し、前試行への参照を解放する。
 model、固定asset、FK/candidate用MjDataは再利用可能。runnerは最新結果1件、入力1件、pending ticket1件までを保持し、
-過去trial列・旧epoch列・frame列を蓄積しない。条件変更は旧execution参照を解放して再構築する。
+過去trial列・旧epoch列・frame列を蓄積しない。実行条件変更は旧execution参照を解放して再構築する。
+表示比較だけの変更では同じnative modelを再利用し、新しい実行ownerとepochで全状態をresetする。
+
+## 接触力の表示比較条件
+
+展開済み`workbench-condition/v1.display_comparison`の`force-presentation/v1`をCLI/GUIの共通resolverで検証する。
+dynamic presetの新しい展開条件は`no_force_cue`を既定とし、`force_cue`は同じ物理・入力・Mapping・Task条件の
+表示だけを変える。legacy exportでfieldが欠落する場合はnullへ正規化し、従来の診断表示として区別する。
+kinematic、未知mode、未知field、非有限/非正のscaleは比較条件として拒否する。
+
+`trial-condition/v1.display_comparison`は`presentation`と`viewer`を保持する。presentationのversion、mode、
+固定縮尺・飽和上限・sample有効期間と、viewerのmode/source/build SHA-256を開始前にcondition digestへ固定する。
+productionは現在source/lockと全固定build assetの既存検証を通したidentityだけを記録する。
+明示dev serverは`development`、有限CLIとrun-onceは`headless`とし、検証済みproduction digestへ置換しない。
+これらのviewer modeは別condition digestになり、開発表示をproduction比較結果へ読み替えない。
+
+active中のprepare/編集は既存のrunner/Workbench gateで拒否する。切替は停止・新condition/trial/epoch・再準備を必要とする。
+元launch JSONのbyteを変更せず、追加の実効field`LaunchProfile.display_comparison_json`から検証済み条件を取り出す。
+backendは`force-presentation-binding/v1`をmodel/scene/settings/epochへ束縛して各payloadへ投影する。
+raw dynamics取得、派生signal、物理step、Task、有限結果の保存は表示modeへ依存しない。
+連続raw/derived/presentation evidenceの永続保存や正式Evaluationは既存の後続課題として残る。
 
 ## ローカル結果
 

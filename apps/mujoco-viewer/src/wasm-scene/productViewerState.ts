@@ -10,6 +10,7 @@ import {
   type ContactTaskPresentationV1,
 } from "../contact/contactTaskLog.js";
 import type { DynamicsPresentation } from "./dynamicsPresentation.js";
+import { emptyForcePresentation, type ForcePresentation } from "./forcePresentation.js";
 import { parseRawInputSignal, normalizedAxes, pressedGamepadButtons, type RawInputSignal } from "../app/instrumentPresentation.js";
 import { parseGamepadTriggerPresentation, type GamepadTriggerPresentation } from "../app/gamepadTriggerPresentation.js";
 import type { SceneContactPresentation } from "../contact/sceneContactPresentation.js";
@@ -98,6 +99,7 @@ export interface ProductViewerState {
   endpointEvaluation: TransportEndpointEvaluationPayload | null;
   sceneContactPresentation: SceneContactPresentation;
   dynamicsPresentation: DynamicsPresentation;
+  forcePresentation: ForcePresentation;
   contactTaskPresentation: ContactTaskPresentationV1;
   contactTaskInputSource: ContactTaskInputSource;
   inputOverlay: ProductViewerInputOverlayState | null;
@@ -156,6 +158,7 @@ export function createInitialProductViewerState(profile?: ViewerRobotProfile): P
     endpointEvaluation: null,
     sceneContactPresentation: {status: "absent", reason: "幾何接触診断は未選択"},
     dynamicsPresentation: {status:"absent",reason:"動力学は未選択"},
+    forcePresentation: emptyForcePresentation(),
     contactTaskPresentation: unavailableContactTaskPresentation("No contact task log or metadata loaded."),
     contactTaskInputSource: "none",
     inputOverlay: null,
@@ -200,7 +203,7 @@ export function formatViewerStatusText(state: ProductViewerState): string {
     `contact task status: ${contact.status}`,
     `contact task input: ${state.contactTaskInputSource}`,
     `contact declared source: ${contact.sourceKind ?? "unavailable"}`,
-    `contact derived force: ${contactForce}`,
+    `contact derived force: ${state.forcePresentation.comparison ? "比較条件により旧診断cueを非表示" : contactForce}`,
     `contact unavailable reason: ${contact.reason ?? "none"}`,
     `input overlay: ${inputOverlay}`,
     `latest received frame: ${viewerTiming?.latestReceivedFrameIndex ?? "n/a"}`,

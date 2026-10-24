@@ -32,6 +32,7 @@ declare module "three" {
     x: number;
     y: number;
     z: number;
+    set(x: number, y: number, z: number): this;
     length(): number;
     normalize(): this;
   }
@@ -128,6 +129,9 @@ declare module "three" {
 
   export class MeshBasicMaterial {
     constructor(parameters?: Record<string, unknown>);
+    depthTest: boolean;
+    depthWrite: boolean;
+    transparent: boolean;
     dispose(): void;
   }
 
@@ -143,6 +147,9 @@ declare module "three" {
 
   export class LineBasicMaterial {
     constructor(parameters?: Record<string, unknown>);
+    depthTest: boolean;
+    depthWrite: boolean;
+    transparent: boolean;
     dispose(): void;
   }
 
@@ -157,6 +164,8 @@ declare module "three" {
   }
 
   export class ArrowHelper extends Object3D {
+    line: Line & {material: LineBasicMaterial};
+    cone: Mesh & {material: MeshBasicMaterial};
     constructor(
       direction: Vector3,
       origin: Vector3,
@@ -166,6 +175,8 @@ declare module "three" {
       headWidth?: number,
     );
     setDirection(direction: Vector3): void;
+    setLength(length: number, headLength?: number, headWidth?: number): void;
+    setColor(color: unknown): void;
   }
 
   export class Object3D {

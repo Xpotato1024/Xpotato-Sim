@@ -271,7 +271,9 @@ def test_build_identity_rejects_missing_old_source_and_tampered_output(tmp_path)
     identity = {"schema_version":"workbench-build/v1","source_sha256":source,
         "assets":{p.relative_to(root).as_posix():sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}}
     (root/"workbench-build.json").write_text(json.dumps(identity))
-    verify_build_identity(root, workspace)
+    verified = verify_build_identity(root, workspace)
+    assert verified == {"mode":"production", "source_sha256":source,
+        "build_sha256":sha256(json.dumps(identity,sort_keys=True,separators=(",", ":")).encode()).hexdigest()}
     (app/"src/main.ts").write_bytes(b"changed source")
     with pytest.raises(ValueError,match="現在source/lock"):verify_build_identity(root, workspace)
     (app/"src/main.ts").write_bytes(b"src/main.ts")
