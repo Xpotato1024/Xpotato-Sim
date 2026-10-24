@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from collections import deque
+from math import isfinite
 from pathlib import Path
 from queue import Empty, Full, Queue
 import subprocess
 from threading import Thread
-from time import monotonic
+from time import get_clock_info, monotonic
 
 from xpotato_sim.runtime.composition.input_sessions import resolve_source_session
 from xpotato_sim.plugins.input_sources.selfrionette_device.source import (
@@ -54,6 +55,14 @@ class BridgeProcess:
     def __init__(self, executable, *, role, expected_revision, config, clock=monotonic,
                  process_factory=subprocess.Popen):
         self.role, self.expected_revision, self.clock = role, expected_revision, clock
+        # hostの送信/受信2点の分解能とproducerの整数microsecond丸めを過去側へ確保する。
+        # 時計原点を切り替えず、Source/TrialRunnerが使うmonotonicとの対応を維持する。
+        resolution = get_clock_info("monotonic").resolution
+        if not isfinite(resolution) or resolution <= 0:
+            raise ValueError("finite positive host clock resolution required")
+        self._clock_uncertainty_s = 2 * resolution + 1e-6
+        if self._clock_uncertainty_s >= .2:
+            raise ValueError("host clock resolution exceeds Device handshake budget")
         self._events, self._commands = Queue(MAX_EVENTS), Queue(1)
         self._failure = None
         self._closed = False
@@ -189,11 +198,12 @@ class BridgeProcess:
                     _, action, sent_at = self._pending
                     self._pending = None
                     if action == "status" and self._clock_offset is None:
-                        # request sendはproducer reply emission以前。offsetは必ず過去側のbound。
-                        # 初期pipe滞留を受信時刻の差分で消さず、RTTが大きければ拒否する。
-                        if not 0 <= received_at - sent_at <= .2:
+                        # 分解能誤差を含むRTT上限を検査し、offsetも同じ余白だけ過去側へ置く。
+                        # 初期pipe滞留を受信時刻の差分で消さない。
+                        if not (0 <= received_at - sent_at
+                                and received_at - sent_at + self._clock_uncertainty_s <= .2):
                             raise TimeoutError("Device bridge clock handshake exceeded 200 ms")
-                        self._clock_offset = sent_at - emitted / 1e6
+                        self._clock_offset = sent_at - emitted / 1e6 - self._clock_uncertainty_s
                     elif action == "configure":
                         self.command("status")
             elif kind == "sample":

@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-19
+last_verified: 2026-10-24
 canonical_for:
   - normalized Selfrionette-Device input to finite simulation trials
 related:
@@ -203,15 +203,20 @@ Simは`command`をMappingへ渡す。未知・欠落field、重複JSON key、非
 
 configureの対応statusを受けた後、短い純粋な`status`を1回送る。
 要求IDをechoする返信について、Python送信時刻を`L_send`、Rust writer時刻を秒換算した値を
-`B_emit_status`とし、`C = L_send - B_emit_status`をprocessの存続中固定する。
-Python受領までのRTTは0以上200 ms以下を要求する。超過・request不一致で校正できなければreadyにしない。
+`B_emit_status`とする。hostの`monotonic`時計の分解能を`r`秒とし、送信・受信2点と
+producerの整数microsecond丸めの誤差として`U = 2 * r + 0.000001`秒を確保する。
+`C = L_send - B_emit_status - U`をprocessの存続中固定する。
+Python受領までのRTTは0以上で、`RTT + U`が200 ms以下であることを要求する。
+分解能が非有限・非正、または`U`が200 ms以上の場合はprocess起動前に拒否する。
+超過・request不一致で校正できなければreadyにしない。
 tareやneutralの長い処理でoffsetを取り直さない。
 
 sampleのPython受領時刻を`L_recv`、Rust受領・writer時刻を秒換算した値を`B_recv` / `B_emit`、
 `relative_backlog_ms / 1000`を`backlog`とすると、実装は次のageを保存する。
 
 ```text
-C = L_send - B_emit_status
+U = 2 * monotonic_clock_resolution_s + 0.000001
+C = L_send - B_emit_status - U
 source_age_s = max(
     L_recv - (C + B_recv) + backlog,
     sample_age_ms / 1000 + L_recv - (C + B_emit)
@@ -219,7 +224,9 @@ source_age_s = max(
 effective_receipt_s = L_recv - source_age_s
 ```
 
-statusのwriter時刻は要求送信より後にしか発生しないため、写像されたreceiptは保守的に過去側となる。
+statusのwriter時刻は要求送信より後にしか発生せず、さらに分解能誤差を過去側へ確保する。
+Windows / Python 3.12の15.625 ms分解能では`U`は31.251 msとなり、その分だけ入力を早く失効させる。
+hostの時計原点、元event、producer順序、200 msのSource鮮度上限は変更しない。
 初回の固定IPC滞留を最小offset推定で消さない。emission逆行、受領より後に写像されるemission、
 receiptがemissionより後のeventは拒否する。queueで待った時間も古さへ加算する。
 ADC取得から最初のhost受信までの絶対latencyはこの方法で測定できない。
