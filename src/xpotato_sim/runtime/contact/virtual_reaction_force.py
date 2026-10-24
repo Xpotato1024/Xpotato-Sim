@@ -22,6 +22,7 @@ from xpotato_sim.runtime.contact.manifest import (
     contact_manifest_digest,
 )
 from xpotato_sim.runtime.contact.task_contract import ContactTrialIdentity
+from xpotato_sim.runtime.contact.force_filter import ForceVectorFilter
 
 
 VIRTUAL_REACTION_FORCE_SCHEMA_VERSION: Final[str] = "virtual-reaction-force/v1"
@@ -678,9 +679,7 @@ class VirtualReactionForceProcessor:
         self._last_sample_time_s: float | None = None
         self._last_simulation_time_s: float | None = None
         self._last_frame_index: int | None = None
-        self._window: list[tuple[float, float, float]] = []
-        self._low_pass: tuple[float, float, float] | None = None
-        self._last_output: tuple[float, float, float] | None = None
+        self._filter = ForceVectorFilter()
 
     def reset(self, trial: ContactTrialIdentity | None = None) -> None:
         """trial境界で時計と全filter stateを破棄する。"""
@@ -694,9 +693,7 @@ class VirtualReactionForceProcessor:
         self._last_frame_index = None
 
     def _clear_filter_state(self) -> None:
-        self._window.clear()
-        self._low_pass = None
-        self._last_output = None
+        self._filter.reset()
 
     def _record_clock(self, evidence: ContactEvidence) -> None:
         self._last_sample_time_s = evidence.sample_time_s
@@ -972,74 +969,10 @@ class VirtualReactionForceProcessor:
             rotation = self._rotation_for_sample(world_to_output_rotation)
             assert rotation is not None
             raw_output = _apply_rotation(rotation, raw_world)
-            magnitude = _magnitude(raw_output)
-            if not math.isfinite(magnitude):
-                raise VirtualReactionForceError("raw contact force magnitude is invalid")
-            deadbanded = magnitude > 0.0 and magnitude <= self.manifest.config.deadband_n
-            filtered_input = _ZERO3 if magnitude <= self.manifest.config.deadband_n else raw_output
-            self._window.append(filtered_input)
-            if len(self._window) > self.manifest.config.smoothing_window_samples:
-                del self._window[0]
-            smoothed = tuple(
-                math.fsum(sample_value[axis] for sample_value in self._window)
-                / len(self._window)
-                for axis in range(3)
-            )
-            filtered = (
-                self.manifest.config.smoothing_window_samples > 1
-                or self.manifest.config.low_pass_time_constant_s > 0.0
-            )
-
-            time_constant = self.manifest.config.low_pass_time_constant_s
-            if time_constant == 0.0:
-                low_pass = _clean_vector(smoothed)
-            elif self._low_pass is None or sample_delta is None:
-                low_pass = _clean_vector(smoothed)
-            else:
-                alpha = 1.0 - math.exp(-sample_delta / time_constant)
-                low_pass = _clean_vector(
-                    tuple(
-                        self._low_pass[axis]
-                        + alpha * (smoothed[axis] - self._low_pass[axis])
-                        for axis in range(3)
-                    )
-                )
-            self._low_pass = low_pass
-            output = low_pass
-            rate_limited = False
-            rate_limit = self.manifest.config.rate_limit_n_per_s
-            if (
-                rate_limit is not None
-                and self._last_output is not None
-                and sample_delta is not None
-            ):
-                delta = tuple(output[axis] - self._last_output[axis] for axis in range(3))
-                delta_magnitude = _magnitude(delta)
-                permitted_delta = rate_limit * sample_delta
-                if not math.isfinite(permitted_delta):
-                    raise VirtualReactionForceError("rate-limit interval is invalid")
-                if delta_magnitude > permitted_delta and delta_magnitude > 0.0:
-                    scale = permitted_delta / delta_magnitude
-                    output = _clean_vector(
-                        tuple(
-                            self._last_output[axis] + delta[axis] * scale
-                            for axis in range(3)
-                        )
-                    )
-                    rate_limited = True
-
-            clamped = False
-            maximum = self.manifest.config.magnitude_clamp_n
-            output_magnitude = _magnitude(output)
-            if not math.isfinite(output_magnitude):
-                raise VirtualReactionForceError("filtered force magnitude is invalid")
-            if maximum is not None and output_magnitude > maximum:
-                scale = maximum / output_magnitude
-                output = _clean_vector(
-                    tuple(component * scale for component in output)
-                )
-                clamped = True
-            output = _clean_vector(output)
+            processed = self._filter.apply(raw_output, config=self.manifest.config, sample_delta=sample_delta)
+            output = processed.force
+            filtered, deadbanded = processed.filtered, processed.deadbanded
+            rate_limited, clamped = processed.rate_limited, processed.clamped
         except (OverflowError, ValueError) as exc:
             self._clear_filter_state()
             return self._signal(
@@ -1052,7 +985,6 @@ class VirtualReactionForceProcessor:
                 raw_world=raw_world,
                 reason=f"virtual reaction-force computation failed: {exc}",
             )
-        self._last_output = output
         return self._signal(
             trial=trial,
             status=VirtualReactionForceStatus.ACTIVE,

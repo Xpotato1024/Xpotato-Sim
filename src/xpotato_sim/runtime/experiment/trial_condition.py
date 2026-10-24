@@ -12,6 +12,7 @@ from xpotato_sim.runtime.composition.launch_profile import (
 )
 from xpotato_sim.runtime.experiment.contracts import PluginSelection
 from xpotato_sim.runtime.scene.objects import canonical
+from xpotato_sim.runtime.scene.force_signal import force_condition
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +104,7 @@ def semantic_parameters(profile, limits):
         "task": None if profile.task_selection is None else {"plugin": _selection(profile.task_selection),
             "parameters": json.loads(profile.task_parameters_json)},
         "evaluation": None, "display_comparison": None, "physical_output": "disabled",
+        "force_signal": force_condition(profile),
     }
 
 

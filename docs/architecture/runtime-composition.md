@@ -445,3 +445,8 @@ consumerの変更で書き換えない。Mappingの検証済みtrigger表示はJ
 encode/decodeを行わない。wireと保存結果のfield・値・分類は維持する。
 同一frameのGUIは既存publisher/rendererを使い、別のphysics service・device取得・hardware出力を増やさない。
 設計比較と停止意味は[設計記録](../design/adr/2026-09-28-scene-dynamics-ownership.md)を参照する。
+
+`scene/force_signal.py`は同じdynamic observationから手先・対象別のsoftware反力を導出する。
+ModelExecutionがtrial/epochとcommit寿命を束ね、Taskは引き続きraw ownerの観測を使う。
+`contact/force_filter.py`は旧R7-Hと新sceneの共通filter primitiveだけを所有し、
+scene、Task、native physics、表示をimportしない。表示再取得によるfilter更新や追加physicsは行わない。

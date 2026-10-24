@@ -10,6 +10,7 @@ from xpotato_sim.runtime.composition.coordinated_input import CoordinatedInputRu
 from xpotato_sim.runtime.control.input_source_selection import select_runtime_input_source
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.scene.task import GeometryTaskObservation
+from xpotato_sim.runtime.scene.force_signal import SceneForceProcessor, default_force_config, force_condition
 from xpotato_sim.schemas import ViewerControlMessage, parse_viewer_control_message_json
 
 
@@ -50,6 +51,15 @@ class ModelExecution:
             "model_sha256": self.instance.viewer.metadata["model_sha256"],
             "epoch": epoch, "endpoint_ids": list(self.instance.provider.endpoint_ids),
             "object_ids": [obj.instance_id for obj in profile.scene_plan.manifest.objects]}
+        signal_condition = force_condition(profile)
+        self.force_processor = None if signal_condition is None else SceneForceProcessor(
+            model_sha256=self.instance.viewer.metadata["model_sha256"],
+            scene_digest=profile.scene_plan.manifest.digest,
+            settings_digest=None if profile.scene_plan.dynamics is None else profile.scene_plan.dynamics.digest,
+            endpoint_ids=tuple(signal_condition["endpoint_ids"]),
+            object_ids=tuple(self.scene_binding["object_ids"]),
+            target_object_ids=tuple(signal_condition["target_object_ids"]),
+            config=default_force_config(profile.max_input_age_s))
 
     def reset(self, epoch):
         """modelを保持し、全dataとSource/Mapping/Taskの試行参照を置換する。"""
@@ -133,6 +143,14 @@ class ModelExecution:
             metadata = {**state.metadata, "scene_dynamics_v1": sample.dynamics}
         else:
             metadata = dict(state.metadata)
+        if self.force_processor is not None:
+            signal = self.force_processor.process(sample.dynamics, epoch=self.epoch,
+                tick=self.tick_count, frame_index=frame_index,
+                simulation_time_s=state.time_s, now_s=self.clock())
+            if self.state != "running":
+                self.force_processor.invalidate(self.reason or self.state)
+                signal = self.force_processor.latest
+            metadata["scene_force_signal_v1"] = signal.to_document()
         if self.task_binding is not None:
             geometry = sample.geometry
             if (geometry is None or geometry.model_sha256 != snapshot.model_sha256
@@ -146,6 +164,8 @@ class ModelExecution:
                 self.task_view = dict(transition.evidence.require(self.task_event).value)
                 if transition.classification is not TaskTerminalClassification.RUNNING:
                     self.stop()
+                    if self.force_processor is not None:
+                        metadata["scene_force_signal_v1"] = self.force_processor.latest.to_document()
                     metadata.update({
                         "motion_status": self.runtime.runtime.state, "source_active": False,
                         "coordinated_runtime_v1": {**metadata["coordinated_runtime_v1"],
@@ -162,3 +182,5 @@ class ModelExecution:
         """未commit候補を無効化する。Task結果の判定は変更しない。"""
         self.runtime.stop()
         self.state, self.reason = self.runtime.runtime.state, self.runtime.runtime.reason
+        if self.force_processor is not None:
+            self.force_processor.invalidate(self.reason or self.state)
