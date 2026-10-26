@@ -53,6 +53,18 @@ def compose_object_scene(request: ObjectSceneBuildRequest) -> ComposedObjectScen
             if not modern:
                 raise ValueError("dynamic object requires explicit world")
             ET.SubElement(body,"freejoint",{"name":body_name+"__free","align":"false"})
+        if obj.spring is not None:
+            if not modern or request.dynamics is None:
+                raise ValueError("spring requires dynamic execution and explicit world")
+            s = obj.spring
+            ET.SubElement(body, "joint", {"name": body_name+"__spring", "type": "slide",
+                "axis": xml_values(s.axis), "stiffness": str(s.stiffness_n_m),
+                "damping": str(s.damping_n_s_m), "springref": "0", "limited": "true",
+                "range": xml_values(s.range_m)})
+            ET.SubElement(world, "geom", {"name": body_name+"__base", "type": "box",
+                "pos": xml_values(obj.position_m), "quat": xml_values(obj.orientation_wxyz),
+                "size": xml_values(tuple(v*1.1 for v in spec.half_extents_m)),
+                "rgba": "0.3 0.3 0.3 0.2", "contype": "0", "conaffinity": "0"})
         # fixedの質量を無限大にしない。worldへの固定はjointを持たないことで表す。
         ET.SubElement(body, "inertial", {"pos":"0 0 0","mass":str(spec.mass_kg),"diaginertia":xml_values(spec.diagonal_inertia_kg_m2)})
         ET.SubElement(body, "geom", {"name":geom_name,"type":"box","size":xml_values(spec.half_extents_m),

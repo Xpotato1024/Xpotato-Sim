@@ -70,6 +70,7 @@ def execution_worker(url, config):
             if receipt - json.loads(message)["source_age_s"] >= runner.input_accepting_monotonic_s)
     def state():
         return {"phase": runner.status, "ticket": None if runner.ticket is None else asdict(runner.ticket),
+            "session_mode": runner.session_mode,
             "ticks": runner.tick_count, "profile_id": None if profile is None else profile.name,
             "simulation_time_s": runner.tick_count * profile.dt_s if profile else 0.0,
             "result": None if runner.result is None else runner.result.to_document(), "error": runner.error,
@@ -205,7 +206,7 @@ def execution_worker(url, config):
                         if application_input is not None:
                             application_input.close()
                             application_input = None
-                        runner.prepare(profile, limits)
+                        runner.prepare(profile, limits, session_mode=cmd.get("session_mode", "experiment"))
                         if fixture is None:
                             application_input = create_application_input(profile, config.get("device_connection"))
                         applied_condition = candidate

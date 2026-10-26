@@ -71,7 +71,8 @@ def profile_catalog():
                 raise ValueError("旧形式v1はWorkbench対象外です。既存のapp/replay経路で利用してください")
             p = resolve_trial_profile(p)
             result.append({"id": name, "available": True, "reason": None,
-                "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps})
+                "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps,
+                "input_provider": p.provider_id})
         except Exception as exc:
             result.append({"id": name, "available": False, "reason": str(exc)})
     return result
@@ -239,6 +240,8 @@ class WorkbenchControl:
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
             fields.add("profile_id")
+            if "session_mode" in r:
+                fields.add("session_mode")
             if "condition" in r:
                 fields.add("condition")
         if op == "device":
@@ -264,6 +267,8 @@ class WorkbenchControl:
         if op != "stop" and self.busy:
             raise ValueError("処理中です")
         if op == "prepare":
+            if r.get("session_mode", "experiment") not in {"experiment", "demo"}:
+                raise ValueError("実験またはデモを選択してください")
             if phase not in {"unselected", "ready", "terminal", "faulted", "recording_failed"}:
                 raise ValueError("停止中の正常なownerだけが準備できます")
             if not any(p["id"] == r["profile_id"] and p["available"] for p in self.catalog):
@@ -323,5 +328,5 @@ class WorkbenchControl:
         rid = event.get("id")
         self.complete(rid, event.get("error"))
         result = self.state.get("result")
-        if result and not any(x["trial_id"] == result["trial_id"] for x in self.results):
+        if result and result.get("recording") != "disabled_demo" and not any(x["trial_id"] == result["trial_id"] for x in self.results):
             self.results.append(result)

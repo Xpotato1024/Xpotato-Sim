@@ -114,8 +114,10 @@ def test_120_native_trials_keep_owners_and_workspaces_bounded(tmp_path,monkeypat
     assert construction=={"factory":1,"native_model":native_after_prepare}
     assert len(list(tmp_path.iterdir()))==120
     assert all({p.name for p in directory.iterdir()}=={
-        "condition.json","initial-state.json","start.json","final-state.json","terminal.json"}
+        "condition.json","initial-state.json","start.json","final-state.json","terminal.json","samples.jsonl"}
         for directory in tmp_path.iterdir())
+    from xpotato_sim.runtime.experiment.continuous_record import comparison_metrics
+    assert all(comparison_metrics(directory)["ticks"] == 2 for directory in tmp_path.iterdir())
     warm=[p for p in phases if p["phase"] in {"after_20","after_40","after_80","after_120"}]
     for key in ("asset_count","asset_bytes","pending_tickets","retained_epochs","retained_source_epochs","input_slots",
                 "native_model_slots","native_data_slots"):

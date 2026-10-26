@@ -1,0 +1,97 @@
+{
+  "schema_version": "object-scene-preset/v2",
+  "scene_id": "compression_spring",
+  "definition_resources": [
+    "test_cube_100mm"
+  ],
+  "objects": [
+    {
+      "instance_id": "cube",
+      "definition": {
+        "name": "test_cube_100mm",
+        "version": 1
+      },
+      "motion_type": "spring",
+      "pose": {
+        "frame": "mujoco_world",
+        "position_m": [
+          0.24,
+          -0.36,
+          0.28
+        ],
+        "orientation_wxyz": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "spring": {
+        "damping_n_s_m": 2,
+        "axis": [
+          0,
+          -1,
+          0
+        ],
+        "range_m": [
+          0,
+          0.05
+        ],
+        "initial_displacement_m": 0,
+        "initial_velocity_m_s": 0,
+        "stiffness_n_m": 100
+      }
+    }
+  ],
+  "contact": {
+    "margin_m": 0.0,
+    "condim": 3,
+    "solref": [
+      0.02,
+      1.0
+    ],
+    "solimp": [
+      0.9,
+      0.95,
+      0.001,
+      0.5,
+      2.0
+    ],
+    "initial_penetration_tolerance_m": 1E-06
+  },
+  "world": {
+    "frame": "mujoco_world",
+    "gravity_m_s2": [
+      0,
+      0,
+      -9.81
+    ],
+    "support_planes": [
+      {
+        "plane_id": "floor",
+        "position_m": [
+          0,
+          0,
+          0
+        ],
+        "orientation_wxyz": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "friction": [
+          0.8,
+          0,
+          0
+        ],
+        "rgba": [
+          0.35,
+          0.4,
+          0.45,
+          1
+        ]
+      }
+    ]
+  }
+}

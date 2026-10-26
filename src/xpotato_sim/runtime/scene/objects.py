@@ -8,6 +8,7 @@ import re
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .world import WorldPhysics
+    from .spring import SpringAxis
 
 MAX_OBJECTS = 32
 MAX_SCENE_BYTES = 262144
@@ -140,6 +141,7 @@ class ObjectInstance:
     motion_type: str = "fixed"
     initial_linear_velocity_m_s: tuple[float, float, float] = (0.,0.,0.)
     initial_angular_velocity_rad_s: tuple[float, float, float] = (0.,0.,0.)
+    spring: SpringAxis | None = None
 
     def __post_init__(self):
         identifier(self.instance_id); identifier(self.definition_id)
@@ -150,8 +152,13 @@ class ObjectInstance:
         if abs(sqrt(sum(v*v for v in q)) - 1) > 1e-9:
             raise ValueError("unit wxyz quaternion required")
         object.__setattr__(self, "orientation_wxyz", q)
-        if self.motion_type not in ("fixed", "dynamic"):
+        if self.motion_type not in ("fixed", "dynamic", "spring"):
             raise ValueError("explicit fixed/dynamic motion required")
+        from .spring import SpringAxis
+        if (self.motion_type == "spring") != (type(self.spring) is SpringAxis):
+            raise ValueError("spring motion requires typed SpringAxis exclusively")
+        if self.motion_type == "spring" and any(self.initial_linear_velocity_m_s+self.initial_angular_velocity_rad_s):
+            raise ValueError("spring velocity belongs to the axial state")
         for key in ("initial_linear_velocity_m_s", "initial_angular_velocity_rad_s"):
             object.__setattr__(self,key,vector(getattr(self,key),3))
         if self.motion_type=="fixed" and any(self.initial_linear_velocity_m_s+self.initial_angular_velocity_rad_s):
@@ -160,7 +167,9 @@ class ObjectInstance:
     @classmethod
     def motion_templates(cls):
         """editorの明示motion遷移を、同じObjectInstance初期値契約から公開する。"""
-        return {"fixed": {}, "dynamic": {"initial_velocity": {"frame": "mujoco_world",
+        return {"spring": {"spring": {"axis": [0.,-1.,0.], "stiffness_n_m": 100.,
+            "damping_n_s_m": 2., "range_m": [0.,.05], "initial_displacement_m": 0.,
+            "initial_velocity_m_s": 0.}}, "fixed": {}, "dynamic": {"initial_velocity": {"frame": "mujoco_world",
             "linear_m_s": list(cls.__dataclass_fields__["initial_linear_velocity_m_s"].default),
             "angular_rad_s": list(cls.__dataclass_fields__["initial_angular_velocity_rad_s"].default)}}}
 
@@ -169,7 +178,8 @@ class ObjectInstance:
         return {"instance_id": self.instance_id, "definition": {"name": self.definition_id, "version": self.definition_version},
             "motion_type": self.motion_type, "pose": {"frame": "mujoco_world", "position_m": self.position_m,
             "orientation_wxyz": self.orientation_wxyz},
-            **({} if self.motion_type=="fixed" else {"initial_velocity": {
+            **({"spring": self.spring.to_document()} if self.spring is not None else {}),
+            **({} if self.motion_type!="dynamic" else {"initial_velocity": {
                 "frame":"mujoco_world","linear_m_s":self.initial_linear_velocity_m_s,
                 "angular_rad_s":self.initial_angular_velocity_rad_s}})}
 
@@ -177,18 +187,23 @@ class ObjectInstance:
     def from_document(cls, raw, *, allow_dynamic=False):
         """旧v1の意味は維持し、v2でだけdynamic初期状態を受理する。"""
         dynamic = type(raw) is dict and raw.get("motion_type")=="dynamic"
+        spring = type(raw) is dict and raw.get("motion_type")=="spring"
         extra = {"initial_velocity"} if dynamic and allow_dynamic else set()
+        if spring and allow_dynamic:
+            extra.add("spring")
         raw = fields(raw, {"instance_id", "definition", "motion_type", "pose"}|extra, "instance")
         d = fields(raw["definition"], {"name", "version"}, "definition reference")
         p = fields(raw["pose"], {"frame", "position_m", "orientation_wxyz"}, "pose")
-        if p["frame"]!="mujoco_world" or (dynamic and not allow_dynamic):
+        if p["frame"]!="mujoco_world" or ((dynamic or spring) and not allow_dynamic):
             raise ValueError("diagnostic requires fixed world-frame instances; dynamic execution is separate")
         velocity = fields(raw["initial_velocity"],{"frame","linear_m_s","angular_rad_s"},"initial velocity") if dynamic else None
         if velocity is not None and velocity["frame"]!="mujoco_world":
             raise ValueError("world initial velocity required")
+        from .spring import SpringAxis
         return cls(raw["instance_id"],d["name"],d["version"],p["position_m"],p["orientation_wxyz"],raw["motion_type"],
             (0.,0.,0.) if velocity is None else velocity["linear_m_s"],
-            (0.,0.,0.) if velocity is None else velocity["angular_rad_s"])
+            (0.,0.,0.) if velocity is None else velocity["angular_rad_s"],
+            SpringAxis.from_document(raw["spring"]) if spring else None)
 
 
 @dataclass(frozen=True, slots=True)

@@ -68,7 +68,7 @@ def descriptors(document):
         if path == ("command_mapping", "mode"):
             choices, editable = ["baseline", "fixed_gain", "contact_dependent"], True
         if key == "motion_type":
-            choices = ["fixed", "dynamic"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
+            choices = ["fixed", "dynamic", "spring"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
             editable = True
         if path == ("configuration", "model", "name"):
             choices = [m.identity.name for m in models]
@@ -185,6 +185,10 @@ def resolve_condition(document):
         if type(objects) is not list:
             raise ValueError("bounded object array required")
         for actual, expected in zip(objects, baseline["environment"]["parameters"]["scene"]["objects"]):
+            if type(actual) is dict:
+                expected.pop("spring", None)
+                expected.pop("initial_velocity", None)
+                expected.update(ObjectInstance.motion_templates().get(actual.get("motion_type"), {}))
             if type(actual) is dict and actual.get("motion_type") == "fixed":
                 expected.pop("initial_velocity", None)
             elif type(actual) is dict and actual.get("motion_type") == "dynamic" and "initial_velocity" not in expected:

@@ -124,7 +124,9 @@ def test_common_route_records_resets_and_reuses_model(tmp_path, name):
     assert result["runner_stop_reason"] == "simulation_budget"
     assert runner.snapshot().time_s > 0
     files = {p.name: p.read_bytes() for p in (tmp_path / ticket.trial_id).iterdir()}
-    assert set(files) == {"condition.json", "initial-state.json", "start.json", "final-state.json", "terminal.json"}
+    assert set(files) == {"condition.json", "initial-state.json", "start.json", "final-state.json", "terminal.json", "samples.jsonl"}
+    from xpotato_sim.runtime.experiment.continuous_record import comparison_metrics
+    assert comparison_metrics(tmp_path / ticket.trial_id)["ticks"] == 2
     terminal = runner.result
     retry = runner.retry()
     assert retry != ticket and retry.epoch != ticket.epoch

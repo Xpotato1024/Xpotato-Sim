@@ -23,9 +23,10 @@ type TimingStage = {count:number;observed:number;last_ns:number|null;mean_ns:num
 type RuntimeEnvironment = {python:string;platform:string;logical_cpus:number|null;mujoco:string;numpy:string;websockets:string;diagnostic_memory:boolean;thread_settings:Record<string,string|null>};
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
 type Status = {phase: string; revision: number; generation: number; busy: string|null; busy_operation?:string|null;
+  session_mode?:"experiment"|"demo";
   ticket: Ticket|null; profile_id: string|null; ticks: number; simulation_time_s:number; error: string|null;
   result?:{runner_stop_reason:string; error?:string|null}|null;
-  profiles: {id:string; available:boolean; reason:string|null}[];
+  profiles: {id:string; available:boolean; reason:string|null;input_provider?:string}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   input_provider?:string|null;device_input?:DevicePreparation|null;
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
@@ -49,6 +50,8 @@ export function WorkbenchApp() {
   const capability = useRef(new URLSearchParams(location.hash.slice(1)).get("capability") || "");
   const [status, setStatus] = useState<Status|null>(null);
   const [selected,setSelected] = useState("");
+  const [nextMode,setNextMode] = useState<"experiment"|"demo">("demo");
+  const [sourceFilter,setSourceFilter] = useState("");
   const [owned,setOwned] = useState(false);
   const [connected,setConnected] = useState(false);
   const [ready,setReady] = useState<string|null>(null);
@@ -206,6 +209,7 @@ export function WorkbenchApp() {
   const notice=workbenchNotice(status,error);
   const busy=!!status?.busy;
   return <main className="workbench operation-shell" data-screen={screen}>
+    {status?.profile_id&&<p role="status"><strong>{status.session_mode==="demo"?"デモ：実験データの取得・永続保存は無効です":"実験：開始後の入力・物理・Taskを記録します"}</strong></p>}
     <header><h1>Xpotato-Sim 実験Workbench</h1><p>有限試行 · simulation-only · ロボット出力なし</p>
       <span>{connected?"接続中":"未接続"} / {owned?"操作権あり":"閲覧のみ"}</span>
       {!connected && <button onClick={()=>window.dispatchEvent(new Event("workbench-reconnect"))}>状態へ再接続</button>}
@@ -217,9 +221,10 @@ export function WorkbenchApp() {
       <button disabled={screen==="setup"&&(!ready||!["ready","terminal"].includes(status?.phase??""))} onClick={()=>setScreen("operate")} aria-pressed={screen==="operate"}>操作画面へ</button>
       <button className="primary-control" disabled={screen!=="operate"||!owned||busy||editingBusy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch||!!status.device_input&&!status.device_input.ready} onClick={()=>command("start")}>開始</button>
       <button disabled={!owned||busy||editingBusy||status?.phase!=="terminal"} onClick={()=>{setReady(null);command("retry");}}>同じ条件で再試行</button>
+      {status?.session_mode==="demo"&&active&&<button disabled={!owned||busy} onClick={()=>{command("stop");setScreen("setup");}}>入力を選び直す（停止）</button>}
       <button aria-pressed={layout==="single"} onClick={()=>setLayout("single")}>Single</button>
       <button aria-pressed={layout==="assist"} onClick={()=>setLayout("assist")}>Assist</button>
-      <span>{status?.busy_operation==="stop"?"停止要求中":status?.phase==="finalizing"?"保存中":phases[status?.phase??"unselected"]??status?.phase} · simulation {status?.simulation_time_s?.toFixed(2)??"—"} s</span>
+      <span>{status?.busy_operation==="stop"?"停止要求中":status?.phase==="terminal"&&status.session_mode==="demo"?"デモ停止・記録なし":status?.phase==="finalizing"?"保存中":phases[status?.phase??"unselected"]??status?.phase} · simulation {status?.simulation_time_s?.toFixed(2)??"—"} s</span>
       <span aria-label="実行速度">{workbenchTimingLabel(status)}</span>
       </div>
       <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
@@ -227,11 +232,24 @@ export function WorkbenchApp() {
     {notice && <p className="operation-warning" role="alert">{notice}</p>}
     {error && error!==notice && <p role="alert">要求・接続の診断: {error}</p>}
     {screen==="setup" && <section className="workbench-controls">
+      <label>次の実行モード<select aria-label="次の実行モード" value={nextMode} disabled={active||busy||!owned}
+        onChange={e=>setNextMode(e.target.value as "experiment"|"demo")}>
+        <option value="demo">デモ（実験データを取得・保存しない）</option><option value="experiment">実験（開始から記録）</option>
+      </select></label>
+      <p role="status">適用モード: {status?.session_mode==="demo"?"デモ：実験記録なし":status?.profile_id?"実験：開始で記録":"未準備"}。モード変更は停止後の検証・準備で適用します。</p>
+      <label>入力ソースを選び直す<select aria-label="入力ソースを選び直す" value={sourceFilter} disabled={active||busy||!owned}
+        onChange={e=>{setSourceFilter(e.target.value);setSelected("");setEdited(null);}}>
+        <option value="">登録profileの全入力</option><option value="gamepad/v1">Gamepad（接続と新しい中立が必要）</option>
+        <option value="selfrionette-device/v1">Device（正規profile・接続・個別準備が必要）</option>
+        <option disabled>Keyboard：有限共同runtimeのsession入力に未対応</option>
+      </select></label>
+      {status?.session_mode==="demo"&&active&&<button disabled={busy||!owned} onClick={()=>command("stop")}>入力切替のためデモを停止</button>}
+      <p>入力切替は停止 → ソースと条件を選択 → 検証・準備 → 開始 → 新しい中立の確認。実験中は条件固定です。</p>
       <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
         <option value="">profileを選択してください</option>
-        {status?.profiles.map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
+        {status?.profiles.filter(p=>!sourceFilter||p.input_provider===sourceFilter).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
       </select></label>
-      <button disabled={!owned||!selected||active||busy||editingBusy} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,...(edited?{condition:edited}:{})});}}>検証・準備</button>
+      <button disabled={!owned||!selected||active||busy||editingBusy} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
       <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phases[status?.phase??"unselected"]??status?.phase}</p>
       <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":status?.input_provider==="selfrionette-device/v1"?"Deviceの個別準備後、開始時に新しい中立入力を確認":"開始後にGamepadの新しい中立入力を確認"}</p>

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import json
 from math import isfinite
 from pathlib import Path
@@ -57,6 +57,8 @@ class TrialRunner:
         self._record_deadline = None
         self._record_job = None
         self._pending_terminal = None
+        self._session_mode = "experiment"
+        self._continuous = None
 
     @contextmanager
     def _mutating(self):
@@ -72,6 +74,11 @@ class TrialRunner:
     @property
     def status(self):
         return self._status
+
+    @property
+    def session_mode(self):
+        """モードは停止中のprepareだけが変更し、active実行中の代入を許可しない。"""
+        return self._session_mode
 
     @property
     def condition(self):
@@ -155,17 +162,22 @@ class TrialRunner:
         self._recorder = self._start_ref = self._started = self._last_input = None
         self._input_accepting = None
         self._committed_projection = None
+        self._continuous = None
         self._frame = 0
 
     def _stop(self):
         if self._execution is not None:
             self._execution.stop()
 
-    def prepare(self, profile, limits: TrialLimits):
+    def prepare(self, profile, limits: TrialLimits, *, session_mode="experiment"):
         """実効条件を再検証し、同条件ならmodelを再利用してreadyを発行する。"""
         with self._mutating():
             if self._status not in {"unselected", "ready", "terminal"}:
                 raise RuntimeError("prepare requires inactive healthy runner")
+            if session_mode not in {"experiment", "demo"}:
+                raise ValueError("explicit experiment/demo mode required")
+            self._session_mode = session_mode
+            self._result = None
             self._status = "preparing"
             try:
                 started = self._now()
@@ -241,15 +253,18 @@ class TrialRunner:
                 self._error, self._status = str(exc), "faulted"
                 raise
             try:
-                self._recorder = TrialRecorder(self._root, ticket.trial_id)
-                self._start_ref = self._recorder.start(condition=self._condition,
-                    provenance=self._provenance,
-                    initial_state=initial_state,
-                    record={"schema_version": "trial-start/v1", **self._identity(),
-                        "started_monotonic_s": self._started,
-                        "input_provenance": json.loads(provenance)})
-                if self._async_terminal_recording:
-                    self._record_job = TerminalRecordingJob(self._recorder)
+                if self.session_mode == "experiment":
+                    from .continuous_record import ContinuousRecord
+                    self._recorder = TrialRecorder(self._root, ticket.trial_id)
+                    self._start_ref = self._recorder.start(condition=self._condition,
+                        provenance=self._provenance,
+                        initial_state=initial_state,
+                        record={"schema_version": "trial-start/v1", **self._identity(),
+                            "started_monotonic_s": self._started,
+                            "input_provenance": json.loads(provenance)})
+                    self._continuous = ContinuousRecord(self._recorder, self._identity())
+                    if self._async_terminal_recording:
+                        self._record_job = TerminalRecordingJob(self._recorder)
                 self._input_accepting = self._now()
                 self._execution.runtime.runtime.accept_inputs_after(self._input_accepting)
                 self._status = "waiting_input"
@@ -334,6 +349,9 @@ class TrialRunner:
             self._input_streams[parsed.stream_id] = identity
             self._input_requires_new_session = bool(getattr(self._execution.runtime.source, "requires_new_session", False))
             self._last_input = identity
+            if self._continuous is not None:
+                self._continuous.append("input", tick=self.tick_count, host_monotonic_s=now,
+                    received_at_s=received_at_s, message=json.loads(message))
         finally:
             self._ingress_time = None
 
@@ -393,6 +411,16 @@ class TrialRunner:
                     self._frame += 1
                     exhausted = self.tick_count >= self._limits.max_ticks
                     self._committed_projection = self._execution.sample(self._frame, advance_task=True, budget_exhausted=exhausted)
+                    if self._continuous is not None:
+                        sample = self._committed_projection
+                        self._continuous.append("tick", tick=self.tick_count, host_monotonic_s=now,
+                            simulation_time_s=sample.time_s, qpos=list(sample.qpos),
+                            qvel=list(sample.qvel),
+                            input_identity=self.processed_input_diagnostics,
+                            sites=[asdict(site) for site in sample.sites],
+                            dynamics=sample.metadata.get("scene_dynamics_v1"),
+                            geometry=sample.metadata.get("scene_contact_geometry_v1"),
+                            task=self._execution.task_view)
                     task = self._execution.task_state
                     if task is not None and task.classification is not TaskTerminalClassification.RUNNING:
                         reason = ("task_success" if task.classification is TaskTerminalClassification.SUCCESS
@@ -456,6 +484,15 @@ class TrialRunner:
             "start_ref": self._start_ref, "terminal_monotonic_s": self._last_now,
             "input_accepting_monotonic_s": self._input_accepting}
         try:
+            if self.session_mode == "demo":
+                self._result = TrialResult(canonical({**record, "recording": "disabled_demo"}))
+                self._status = "terminal"
+                return self._result
+            if self._continuous is not None:
+                self._continuous.append("terminal", tick=self.tick_count, host_monotonic_s=self._last_now,
+                    runner_stop_reason=reason, error=error, task=self._execution.task_view)
+                record["continuous_ref"] = self._continuous.finish()
+                self._continuous = None
             if self._async_terminal_recording:
                 self._pending_terminal = record
                 self._record_deadline = min(self._last_now + 2, self._started + self._limits.wall_s + 2)

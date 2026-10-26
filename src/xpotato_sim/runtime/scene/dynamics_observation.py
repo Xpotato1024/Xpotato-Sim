@@ -93,8 +93,12 @@ def observe_dynamics(model,data,*,scene,model_sha256,settings,arms,frame_index,i
     if not all(isfinite(v) for v in (time, *gravity)):
         raise ValueError("nonfinite dynamic world observation")
     scene_digest, settings_digest = plan.identity if identity is None else identity
+    from .spring import observe_springs
+    springs = observe_springs(model, data, scene.manifest)
     result={"schema_version":"scene-dynamics-observation/v1","model_sha256":model_sha256,
         "scene_digest":scene_digest,"settings_digest":settings_digest,"frame_index":frame_index,
         "simulation_time_s":time,"semantics":"coordinated_actuator_servo_dynamic/v1",
         "gravity_m_s2":gravity,"objects":objects,"joints":joints,"contacts":contacts}
+    if springs:
+        result["springs"] = springs
     return result

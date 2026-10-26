@@ -12,14 +12,22 @@ export function parseDynamics(payload:TransportPayloadV0):DynamicsPresentation{
  const bad=():DynamicsPresentation=>({status:"unavailable",reason:"動力学観測のidentity/frame/値が不正"});
  const g=parseSceneContactPayload(payload);
  if(d===undefined)return g.status==="available"&&g.dynamic ? bad() : {status:"absent",reason:"動力学は未選択"};
- if(g.status!=="available"||!g.dynamic||!exact(d,["schema_version","model_sha256","scene_digest","settings_digest","frame_index","simulation_time_s","semantics","gravity_m_s2","objects","joints","contacts"])||d.schema_version!=="scene-dynamics-observation/v1"||d.model_sha256!==g.modelSha256||d.scene_digest!==g.sceneDigest||d.frame_index!==payload.frame_index||d.simulation_time_s!==payload.time_s||d.semantics!=="coordinated_actuator_servo_dynamic/v1"||typeof d.settings_digest!=="string"||!/^[a-f0-9]{64}$/.test(d.settings_digest)||!vec(d.gravity_m_s2,3)||!Array.isArray(d.objects)||d.objects.length!==g.objects.length||!Array.isArray(d.joints)||!Array.isArray(d.contacts)||d.contacts.length>4096)return bad();
+ if(g.status!=="available"||!g.dynamic||!exact(d,["schema_version","model_sha256","scene_digest","settings_digest","frame_index","simulation_time_s","semantics","gravity_m_s2","objects","joints","contacts",...(record(d)&&"springs" in d?["springs"]:[])])||d.schema_version!=="scene-dynamics-observation/v1"||d.model_sha256!==g.modelSha256||d.scene_digest!==g.sceneDigest||d.frame_index!==payload.frame_index||d.simulation_time_s!==payload.time_s||d.semantics!=="coordinated_actuator_servo_dynamic/v1"||typeof d.settings_digest!=="string"||!/^[a-f0-9]{64}$/.test(d.settings_digest)||!vec(d.gravity_m_s2,3)||!Array.isArray(d.objects)||d.objects.length!==g.objects.length||!Array.isArray(d.joints)||!Array.isArray(d.contacts)||d.contacts.length>4096)return bad();
  const objects:{id:string;motion:string;z:number;velocity:number[]}[]=[];
  for(const o of d.objects){
-  if(!exact(o,["instance_id","motion_type","position_m","orientation_wxyz","linear_velocity_world_m_s","angular_velocity_world_rad_s"])||typeof o.instance_id!=="string"||!["fixed","dynamic"].includes(String(o.motion_type))||!vec(o.position_m,3)||!vec(o.orientation_wxyz,4)||!vec(o.linear_velocity_world_m_s,3)||!vec(o.angular_velocity_world_rad_s,3))return bad();
+  if(!exact(o,["instance_id","motion_type","position_m","orientation_wxyz","linear_velocity_world_m_s","angular_velocity_world_rad_s"])||typeof o.instance_id!=="string"||!["fixed","dynamic","spring"].includes(String(o.motion_type))||!vec(o.position_m,3)||!vec(o.orientation_wxyz,4)||!vec(o.linear_velocity_world_m_s,3)||!vec(o.angular_velocity_world_rad_s,3))return bad();
   const match=g.objects.find(v=>v.id===o.instance_id);if(!match||o.position_m.some((v,i)=>v!==match.position[i])||o.orientation_wxyz.some((v,i)=>v!==match.orientation[i]))return bad();
   objects.push({id:o.instance_id,motion:String(o.motion_type),z:o.position_m[2],velocity:o.linear_velocity_world_m_s});
  }
  if(new Set(objects.map(o=>o.id)).size!==objects.length)return bad();
+ if("springs" in d){
+  if(!Array.isArray(d.springs)||d.springs.length!==objects.filter(o=>o.motion==="spring").length)return bad();
+  const ids=new Set<string>();
+  for(const s of d.springs){
+   if(!exact(s,["instance_id","displacement_m","velocity_m_s","restoring_force_n","damping_force_n","axial_force_n"])||typeof s.instance_id!=="string"||ids.has(s.instance_id)||!objects.some(o=>o.id===s.instance_id&&o.motion==="spring")||![s.displacement_m,s.velocity_m_s,s.restoring_force_n,s.damping_force_n,s.axial_force_n].every(finite))return bad();
+   ids.add(s.instance_id);
+  }
+ }else if(objects.some(o=>o.motion==="spring"))return bad();
  const names=payload.metadata.robot_joint_names;if(!Array.isArray(names)||names.length!==d.joints.length)return bad();
  let layout;
  try {layout=decodeSceneStateLayout(payload.metadata.scene_state_layout_v1,names);validateSceneStateValues(layout,payload.qpos,payload.qvel);} catch{return bad();}

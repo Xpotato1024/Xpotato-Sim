@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-19
+last_verified: 2026-10-26
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -11,6 +11,20 @@ related:
 ---
 
 # 実験Workbench
+
+## データを取らないデモ
+
+次モードの初期値は「デモ（実験データを取得・保存しない）」で、検証・準備時に適用する。
+適用モードは操作画面にも常時表示する。実験は明示的に選び直して準備する。開始前にモードを
+編集しただけでは適用中の試行を変更しない。デモの状態と実験の保存結果を分離する。
+
+デモ中の「入力を選び直す（停止）」は既存STOP監督を通し、停止後に設定画面で入力providerと
+登録profileを選び直せる。準備は古いadapterをcloseし、command、source session、frame、Taskをresetし、
+新epochで新しい中立を待つ。保持した非中立キー・stickで自動再開しない。実験active中の
+入力切替・条件変更は従来どおり拒否する。戻る操作も実験中は無効。接続断は既存STOP/fault経路を使う。
+Gamepadは接続と中立、Deviceは正規profile・明示bridge接続・個別準備が必要である。
+Keyboardは有限共同runtimeのsession入力に未対応として選択不可・理由表示する。
+デモでも未接続・staleをneutralで補完しない。
 
 ## 設定・準備と操作画面（#564/#587、レイアウトv1.0）
 

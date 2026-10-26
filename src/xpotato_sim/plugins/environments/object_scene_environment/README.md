@@ -17,7 +17,7 @@ scene compositionは`runtime/scene/composition.py`へ委譲する。Robotが供�
 
 ## 現在の制限
 
-box、均質質量、mujoco_world frameだけを実装する。v1はfixed、v2はfixed/dynamicを扱う。可動物体にkinematic実行を指定する組合せ、他frame、未知field、重複ID、未知definition/versionは拒否する。床やRobotを複製しない。固定box同士は正の隙間を要求し、native distance
+box、均質質量、mujoco_world frameだけを実装する。v1はfixed、v2はfixed/dynamic/springを扱う。可動物体にkinematic実行を指定する組合せ、他frame、未知field、重複ID、未知definition/versionは拒否する。床やRobotを複製しない。固定box同士は正の隙間を要求し、native distance
 の0を非貫通の証明にしない。床への支持接触とtoolの初期touchは食い込み許容値内なら許容する。
 
 詳細契約は`docs/contracts/object-scene-contact-diagnostic.md`、起動は`docs/operations/backend-viewer-startup.md`。
@@ -26,3 +26,8 @@ box、均質質量、mujoco_world frameだけを実装する。v1はfixed、v2�
 ## 明示world/v2
 
 world gravity・支持面・固定/可動boxを同じscene集合で構成する。可動初期速度はworldで宣言し、native freejoint速度へ一度変換する。数値積分設定はEnvironmentの物理値ではなくExecutionからtyped requestで受け取る。旧fixed/v1 presetは維持する。
+
+`compression_spring` は固定基部のslide jointを使う一自由度の押込ばね例。
+`spring` の剛性・減衰・軸・範囲・初期状態は実機同定値ではない。
+既存のMuJoCo積分・reset・原力観測を共有し、別physics loopや固定面向けcommand gainを使わない。
+解析的ばね力と接触solverのsoftnessは別である。
