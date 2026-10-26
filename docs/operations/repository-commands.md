@@ -13,8 +13,14 @@ related:
 # repository操作入口
 
 初回準備と通常Workbench起動は[root README](../../README.md)の
-`just init/setup/build/run/dev/doctor`を使う。以下は準備済みrepository rootで実行する。
+`just init/setup/build/run/dev/doctor/new-build-path`を使う。以下は準備済みrepository rootで実行する。
 justの導入方法もroot READMEへ集約する。
+
+`new-build-path`はroot `.env`とprocess環境から設定を読み、現在のtemporary root内に未作成のbuild候補を
+選ぶread-only入口である。戻り値はcode pageに依存しないASCII JSON文字列で、PowerShellでは
+`$env:XPOTATO_WEB_DIST = just new-build-path | ConvertFrom-Json`として使用する。
+`.env`やdirectory、所有markerを作成・変更せず、setupの所有検査も省略しない。
+詳細は[root READMEの復旧手順](../../README.md#build出力先の所有エラーからの復旧)を参照する。
 
 ## 操作の対応
 

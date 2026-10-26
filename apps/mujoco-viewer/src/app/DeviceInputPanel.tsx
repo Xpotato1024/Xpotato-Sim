@@ -17,9 +17,9 @@ export function DeviceInputPanel({value,enabled,onAction}:{value:DevicePreparati
     <p>個体・校正profile・使用条件を確認し、左右それぞれで順に操作してください。tareと使用姿勢のneutralは別の操作です。</p>
     {Object.entries(value.roles).map(([role,d])=><fieldset key={role}><legend>{role==="left"?"左":"右"} · {d.expected.source.device_id}</legend>
       <p>{labels[d.phase]??d.phase}{d.phase==="applied"&&d.ready?" · 開始準備完了":""}{d.pending?" · 処理中":""}</p>
-      <p>profile {d.expected.profile.record} / method {d.expected.profile.method} / firmware {d.expected.source.firmware_version}</p>
+      <details><summary>実機profile・使用条件</summary><p>profile {d.expected.profile.record} / method {d.expected.profile.method} / firmware {d.expected.source.firmware_version}</p>
       <p>operator {d.expected.operator.operator} / 姿勢 {d.expected.operator.posture} / 把持 {d.expected.operator.grip}</p>
-      <div className="device-preparation__steps">{steps.map((step,i)=><button key={step.action}
+      </details><div className="device-preparation__steps">{steps.map((step,i)=><button key={step.action}
         disabled={!enabled||!!d.pending||!d.clock_synchronized||d.phase!==step.phase}
         onClick={()=>onAction(role,step.action,d.phase)}>{i+1}. {step.label}</button>)}</div>
       {d.error&&<p role="alert">{d.error}</p>}

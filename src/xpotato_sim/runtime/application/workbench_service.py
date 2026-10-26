@@ -77,6 +77,9 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
     control = WorkbenchControl(profile_catalog(), capability or secrets.token_urlsafe(32), require_renderer=not config.get("run_once"), launcher_limits=config)
     control.state["preselected_profile"] = config.get("profile")
     control.state["fixture_mode"] = bool(config.get("fixture"))
+    connection = config.get("device_connection")
+    control.state["device_connection"] = {"configured": connection is not None,
+        "roles": sorted(connection["roles"]) if connection else []}
     control.state["initial_condition"] = config.get("condition")
     if control.state["initial_condition"] is None and config.get("profile") and not config.get("run_once"):
         selected = load_launch_profile(config["profile"])

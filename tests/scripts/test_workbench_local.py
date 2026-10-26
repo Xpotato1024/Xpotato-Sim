@@ -42,6 +42,21 @@ def test_relative_paths(settings):
     assert not config.browser
 
 
+@pytest.mark.parametrize("key", ["XPOTATO_DEVICE_CONFIG", "XPOTATO_CONDITION"])
+def test_optional_device_files_require_existing_file_without_mutation(settings, key):
+    root, env = settings
+    assert local.Config.read(root, {**env, key: ""}).device_config is None
+    missing = root / "missing.json"
+    with pytest.raises(ValueError, match=key):
+        local.Config.read(root, {**env, key: "missing.json"})
+    assert not missing.exists()
+    target = root / "existing 日本語.json"
+    target.write_text("{}", encoding="utf-8")
+    config = local.Config.read(root, {**env, key: target.name})
+    assert getattr(config, "device_config" if key.endswith("CONFIG") else "condition") == target
+    assert target.read_text(encoding="utf-8") == "{}"
+
+
 @pytest.mark.parametrize("key,value", [
     ("XPOTATO_WEB_PORT", "0"), ("XPOTATO_WEB_PORT", "65536"),
     ("XPOTATO_WEB_PORT", "1.5"), ("XPOTATO_WEB_PORT", "secret"),
@@ -100,6 +115,72 @@ def test_unowned_output_preserved(settings, monkeypatch):
     assert sentinel.read_text() == "do not delete"
 
 
+@pytest.mark.parametrize("kind", ["empty", "unmarked", "foreign", "malformed", "legacy_build"])
+def test_setup_refuses_existing_unknown_outputs_before_any_mutation(settings, monkeypatch, kind):
+    root, env = settings
+    config = local.Config.read(root, env)
+    config.dist.mkdir(parents=True)
+    if kind != "empty":
+        (config.dist / "sentinel.bin").write_bytes(b"unknown user output\x00\xff")
+    if kind == "foreign":
+        (config.dist / local.OWNER).write_text(json.dumps(local.owner(root.parent / "other-checkout")))
+    if kind == "malformed":
+        (config.dist / local.OWNER).write_bytes(b"not-json")
+    if kind == "legacy_build":
+        (config.dist / "workbench-build.json").write_text('{"schema_version":"workbench-build/v1"}')
+    before = {p.name: p.read_bytes() for p in config.dist.iterdir()}
+    monkeypatch.setattr(local, "tool", lambda *args: pytest.fail("ownership must precede tools"))
+    monkeypatch.setattr(local, "execute", lambda *args, **kwargs: pytest.fail("must not synchronize/build"))
+    with pytest.raises(ValueError, match="just new-build-path"):
+        local.setup(root, config)
+    assert {p.name: p.read_bytes() for p in config.dist.iterdir()} == before
+    assert not config.results.exists() and not (root / ".venv").exists()
+
+
+def test_new_build_path_does_not_create_adopt_or_modify_anything(settings):
+    root, env = settings
+    config = local.Config.read(root, env)
+    config.dist.mkdir(parents=True)
+    (config.dist / "sentinel").write_bytes(b"keep unknown output")
+    before = sorted(config.temp.iterdir())
+    candidate = local.new_build_path(config)
+    assert candidate.parent == config.temp and not candidate.exists()
+    assert local.Config.read(root, {**env, "XPOTATO_WEB_DIST": str(candidate)}).dist == candidate
+    assert sorted(config.temp.iterdir()) == before
+    assert (config.dist / "sentinel").read_bytes() == b"keep unknown output"
+    assert not (config.dist / local.OWNER).exists()
+
+
+def test_new_build_path_collision_remains_unowned(settings, monkeypatch):
+    root, env = settings
+    config = local.Config.read(root, env)
+    collision = config.temp / "viewer-dist-collision"
+    collision.mkdir(parents=True)
+    (collision / "sentinel").write_bytes(b"keep")
+    monkeypatch.setattr(local, "uuid4", lambda: type("FixedUUID", (), {"hex": "collision"})())
+    with pytest.raises(ValueError, match="候補"):
+        local.new_build_path(config)
+    assert (collision / "sentinel").read_bytes() == b"keep"
+    assert not (collision / local.OWNER).exists()
+
+
+def test_doctor_reports_unowned_but_otherwise_valid_build_read_only(settings, monkeypatch, capsys):
+    root, env = settings
+    config = local.Config.read(root, env)
+    config.dist.mkdir(parents=True)
+    config.results.mkdir()
+    (config.dist / "sentinel").write_bytes(b"keep")
+    for name in ("prepared", "verify_web_dependencies", "verify_build", "ports"):
+        monkeypatch.setattr(local, name, lambda *args: None)
+    monkeypatch.setattr(local, "tool", lambda name: name)
+    monkeypatch.setattr(local, "revision", lambda *args: "source")
+    assert local.doctor(root, config) == 1
+    output = capsys.readouterr().out
+    assert "build出力先の保全" in output and "just new-build-path" in output
+    assert (config.dist / "sentinel").read_bytes() == b"keep"
+    assert not (config.dist / local.OWNER).exists()
+
+
 @pytest.mark.parametrize("failure", ["command", "verification", "rename", "none"])
 def test_staged_build_preserves_previous(settings, monkeypatch, failure):
     root, env = settings
@@ -145,8 +226,14 @@ def test_staged_build_preserves_previous(settings, monkeypatch, failure):
 
 
 @pytest.mark.parametrize("dev", [False, True])
-def test_run_uses_only_prepared_python_and_formal_cli(settings, monkeypatch, dev):
+@pytest.mark.parametrize("device", [False, True])
+def test_run_uses_only_prepared_python_and_formal_cli(settings, monkeypatch, dev, device):
     root, env = settings
+    if device:
+        for key in ("XPOTATO_DEVICE_CONFIG", "XPOTATO_CONDITION"):
+            file = root / (key + " 日本語 space.json")
+            file.write_text("{}", encoding="utf-8")
+            env[key] = str(file)
     config = local.Config.read(root, env)
     config.temp.mkdir()
     config.results.mkdir()
@@ -176,6 +263,10 @@ def test_run_uses_only_prepared_python_and_formal_cli(settings, monkeypatch, dev
     assert argv[:4] == [str(local.venv_python(root)), "-c", local.CLI_ENTRY, "workbench"]
     assert "head-dirty-digest" in argv
     assert "--open-browser" not in argv
+    for flag, key in (("--device-config", "XPOTATO_DEVICE_CONFIG"), ("--condition", "XPOTATO_CONDITION")):
+        assert (flag in argv) == device
+        if device:
+            assert argv[argv.index(flag) + 1] == env[key]
     assert "--profile" not in argv and "--run-once" not in argv
     assert ("--dev-server" in argv) == dev
     assert ("--web-dist" in argv) != dev
@@ -329,6 +420,45 @@ def test_dotenv_real_uv_root_only_and_no_secret_output(settings, monkeypatch):
     assert "super-secret" not in result.stdout + result.stderr
 
 
+def test_real_uv_process_override_selects_fresh_output_without_editing_dotenv(settings, monkeypatch):
+    root, env = settings
+    for key in list(os.environ):
+        if key.startswith("XPOTATO_"):
+            monkeypatch.delenv(key)
+    original = "\n".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k,v in env.items()) + "\nPRIVATE_TOKEN=secret\n"
+    (root / ".env").write_text(original, encoding="utf-8")
+    config = local.Config.read(root, env)
+    config.dist.mkdir(parents=True)
+    (config.dist / "sentinel").write_bytes(b"keep")
+    fresh = local.new_build_path(config)
+    monkeypatch.setenv("XPOTATO_WEB_DIST", str(fresh))
+    loaded = local.Config.read(root, local.load_env(root))
+    assert loaded.dist == fresh and not fresh.exists()
+    assert (root / ".env").read_text(encoding="utf-8") == original
+    assert (config.dist / "sentinel").read_bytes() == b"keep"
+
+
+def test_actual_just_new_build_path_is_ascii_json_and_read_only(settings):
+    root, env = settings
+    script = root / "scripts/workbench_local.py"
+    script.parent.mkdir()
+    shutil.copyfile(SCRIPT, script)
+    shutil.copyfile(SCRIPT.parents[1] / "justfile", root / "justfile")
+    dotenv = "\n".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k,v in env.items()) + "\nPRIVATE_TOKEN=secret\n"
+    (root / ".env").write_text(dotenv, encoding="utf-8")
+    process_env = {k:v for k,v in os.environ.items() if not k.startswith("XPOTATO_") and k != "PYTHONUTF8"}
+    just = shutil.which("just")
+    assert just, "Install the documented rust-just utility before running development tests"
+    result = subprocess.run([just, "new-build-path"], cwd=root, env=process_env, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    candidate = Path(json.loads(result.stdout.decode("ascii")))
+    assert candidate.parent == local.Config.read(root, env).temp
+    assert not candidate.parent.exists()
+    assert (root / ".env").read_text(encoding="utf-8") == dotenv
+    assert not (root / ".venv").exists()
+    assert b"secret" not in result.stdout + result.stderr
+
+
 WEB_INPUTS = ("package.json", "package-lock.json", "node_modules/.package-lock.json")
 
 
@@ -363,7 +493,7 @@ def test_build_rejects_changed_web_dependencies_before_vite(settings, monkeypatc
     assert sentinel.read_bytes() == b"keep normal build"
 
 
-@pytest.mark.parametrize("command", ["init", "setup", "build", "run", "dev", "doctor"])
+@pytest.mark.parametrize("command", ["init", "setup", "build", "run", "dev", "doctor", "new-build-path"])
 @pytest.mark.parametrize("exit_code", [0, 17, 130])
 def test_actual_just_recipes_preserve_child_status(tmp_path, command, exit_code):
     just = shutil.which("just")

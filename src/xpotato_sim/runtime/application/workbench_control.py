@@ -246,6 +246,8 @@ class WorkbenchControl:
                 fields.add("condition")
         if op == "device":
             fields.update({"role", "action", "confirmed", "observed_phase"})
+        if op == "start":
+            fields.update(k for k in ("requested_condition", "requested_session_mode") if k in r)
         if set(r) != fields or op not in {"prepare", "start", "retry", "stop", "renderer_ready", "device"}:
             raise ValueError("未知operationまたはfieldです")
         rid = r["id"]
@@ -278,6 +280,7 @@ class WorkbenchControl:
                 if normalized["preset_id"] != r["profile_id"]:
                     raise ValueError("preset/condition ID不一致")
                 r = {**r, "condition": normalized}
+                self.next_condition = normalized
             self.generation += 1
             self.renderer_epoch = None
         elif op == "retry":
@@ -289,6 +292,14 @@ class WorkbenchControl:
                 raise ValueError("ready試行の初期scene ACKが必要です")
             self.renderer_epoch = r["ticket"]["epoch"]
         elif op == "start":
+            applied = self.state.get("applied_condition")
+            if "requested_condition" in r and r["requested_condition"] is None:
+                raise ValueError("要求条件は未適用です。停止中に検証・準備を行ってください")
+            for requested in (self.next_condition, r.get("requested_condition")):
+                if requested is not None and (applied is None or resolve_condition(requested)[2] != applied):
+                    raise ValueError("要求条件は未適用です。停止中に検証・準備を行ってください")
+            if "requested_session_mode" in r and r["requested_session_mode"] != self.state.get("session_mode"):
+                raise ValueError("要求モードは未適用です。停止中に検証・準備を行ってください")
             if phase != "ready" or (self.require_renderer and self.renderer_epoch != r["ticket"]["epoch"]):
                 raise ValueError("初期scene・shader準備完了後に開始してください")
             if self.state.get("device_input") is not None and not self.state["device_input"].get("ready"):

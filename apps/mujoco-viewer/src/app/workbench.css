@@ -7,3 +7,24 @@
 .device-normalized {display:flex; flex-wrap:wrap; gap:1rem; width:100%;}
 .device-normalized>section {flex:1; min-width:18rem;}
 .device-normalized>small {flex-basis:100%;}
+.workbench[data-demo=true]{padding:12px}.workbench[data-demo=true] h1{font-size:1.2rem;margin:.25rem 0}
+.workbench[data-demo=true] header p{display:none}.workbench[data-demo=true] .workbench-controls{padding:10px;margin:8px 0}
+.workbench[data-demo=true] .workbench-controls>p{margin:.4rem 0}.workbench[data-demo=true] .workbench-body{display:flex;flex-direction:column}
+.workbench[data-demo=true] .operation-workspace{grid-template-columns:minmax(0,1fr)}
+.workbench[data-demo=true] .joint-rail{display:none}.workbench[data-demo=true] canvas{height:52vh;min-height:260px}
+.workbench[data-demo=true] .operation-views,.workbench[data-demo=true] .input-strip,.workbench[data-demo=true] .force-cue-panel{grid-column:1}
+.workbench[data-demo=true] .operation-workspace{min-width:0;min-height:400px;grid-template-rows:minmax(280px,1fr) auto auto;height:62vh}
+.workbench[data-demo=true] .workbench-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.workbench[data-demo=true] .workbench-controls>p:first-of-type{display:none}
+.workbench[data-demo=true] .workbench-controls>.source-status{flex-basis:100%;order:2}
+.workbench[data-demo=true] .workbench-controls>details{flex-basis:100%;order:3}
+.workbench[data-demo=true] .workbench-controls>p{flex-basis:100%}
+.workbench[data-demo=true] .operation-controls__actions{flex-wrap:wrap;overflow:visible}
+.workbench .setup-inspector{min-width:0;padding:12px;border:1px solid #526b83;border-radius:8px}
+.workbench summary{cursor:pointer;padding:.4rem}.workbench select{max-width:100%}
+.workbench .operation-warning{padding:8px;border:1px solid #ffb7a5;overflow-wrap:anywhere}
+.workbench.operation-shell .operation-warning{color:#702b13;background:#fff0e5}
+.workbench[data-demo=true] button,.workbench[data-demo=true] select,.workbench[data-demo=true] summary{font-size:1rem}
+.workbench[data-demo=true] .operation-controls{position:relative;top:auto}
+.workbench pre{white-space:pre-wrap;overflow-wrap:anywhere}.workbench button:focus-visible,.workbench select:focus-visible,.workbench summary:focus-visible{outline:3px solid #ffd36b;outline-offset:3px}
+@media(max-width:700px){.workbench-controls label{display:block}.workbench .operation-controls{flex-wrap:wrap}.workbench .device-normalized>section{min-width:0}}

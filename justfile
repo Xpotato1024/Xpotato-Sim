@@ -26,6 +26,10 @@ dev:
 doctor:
     @uv run --no-project --no-config --no-cache --no-env-file --offline --no-python-downloads --python 3.12 python scripts/workbench_local.py doctor{{exit_status}}
 
+# 所有権を付与せず、設定済みtemporary root内の未作成build候補だけを返す。
+new-build-path:
+    @uv run --no-project --no-config --no-cache --no-env-file --offline --no-python-downloads --python 3.12 python scripts/workbench_local.py new-build-path{{exit_status}}
+
 # 新しい操作はPython script recipeでargvを保持し、shellへ引数を埋め込まない。
 set script-interpreter := ["uv", "run", "--no-project", "--no-config", "--no-cache", "--no-env-file", "--offline", "--no-python-downloads", "--python", "3.12", "python"]
 

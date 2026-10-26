@@ -240,6 +240,10 @@ def execution_worker(url, config):
                             raise ValueError("Device operator steps require a prepared Device trial")
                         application_input.operate(cmd["role"], cmd["action"], cmd["confirmed"], cmd["observed_phase"])
                     elif op == "start":
+                        if "requested_condition" in cmd and resolve_condition(cmd["requested_condition"])[2] != applied_condition:
+                            raise ValueError("Requested condition is not applied; prepare before start")
+                        if "requested_session_mode" in cmd and cmd["requested_session_mode"] != runner.session_mode:
+                            raise ValueError("Requested session mode is not applied; prepare before start")
                         if application_input is not None and not application_input.state()["ready"]:
                             raise ValueError("Device preparation is incomplete")
                         provenance = fixture.identity() if fixture else ({"source": "selfrionette-bridge/v1",

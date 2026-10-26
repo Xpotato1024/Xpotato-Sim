@@ -106,6 +106,8 @@ class WorkerScenario:
             return runner
 
         def new_bridge(profile, connection):
+            if profile.provider_id != "selfrionette-device/v1":
+                return None
             self.creation_count += 1
             assert all(group.closed for group in self.groups), "previous bridge owner still live"
             if self.creation_count == fail_bridge_creation:
@@ -163,6 +165,30 @@ def operator_steps(roles, prefix="first"):
     return [{"op": "device", "id": f"{prefix}-{role}-{action}", "role": role,
         "action": action, "confirmed": True, "observed_phase": phase}
         for role in roles for action, phase in OPERATOR_PHASES.items()]
+
+
+@pytest.mark.parametrize("fail_retry", [False, True])
+def test_device_demo_success_retry_failure_and_reselection_never_record(tmp_path, monkeypatch, fail_retry):
+    commands = [{**prepare(), "session_mode": "demo"}, *operator_steps(("left",)),
+        {"op": "start", "id": "start", "generation": 1}, WaitForTicks(3),
+        {"op": "stop", "id": "stop", "generation": 2},
+        {"op": "retry", "id": "retry", "generation": 2}]
+    if not fail_retry:
+        commands += operator_steps(("left",), "retry")
+        commands += [{"op": "start", "id": "retry-start", "generation": 2}, WaitForTicks(2),
+            {"op": "stop", "id": "retry-stop", "generation": 3}]
+    commands += [{**prepare("research-spring-g"), "id": "reselect", "generation": 4, "session_mode": "demo"},
+        {"op": "close"}]
+    scenario = WorkerScenario(tmp_path, monkeypatch, commands, fail_bridge_creation=2 if fail_retry else None)
+    states = scenario.run()
+    assert states["stop"]["state"]["ticks"] == 3
+    assert states["stop"]["state"]["session_mode"] == "demo"
+    assert states["reselect"]["state"]["input_provider"] == "gamepad/v1"
+    assert states["reselect"]["state"]["ticks"] == 0
+    assert all(group.closed for group in scenario.groups)
+    if fail_retry:
+        assert states["retry"]["error"] and states["retry"]["state"]["ticket"] is None
+    assert not scenario.result_root.exists() or not list(scenario.result_root.iterdir())
 
 
 @pytest.mark.parametrize("roles", [("left",), ("left", "right")])

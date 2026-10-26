@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from uuid import uuid4
 from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,7 @@ KEYS = {
     "XPOTATO_OPEN_BROWSER", "XPOTATO_WEB_PORT", "XPOTATO_BACKEND_PORT", "XPOTATO_PYTHON",
 }
 OWNER = ".xpotato-local-build.json"
+OPTIONAL_KEYS = {"XPOTATO_DEVICE_CONFIG", "XPOTATO_CONDITION"}
 CLI_ENTRY = "from xpotato_sim.cli import main; raise SystemExit(main())"
 
 
@@ -83,10 +85,12 @@ class Config:
     web_port: int
     backend_port: int
     python: str
+    device_config: Path | None = None
+    condition: Path | None = None
 
     @classmethod
     def read(cls, root: Path, env: Mapping[str, str]) -> Config:
-        if any(key.startswith("XPOTATO_") and key not in KEYS for key in env):
+        if any(key.startswith("XPOTATO_") and key not in KEYS | OPTIONAL_KEYS for key in env):
             raise ValueError("不明なXPOTATO設定があります。キーの誤字を確認してください（値は表示しません）")
         if not KEYS <= env.keys() or any(not env[key].strip() for key in KEYS):
             raise ValueError("必要な.env設定が空または欠落しています。.env.exampleのキーを確認してください")
@@ -102,12 +106,21 @@ class Config:
                 raise ValueError(f"{key} は1..65535の整数にしてください")
             return int(env[key])
 
+        def optional_file(key: str) -> Path | None:
+            if not env.get(key, "").strip():
+                return None
+            value = path(key)
+            if not value.is_file():
+                raise ValueError(f"{key} は既存の設定fileを指定してください（新規作成・上書きはしません）")
+            return value
+
         boolean = env["XPOTATO_OPEN_BROWSER"].lower()
         if boolean not in {"true", "false"}:
             raise ValueError("XPOTATO_OPEN_BROWSER はtrue/falseにしてください")
         config = cls(path("XPOTATO_TEMP_ROOT"), path("XPOTATO_RESULT_ROOT"),
                      path("XPOTATO_WEB_DIST"), boolean == "true", port("XPOTATO_WEB_PORT"),
-                     port("XPOTATO_BACKEND_PORT"), env["XPOTATO_PYTHON"])
+                     port("XPOTATO_BACKEND_PORT"), env["XPOTATO_PYTHON"],
+                     optional_file("XPOTATO_DEVICE_CONFIG"), optional_file("XPOTATO_CONDITION"))
         if config.web_port == config.backend_port:
             raise ValueError("Web/backend portを別にしてください")
         if not re.fullmatch(r"3\.12(?:\.[0-9]+)?", config.python) and not Path(config.python).is_absolute():
@@ -208,7 +221,18 @@ def check_owner(root: Path, dist: Path) -> None:
     except (OSError, ValueError):
         valid = False
     if not valid or any(p.is_symlink() or p.is_junction() for p in [dist, *dist.rglob("*")]):
-        raise ValueError("build出力先はこのランチャー所有ではありません。未作成の新しい出力先を設定してください")
+        raise ValueError("build出力先はこのランチャー所有ではありません。既存出力は変更しません。\n"
+                         "PowerShell: $env:XPOTATO_WEB_DIST = just new-build-path | ConvertFrom-Json\n"
+                         "同じterminalでjust setupを再実行してください。永続設定の方法はREADMEを確認してください")
+
+
+def new_build_path(config: Config) -> Path:
+    """同じvolumeの未作成候補だけを返す。directoryや設定、所有markerを作成しない。"""
+    for _ in range(16):
+        candidate = config.temp / ("viewer-dist-" + uuid4().hex)
+        if not candidate.exists() and not candidate.is_symlink() and not candidate.is_junction():
+            return candidate
+    raise ValueError("未作成のbuild候補を選べませんでした。temporary rootを確認してください")
 
 
 def web_fingerprint(root: Path) -> dict[str, str]:
@@ -342,6 +366,9 @@ def launch(root: Path, config: Config, *, dev: bool = False) -> int:
             "--software-revision", identity, "--web-port", str(config.web_port),
             "--backend-port", str(config.backend_port)]
     argv += ["--dev-server"] if dev else ["--web-dist", str(config.dist)]
+    for flag, value in (("--device-config", config.device_config), ("--condition", config.condition)):
+        if value is not None:
+            argv.extend([flag, str(value)])
     if config.browser:
         argv.append("--open-browser")
     with subprocess.Popen(argv, cwd=root, env=config.environment(root)) as process:
@@ -361,6 +388,7 @@ def doctor(root: Path, config: Config) -> int:
     checks = [("必須tool", lambda: [tool(n) for n in ("uv", "git", "node", "npm.cmd" if sys.platform == "win32" else "npm")]),
               ("Python/設定/lock/依存", lambda: prepared(root, config)),
               ("Web依存/lock", lambda: verify_web_dependencies(root)),
+              ("build出力先の保全", lambda: check_owner(root, config.dist)),
               ("固定build/source", lambda: verify_build(root, config.dist)),
               ("source identity", lambda: print(revision(root))),
               ("port", lambda: ports(config))]
@@ -380,8 +408,8 @@ def doctor(root: Path, config: Config) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="ローカルWorkbench: init/setup/build/run/dev/doctor")
-    parser.add_argument("command", choices=("init", "setup", "build", "run", "dev", "doctor"))
+    parser = argparse.ArgumentParser(description="ローカルWorkbench: init/setup/build/run/dev/doctor/new-build-path")
+    parser.add_argument("command", choices=("init", "setup", "build", "run", "dev", "doctor", "new-build-path"))
     args = parser.parse_args()
     try:
         if args.command == "init":
@@ -390,6 +418,10 @@ def main() -> int:
         if not (ROOT / ".env").is_file():
             raise ValueError("root .env がありません。just init を実行してください")
         config = Config.read(ROOT, load_env(ROOT))
+        if args.command == "new-build-path":
+            # shell間のcode page差で日本語pathを壊さないASCII JSON文字列。
+            print(json.dumps(str(new_build_path(config)), ensure_ascii=True))
+            return 0
         if args.command == "doctor":
             return doctor(ROOT, config)
         if args.command == "setup":
