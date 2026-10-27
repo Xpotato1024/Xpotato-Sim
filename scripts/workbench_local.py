@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import shutil
 import socket
 import subprocess
@@ -371,17 +372,26 @@ def launch(root: Path, config: Config, *, dev: bool = False) -> int:
             argv.extend([flag, str(value)])
     if config.browser:
         argv.append("--open-browser")
-    with subprocess.Popen(argv, cwd=root, env=config.environment(root)) as process:
-        try:
-            return process.wait()
-        except KeyboardInterrupt:
-            # 同じconsoleの正式CLIに届いたCtrl+Cのcleanupを、wrapperから早期killしない。
+    interrupted = False
+    previous_handler = signal.getsignal(signal.SIGINT)
+    def on_interrupt(_signum, _frame):
+        nonlocal interrupted
+        interrupted = True
+    signal.signal(signal.SIGINT, on_interrupt)
+    try:
+        with subprocess.Popen(argv, cwd=root, env=config.environment(root)) as process:
             try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.terminate()
-                process.wait(timeout=10)
-            return 130
+                code = process.wait()
+            except KeyboardInterrupt:
+                interrupted = True
+                try:
+                    code = process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.terminate()
+                    code = process.wait(timeout=10)
+            return 0 if interrupted else code
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
 
 
 def doctor(root: Path, config: Config) -> int:

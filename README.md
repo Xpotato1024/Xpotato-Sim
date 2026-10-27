@@ -198,6 +198,17 @@ Selfrionetteのfirmwareは[Selfrionette-Deviceで管理する](docs/operations/s
 全commandのflag、組合せ、publisher・legacy参照は[統一CLI](docs/operations/unified-cli.md)、条件と停止・資源契約は[Workbench](docs/contracts/workbench.md)、設計の入口は[Source of Truth Map](docs/README.md)を参照してください。ブラウザ閲覧URLとWebSocket接続URLは別です。Workbenchはloopbackのみで、LAN／公開bindを提供しません。
 ### Selfrionetteを非記録デモで使う
 
+初回起動で条件JSONや接続設定JSONが自動生成されるわけではありません。
+まずDevice Managerで個体setupと個人校正を完了し、元のsetup recordに結び付いた
+校正 `.srncal`、stable ID、校正revisionを確認します。校正fileだけをコピーしても
+元のsetup recordを代替できません。これらは実機ごとに取得する値です。
+Workbenchの「入力・条件を設定」でタスクを選び、詳細設定に正規の実機identityを反映して
+検証した条件をexportすると、`workbench-condition.json` がブラウザのダウンロード先へ保存されます。
+接続設定は同画面から空欄の未完成ひな形をダウンロードできます。既存Device CLI実行fileの
+絶対path、roleごとのportと校正profileの絶対pathを実際の環境に合わせて記入します。
+未完成ひな形は読み込めません。二つのJSONは個人用のローカル領域に保管し、
+Git・PRに含めないでください。
+
 正規の実機条件JSONとDevice接続設定JSONを既に持っている場合は、root `.env` に
 `XPOTATO_CONDITION` と `XPOTATO_DEVICE_CONFIG` をその既存fileへのpathとして設定し、
 `just run` を再起動します。相対pathはrepository基準です。空または未指定なら従来どおりです。
@@ -211,3 +222,6 @@ Selfrionetteのfirmwareは[Selfrionette-Deviceで管理する](docs/operations/s
 `research-spring-s` と研究比較templateのS identityはソフト検証用fixtureであり、実機に使用できません。
 正規の実機条件・校正または接続設定がなければ、それらの提供・確認が先に必要です。
 入力を変えたら停止して条件を選び直し、検証・準備を行います。未適用の条件では開始できません。
+
+Windows PowerShellでの`just run`のCtrl+Cは、子Workbenchが停止処理を終えた後に正常終了として
+戻ります。起動失敗・実行失敗は引き続き非ゼロの終了codeで通知します。

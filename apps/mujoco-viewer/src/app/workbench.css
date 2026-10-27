@@ -28,3 +28,16 @@
 .workbench[data-demo=true] .operation-controls{position:relative;top:auto}
 .workbench pre{white-space:pre-wrap;overflow-wrap:anywhere}.workbench button:focus-visible,.workbench select:focus-visible,.workbench summary:focus-visible{outline:3px solid #ffd36b;outline-offset:3px}
 @media(max-width:700px){.workbench-controls label{display:block}.workbench .operation-controls{flex-wrap:wrap}.workbench .device-normalized>section{min-width:0}}
+.workbench-settings-dialog{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;box-sizing:border-box;border:1px solid #8798a0;border-radius:12px;padding:16px;color:#283338;background:#f8faf9;box-shadow:0 20px 60px #17242d70}
+.workbench-settings-dialog::backdrop{background:#17242dc4}.workbench-settings-dialog>header{display:flex;justify-content:space-between;align-items:center}.workbench-settings-dialog h2{margin:0}
+.workbench-settings-dialog .workbench-controls{margin:12px 0;padding:12px}.workbench-settings-dialog .workbench-controls label{display:grid;gap:4px}.workbench-settings-dialog .workbench-controls select{max-width:100%}
+.workbench-settings-dialog .setup-inspector{display:block}.workbench-settings-dialog .condition-fields{max-height:45vh}
+.workbench .workbench-body{display:block;min-height:0}.workbench .operation-workspace{height:calc(100dvh - 190px);min-height:420px;grid-template-rows:minmax(0,1fr) auto auto}
+.workbench .operation-views{grid-column:2;grid-row:1}.workbench .input-strip,.workbench .force-cue-panel{grid-column:2}
+.workbench[data-demo=true] .operation-views,.workbench[data-demo=true] .input-strip,.workbench[data-demo=true] .force-cue-panel{grid-column:1}
+.workbench[data-demo=true] .operation-workspace{height:calc(100dvh - 190px);min-height:420px;grid-template-rows:minmax(0,1fr) auto auto}
+.workbench .operation-views[data-layout=assist]{grid-template-columns:minmax(0,3fr) minmax(180px,1fr)}
+.workbench .operation-controls__actions>button:first-child{background:#fff;color:#213543}.workbench .operation-controls__actions>.primary-control{background:#176a55;color:#fff;font-weight:700}
+.workbench .stop-control{background:#8b2525;color:#fff;font-weight:700;position:sticky;right:0}
+.workbench-toast{position:fixed;right:24px;bottom:24px;z-index:20;background:#174f3f;color:white;padding:12px;border-radius:8px;box-shadow:0 4px 20px #17242d55}
+@media(max-width:950px){.workbench .operation-workspace{min-width:0}.workbench .operation-controls__actions{flex-wrap:wrap}.workbench .operation-views[data-layout=assist]{grid-template-columns:minmax(0,3fr) minmax(140px,1fr)}}

@@ -304,8 +304,39 @@ def test_interrupt_waits_for_formal_cli_cleanup(settings, monkeypatch):
                 raise KeyboardInterrupt
             return 130
     monkeypatch.setattr(local.subprocess, "Popen", lambda *args, **kwargs: Process())
-    assert local.launch(root, config) == 130
+    assert local.launch(root, config) == 0
     assert waits == [None, 10]
+
+
+def test_console_interrupt_maps_only_interrupted_child_to_success(settings, monkeypatch):
+    root, env = settings
+    config = local.Config.read(root, env)
+    config.temp.mkdir()
+    config.results.mkdir()
+    for name in ("prepared", "verify_build", "ports"):
+        monkeypatch.setattr(local, name, lambda *args: None)
+    monkeypatch.setattr(local, "revision", lambda *args: "source")
+    real_signal = local.signal.signal
+    for interrupted, child_code, expected in ((True, 1, 0), (False, 1, 1), (True, 0, 0)):
+        calls = []
+        def signal_set(kind, handler):
+            calls.append((kind, handler))
+            return None
+        class Process:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return None
+            def wait(self, timeout=None):
+                if interrupted:
+                    calls[0][1](local.signal.SIGINT, None)
+                    calls[0][1](local.signal.SIGINT, None)
+                return child_code
+        monkeypatch.setattr(local.signal, "signal", signal_set)
+        monkeypatch.setattr(local.subprocess, "Popen", lambda *args, **kwargs: Process())
+        assert local.launch(root, config) == expected
+        assert len(calls) == 2 and calls[-1][1] != calls[0][1]
+    monkeypatch.setattr(local.signal, "signal", real_signal)
 
 
 @pytest.mark.parametrize("selection,version", [("3.12", "3.14.1"), ("3.12.12", "3.12.13")])
