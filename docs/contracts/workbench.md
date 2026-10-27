@@ -55,7 +55,7 @@ Workbenchは選択したGamepadまたは品質付きDevice sourceだけを受け
 Deviceは7 channelの正規化command、role、個体、sequence、元時刻、profile/tareを表示する。
 値は無次元で、raw countやNへの換算、filter、neutral再補正をViewerに置かない。
 旧raw Selfrionette、Keyboard、unknownの表示能力と本Device取得経路は別契約である。鮮度、切断、別epochでは旧active値を表示しない。
-正常終端後は入力を現在値として表示せず、関節は「終了時」として保持する。Setupから終端の操作画面への再表示は開始を伴わない。
+終端後は入力と力提示を現在値として表示しない。操作者が停止したとき、画面と関節計器は最後に受信・描画したsampleを「最終受信」として保持する。これは停止処理でcommitされた最終姿勢の保証ではない。別trial、切断、失敗では保持表示を無効化する。Setupから終端の操作画面への再表示は開始を伴わない。
 関節表示・source表示・補助cameraの詳細は [viewer操作契約](../operations/product-viewer-wasm-scene-renderer.md) に従う。
 
 接触力の表示比較は下記の固定条件を使う。Quad、正式Evaluation、連続evidenceの受入は後続課題であり、本表示を研究条件受入の完了と扱わない。

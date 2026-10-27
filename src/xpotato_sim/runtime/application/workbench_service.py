@@ -232,7 +232,8 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
                     if request["op"] == "status" and latest_frame:
                         peer.put(latest_frame)
                 except (ValueError, TypeError, KeyError, OSError, RecursionError) as exc:
-                    peer.put({"type": "rejected", "request_id": request.get("request_id"), "error": str(exc)[:500]})
+                    peer.put({"type": "rejected", "request_id": request.get("request_id"),
+                              "id": request.get("id"), "op": request.get("op"), "error": str(exc)[:500]})
         except ConnectionClosed:
             # 切断はfinallyで所有権と停止監督へ反映し、正常closeをhandler障害にしない。
             pass

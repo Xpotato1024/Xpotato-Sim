@@ -42,6 +42,9 @@
 .workbench-settings-dialog--advanced pre{max-width:100%}
 @media(max-width:620px){.workbench-settings-dialog--advanced .condition-fields label{grid-template-columns:minmax(0,1fr)}}
 .workbench .workbench-body{display:block;min-height:0}.workbench .operation-workspace{height:calc(100dvh - 190px);min-height:420px;grid-template-rows:minmax(0,1fr) auto auto}
+.workbench.operation-shell .workbench-session-status{height:82px;min-height:82px;align-items:flex-start;padding-top:8px}
+.workbench.operation-shell>.operation-warning{top:124px;max-height:42px;overflow:auto;box-shadow:none;width:calc(100% - 16px)}
+.workbench.operation-shell .operation-workspace{height:100%}
 .workbench .operation-views{grid-column:2;grid-row:1}.workbench .input-strip,.workbench .force-cue-panel{grid-column:2}
 .workbench .operation-views[data-layout=assist]{grid-template-columns:minmax(0,3fr) minmax(180px,1fr)}
 .workbench .operation-controls__actions>button:first-child{background:#fff;color:#213543}.workbench .operation-controls__actions>.primary-control{background:#176a55;color:#fff;font-weight:700}

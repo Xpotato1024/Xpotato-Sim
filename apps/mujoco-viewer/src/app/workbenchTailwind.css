@@ -1,0 +1,5 @@
+/* Workbench controls use utilities without Tailwind Preflight. MuJoCo canvas,
+   native file inputs and the existing joint instruments keep their own styles. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);

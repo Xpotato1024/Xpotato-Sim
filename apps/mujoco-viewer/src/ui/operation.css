@@ -96,3 +96,7 @@
 .operation-shell .workbench-body { gap:0; }
 .operation-shell[data-screen=setup] .workbench-body { gap:12px; }
 .operation-shell .joint-rail .joint-instrument { box-sizing:border-box; }
+.workbench.operation-shell .operation-workspace { grid-template-rows:minmax(0,1fr) 100px 100px; }
+.workbench.operation-shell .force-cue-slot { grid-column:2;grid-row:3;min-width:0;overflow:auto;background:#f9faf9; }
+.workbench.operation-shell .force-cue-slot>.force-cue-panel { min-height:100%;box-sizing:border-box; }
+.workbench.operation-shell .force-cue-slot>p { margin:0;padding:8px 10px;color:#596c75;font-size:11px; }

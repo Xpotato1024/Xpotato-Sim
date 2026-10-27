@@ -88,11 +88,17 @@ assert.equal(workbenchNotice({...terminal,error:null},"late rejection"),"origina
 assert.equal(workbenchNotice({...terminal,phase:"running",error:null,result:null},"real input failure"),"real input failure");
 assert.equal(workbenchNotice({...terminal,phase:"recording_failed",error:"disk failure"},"old rejection"),"disk failure");
 
-import {telemetryIdentity,telemetryIsCurrent} from "../src/app/workbenchLifecycle.js";
+import {telemetryIdentity,telemetryIsCurrent,mayRetainStoppedDisplay} from "../src/app/workbenchLifecycle.js";
 const telemetryOld=telemetryIdentity({ticket:{epoch:"old"},generation:1,phase:"running"});
 const telemetryNew=telemetryIdentity({ticket:{epoch:"new"},generation:1,phase:"ready"});
 assert.equal(telemetryIsCurrent(telemetryOld,telemetryNew,telemetryNew,true),false);
 assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,true),true);
+const previousTrial={ticket:{epoch:"trial-1"}};
+assert.equal(mayRetainStoppedDisplay(previousTrial,{ticket:{epoch:"trial-1"},phase:"terminal"},true),true);
+assert.equal(mayRetainStoppedDisplay(previousTrial,{ticket:{epoch:"trial-1"},phase:"finalizing"},true),true);
+assert.equal(mayRetainStoppedDisplay(previousTrial,{ticket:{epoch:"trial-2"},phase:"terminal"},true),false);
+assert.equal(mayRetainStoppedDisplay(previousTrial,{ticket:{epoch:"trial-1"},phase:"faulted"},true),false);
+assert.equal(mayRetainStoppedDisplay(previousTrial,{ticket:{epoch:"trial-1"},phase:"terminal"},false),false);
 assert.equal(telemetryIsCurrent(telemetryNew,null,telemetryNew,true),false);
 assert.equal(telemetryIsCurrent(telemetryNew,telemetryNew,telemetryNew,false),false);
 assert.equal(telemetryIdentity({ticket:{epoch:"new"},generation:2,phase:"faulted"}),null);

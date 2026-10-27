@@ -11,8 +11,8 @@ const DialFace = memo(function DialFace() {
     <text x="42" y="80" textAnchor="middle" className="dial-zero">±180</text></g>;
 });
 /** 同一sampleのqposとaddressを使い、別sampleの数値を混ぜない。 */
-export function JointInstruments({state, names, unavailable, terminal}: {
-  state: ProductViewerState; numbers?: ProductViewerState; names?: readonly string[]; unavailable?: string; terminal?: boolean;
+export function JointInstruments({state, names, unavailable, terminal, terminalLabel}: {
+  state: ProductViewerState; numbers?: ProductViewerState; names?: readonly string[]; unavailable?: string; terminal?: boolean; terminalLabel?: string;
 }) {
   const readouts = jointReadouts(state.jointLayout, !unavailable && state.qposStatus === "ready" ? state.currentQpos : null);
   const live = names ? names.map(name => readouts.find(j => j.name === name)).filter(j => j !== undefined) : readouts;
@@ -30,7 +30,7 @@ export function JointInstruments({state, names, unavailable, terminal}: {
         {!needle && <text x="42" y="47" textAnchor="middle" className="dial-missing">—</text>}
       </svg> : <span className="joint-kind">{joint.kind}</span>}
       <output className="joint-degree">{label}</output>
-      <small>{unavailable || (out ? "表示範囲外" : joint.value === null ? joint.kind === "ball" || joint.kind === "free" ? "複数座標・診断" : "未取得/invalid" : terminal ? "終了時" : "")}</small>
+      <small>{unavailable || (out ? "表示範囲外" : joint.value === null ? joint.kind === "ball" || joint.kind === "free" ? "複数座標・診断" : "未取得/invalid" : terminal ? terminalLabel??"終了時" : "")}</small>
     </div>;
   })}</div>;
 }
