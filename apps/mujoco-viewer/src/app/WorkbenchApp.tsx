@@ -253,12 +253,16 @@ export function WorkbenchApp() {
       <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
     </nav>
     {toast&&!notice&&<p className="workbench-toast" role="status">{toast}</p>}
-    {notice && <section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+    {notice&&screen!=="setup" && <section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
       <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認し、検証・準備からやり直してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
       <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
     </section>}
     <dialog ref={settingsDialog} className="workbench-settings-dialog" aria-label="入力と条件の設定" onCancel={()=>setScreen("operate")} onClose={()=>{setScreen("operate");settingsButton.current?.focus();}}>
-      <header><h2>入力と条件の設定</h2><button onClick={()=>setScreen("operate")}>閉じる</button></header>
+      <header><h2>入力と条件の設定</h2><div><button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button><button onClick={()=>setScreen("operate")}>閉じる</button></div></header>
+      {notice&&screen==="setup"&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+        <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
+        <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
+      </section>}
       <p>1. モード・入力を選ぶ → 2. 条件を選ぶ → 3. 検証・準備 → 4. 閉じて開始</p>
       <section className="workbench-controls">
       <label>次の実行モード<select aria-label="次の実行モード" value={nextMode} disabled={active||busy||!owned}

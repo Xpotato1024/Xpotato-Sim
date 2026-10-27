@@ -8,6 +8,24 @@ import pytest
 cli = importlib.import_module("xpotato_sim.cli.main")
 
 
+def test_cli_interrupt_has_distinct_exit_code_after_runner_unwinds(monkeypatch, capsys):
+    def interrupted(_args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "_run", interrupted)
+    assert cli.main(["workbench", "--temporary-root", ".", "--result-root", ".", "--software-revision", "test"]) == 130
+    assert capsys.readouterr().err == ""
+
+
+def test_cli_runtime_failure_keeps_failure_exit_code(monkeypatch, capsys):
+    def failed(_args):
+        raise RuntimeError("worker cleanup failed")
+
+    monkeypatch.setattr(cli, "_run", failed)
+    assert cli.main(["workbench", "--temporary-root", ".", "--result-root", ".", "--software-revision", "test"]) == 1
+    assert "worker cleanup failed" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("flag,value", [("profile","dynamic-cube-drop"),("ticks","5"),
     ("input-wait-s","7"),("wall-s","60"),("prepare-s","17")])
 @pytest.mark.parametrize("equals", [False,True])

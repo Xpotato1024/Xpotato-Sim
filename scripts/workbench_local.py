@@ -377,6 +377,7 @@ def launch(root: Path, config: Config, *, dev: bool = False) -> int:
     def on_interrupt(_signum, _frame):
         nonlocal interrupted
         interrupted = True
+        raise KeyboardInterrupt
     signal.signal(signal.SIGINT, on_interrupt)
     try:
         with subprocess.Popen(argv, cwd=root, env=config.environment(root)) as process:
@@ -384,12 +385,17 @@ def launch(root: Path, config: Config, *, dev: bool = False) -> int:
                 code = process.wait()
             except KeyboardInterrupt:
                 interrupted = True
+                # 二重Ctrl+Cで後片付け待機を再中断しない。対象はこのlauncherの子だけ。
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
                 try:
                     code = process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     process.terminate()
-                    code = process.wait(timeout=10)
-            return 0 if interrupted else code
+                    process.wait(timeout=10)
+                    return 1
+            # The child CLI reserves 130 for a completed KeyboardInterrupt cleanup.
+            # A child exit 1 can be a real worker or cleanup failure, even after Ctrl+C.
+            return 0 if interrupted and code in {130, -signal.SIGINT} else code
     finally:
         signal.signal(signal.SIGINT, previous_handler)
 
