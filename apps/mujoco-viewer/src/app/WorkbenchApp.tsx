@@ -259,24 +259,30 @@ export function WorkbenchApp() {
     </section>}
     <dialog ref={settingsDialog} className="workbench-settings-dialog" aria-label="入力と条件の設定" onCancel={()=>setScreen("operate")} onClose={()=>{setScreen("operate");settingsButton.current?.focus();}}>
       <header><h2>入力と条件の設定</h2><div><button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button><button onClick={()=>setScreen("operate")}>閉じる</button></div></header>
-      {notice&&screen==="setup"&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
-        <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
-        <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
-      </section>}
-      <p>1. モード・入力を選ぶ → 2. 条件を選ぶ → 3. 検証・準備 → 4. 閉じて開始</p>
-      <section className="workbench-controls">
+      <p className="settings-flow">1. モード・入力を選ぶ → 2. 条件を選ぶ → 3. 検証・準備 → 4. 閉じて開始</p>
+      <section className="workbench-controls" aria-label="次の実行の設定">
       <label>次の実行モード<select aria-label="次の実行モード" value={nextMode} disabled={active||busy||!owned}
         onChange={e=>setNextMode(e.target.value as "experiment"|"demo")}>
         <option value="demo">デモ（実験データを取得・保存しない）</option><option value="experiment">実験（開始から記録）</option>
       </select></label>
-      <p role="status">適用モード: {status?.session_mode==="demo"?"デモ：実験記録なし":status?.profile_id?"実験：開始で記録":"未準備"}。モード変更は停止後の検証・準備で適用します。</p>
       <label>入力ソースを選び直す<select aria-label="入力ソースを選び直す" value={sourceFilter} disabled={active||busy||editingBusy||!owned}
         onChange={e=>{setSourceFilter(e.target.value);setSelected("");setEdited(null);}}>
         <option value="gamepad/v1">Gamepad（接続と新しい中立が必要）</option>
         <option value="selfrionette-device/v1">Selfrionette（正規profile・接続設定が必要）</option>
         <option disabled>Keyboard：有限共同runtimeのsession入力に未対応</option>
       </select></label>
-      {status?.session_mode==="demo"&&active&&<button disabled={busy||!owned} onClick={()=>command("stop")}>入力切替のためデモを停止</button>}
+      <label>タスク・条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
+        <option value="">profileを選択してください</option>
+        {status?.profiles.filter(p=>!sourceFilter||p.input_provider===sourceFilter).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
+      </select></label>
+      <button disabled={!owned||!selected||!edited||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
+      </section>
+      <div className="settings-scroll" tabIndex={0} aria-label="接続案内と詳細">
+      {notice&&screen==="setup"&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+        <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
+        <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
+      </section>}
+      <p role="status">適用モード: {status?.session_mode==="demo"?"デモ：実験記録なし":status?.profile_id?"実験：開始で記録":"未準備"}。モード変更は停止後の検証・準備で適用します。</p>
       <p className="source-status" role="status">要求: {sourceName(sourceFilter)} / {nextMode==="demo"?"デモ":"実験"} → 適用: {sourceName(status?.input_provider)} / {status?.profile_id?status.session_mode==="demo"?"デモ":"実験":"未準備"}{pendingSelection?"（未適用：検証・準備が必要）":"（適用済み）"}</p>
       {sourceFilter==="selfrionette-device/v1"&&<section className="device-first-run" aria-label="Selfrionette初回設定">
         <h3>Selfrionetteを初めて使う場合</h3>
@@ -287,18 +293,12 @@ export function WorkbenchApp() {
         <button disabled={!edited} onClick={saveConnectionTemplate}>接続設定の未完成ひな形を保存</button>
         <p>接続設定: {status?.device_connection?.configured?`指定済み（${status.device_connection.roles.join(" / ")}）。接続確認は別途必要です。`:"未指定。上の手順を完了するまで開始できません。"}</p>
       </section>}
-      <label>タスク・条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
-        <option value="">profileを選択してください</option>
-        {status?.profiles.filter(p=>!sourceFilter||p.input_provider===sourceFilter).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
-      </select></label>
-      <button disabled={!owned||!selected||!edited||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
       <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phaseLabel}</p>
       <details><summary>適用条件・描画の詳細</summary>
       <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":status?.input_provider==="selfrionette-device/v1"?"Deviceの個別準備後、開始時に新しい中立入力を確認":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
       </details>
-    </section>
     <DeviceInputPanel value={status?.device_input} enabled={owned&&!busy&&!editingBusy&&status?.phase==="ready"}
       onAction={(role,action,phase)=>command("device",{role,action,confirmed:true,observed_phase:phase})}/>
       <details className="setup-inspector"><summary>詳細設定・実験条件・診断・過去の実験結果</summary><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
@@ -322,6 +322,7 @@ export function WorkbenchApp() {
         <details><summary>過去の実験保存結果（最新32件・デモとは別）</summary>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
         </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></details></details>
+      </div>
     </dialog>
     <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)}
       connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase} inputProvider={status?.input_provider}
