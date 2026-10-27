@@ -18,6 +18,7 @@ import "../ui/operation.css";
 import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 import {DeviceInputPanel,type DevicePreparation} from "./DeviceInputPanel.js";
+import {formatWorkbenchRtf} from "./workbenchPresentation.js";
 
 type TimingStage = {count:number;observed:number;last_ns:number|null;mean_ns:number|null;p50_ns:number|null;p95_ns:number|null;p99_ns:number|null;max_ns:number|null};
 type RuntimeEnvironment = {python:string;platform:string;logical_cpus:number|null;mujoco:string;numpy:string;websockets:string;diagnostic_memory:boolean;thread_settings:Record<string,string|null>};
@@ -39,9 +40,12 @@ const phases: Record<string,string> = {unselected:"未選択・待機",ready:"�
 export function WorkbenchApp() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const interaction = useRef<HTMLDivElement>(null);
-  const [screen,setScreen]=useState<"setup"|"operate">("operate");
+  const [screen,setScreen]=useState<"setup"|"advanced"|"operate">("operate");
   const settingsDialog=useRef<HTMLDialogElement>(null);
   const settingsButton=useRef<HTMLButtonElement>(null);
+  const advancedButton=useRef<HTMLButtonElement>(null);
+  const advancedBack=useRef<HTMLButtonElement>(null);
+  const previousScreen=useRef<"setup"|"advanced"|"operate">("operate");
   const [toast,setToast]=useState("");
   const [layout,setLayout]=useState<ViewLayout>("single");
   const rawMailbox=useRef<BrowserGamepadDisplay|null>(null);
@@ -229,14 +233,14 @@ export function WorkbenchApp() {
   const pendingSelection=!selected||selected!==status?.profile_id||sourceFilter!==status?.input_provider||nextMode!==status?.session_mode||!sameCondition(edited,status?.applied_condition);
   const phaseLabel=status?.session_mode==="demo"&&["terminal","finalizing"].includes(status.phase)?"デモ停止・実験記録なし":phases[status?.phase??"unselected"]??status?.phase;
   useEffect(()=>{const dialog=settingsDialog.current;if(!dialog)return;
-    if(screen==="setup"&&!dialog.open)dialog.showModal();
-    if(screen!=="setup"&&dialog.open)dialog.close();},[screen]);
+    if(screen!=="operate"&&!dialog.open)dialog.showModal();
+    if(screen==="operate"&&dialog.open)dialog.close();},[screen]);
+  useEffect(()=>{if(screen==="advanced")advancedBack.current?.focus();if(screen==="setup"&&previousScreen.current==="advanced")advancedButton.current?.focus();previousScreen.current=screen;},[screen]);
   useEffect(()=>{if(status?.phase!=="ready"||status.busy)return;
     setToast(status.session_mode==="demo"?"デモの準備ができました。実験記録は保存しません。":"実験の準備ができました。");
     const timer=window.setTimeout(()=>setToast(""),4000);return ()=>window.clearTimeout(timer);
   },[status?.ticket?.epoch,status?.phase,status?.busy]);
-  return <main className="workbench operation-shell" data-screen={screen} data-demo={nextMode==="demo"}>
-    {status?.profile_id&&<p role="status"><strong>{status.session_mode==="demo"?"デモ：実験データの取得・永続保存は無効です":"実験：開始後の入力・物理・Taskを記録します"}</strong></p>}
+  return <main className="workbench operation-shell" data-screen={screen}>
     <header><h1>Xpotato-Sim 実験Workbench</h1><p>有限試行 · simulation-only · ロボット出力なし</p>
       <span>{connected?"接続中":"未接続"} / {owned?"操作権あり":"閲覧のみ"}</span>
       {!connected && <button onClick={()=>window.dispatchEvent(new Event("workbench-reconnect"))}>状態へ再接続</button>}
@@ -252,13 +256,15 @@ export function WorkbenchApp() {
       </div>
       <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
     </nav>
+    <div className="workbench-session-status" role="status"><strong>{status?.session_mode==="demo"?"デモ：実験データの取得・保存なし":status?.profile_id?"実験：開始後に記録":"未準備：入力と条件を設定"}</strong><span>適用中: {status?.profile_id??"なし"}</span><span>{formatWorkbenchRtf(status?.phase,status?.execution_timing?.actual_rtf,status?.execution_timing?.rtf_window_s)}</span></div>
     {toast&&!notice&&<p className="workbench-toast" role="status">{toast}</p>}
-    {notice&&screen!=="setup" && <section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+    {notice&&screen==="operate" && <section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
       <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認し、検証・準備からやり直してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
       <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
     </section>}
-    <dialog ref={settingsDialog} className="workbench-settings-dialog" aria-label="入力と条件の設定" onCancel={()=>setScreen("operate")} onClose={()=>{setScreen("operate");settingsButton.current?.focus();}}>
-      <header><h2>入力と条件の設定</h2><div><button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button><button onClick={()=>setScreen("operate")}>閉じる</button></div></header>
+    <dialog ref={settingsDialog} className={`workbench-settings-dialog${screen==="advanced"?" workbench-settings-dialog--advanced":""}`} aria-label={screen==="advanced"?"詳細設定と診断":"入力と条件の設定"} onCancel={()=>setScreen("operate")} onClose={()=>{setScreen("operate");settingsButton.current?.focus();}}>
+      <header><h2>{screen==="advanced"?"詳細設定・実験条件・診断":"入力と条件の設定"}</h2><div>{screen==="advanced"&&<button ref={advancedBack} onClick={()=>setScreen("setup")}>基本設定へ戻る</button>}<button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button><button onClick={()=>setScreen("operate")}>閉じる</button></div></header>
+      {screen!=="advanced"?<>
       <p className="settings-flow">1. モード・入力を選ぶ → 2. 条件を選ぶ → 3. 検証・準備 → 4. 閉じて開始</p>
       <section className="workbench-controls" aria-label="次の実行の設定">
       <label>次の実行モード<select aria-label="次の実行モード" value={nextMode} disabled={active||busy||!owned}
@@ -301,7 +307,8 @@ export function WorkbenchApp() {
       </details>
     <DeviceInputPanel value={status?.device_input} enabled={owned&&!busy&&!editingBusy&&status?.phase==="ready"}
       onAction={(role,action,phase)=>command("device",{role,action,confirmed:true,observed_phase:phase})}/>
-      <details className="setup-inspector"><summary>詳細設定・実験条件・診断・過去の実験結果</summary><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
+      <button ref={advancedButton} className="advanced-entry" onClick={()=>setScreen("advanced")}>詳細設定・実験条件・診断を開く</button>
+      </div></>:<div className="advanced-scroll" tabIndex={0} aria-label="詳細設定の内容"><p>編集は基本設定へ戻っても保持されます。適用には検証・準備が必要です。</p>{notice&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}><p>{notice}</p></section>}<ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
         onError={setError} onValidate={()=>editRequest("edit",{condition:edited})} onImport={async file=>{
           const pending=beginEditor();if(!pending) return;
           const captured=pending.status;const ws=pending.socket;
@@ -321,8 +328,7 @@ export function WorkbenchApp() {
           live={connected&&!!ready&&!frameStale&&["waiting_input","running"].includes(status?.phase??"")} status={status}/>
         <details><summary>過去の実験保存結果（最新32件・デモとは別）</summary>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
-        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></details></details>
-      </div>
+        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></details></div>}
     </dialog>
     <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)}
       connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase} inputProvider={status?.input_provider}
@@ -346,9 +352,9 @@ function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
   const invalid=!valid?"別epoch / 無効":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
   return <div className="operation-workspace" data-left={!!left} data-right={!!right} data-force-comparison={state.forcePresentation.comparison}>
-    {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <aside className="joint-rail joint-rail--left" aria-label={left?.label??"左側計器"}><h2>{left?.label??"左側計器"}</h2>{left?<JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/>:<p>{props.ready?"対象なし":"準備待ち"}</p>}</aside>
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
-    {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <aside className="joint-rail joint-rail--right" aria-label={right?.label??"右側計器"}><h2>{right?.label??"右側計器"}</h2>{right?<JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/>:<p>{props.ready?"対象なし":"準備待ち"}</p>}</aside>
     <InputStrip state={state} raw={raw} selected={inputKind(props.inputProvider)} live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
     <ForceCuePanel value={state.forcePresentation}/>
   </div>;

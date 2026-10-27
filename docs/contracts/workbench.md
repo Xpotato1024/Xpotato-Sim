@@ -26,15 +26,18 @@ Gamepadは接続と中立、Deviceは正規profile・明示bridge接続・個別
 Keyboardは有限共同runtimeのsession入力に未対応として選択不可・理由表示する。
 デモでも未接続・staleをneutralで補完しない。
 
-## 設定・準備と操作画面（#564/#587、レイアウトv1.0）
+## 設定・準備と操作画面（#564/#587、レイアウトv1.2）
 
-初期画面はSetup（設定・準備）。profile、condition editor、import/export/diff、適用条件と次条件、
-hash/epoch/tick、結果とraw診断はSetupに置く。ready後の「操作画面へ」はローカル表示遷移のみで、
-Startを送らない。「開始」はOperateでのみ有効とし、従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
-waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
+初期画面は主ビューと操作帯である。基本設定ダイアログはmode、入力、条件、検証・準備を同じ位置・寸法の操作として示す。
+明示した「詳細設定」でだけ広い編集画面へ移り、condition editor、import/export/diff、診断、過去の実験結果を表示する。
+詳細画面から戻ってもdraftは保持するが、検証・準備までは適用しない。閉じる、Escape、戻るの焦点を復帰させる。
+「開始」は主画面でのみ有効とし、従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
+waiting_input/running/finalizing中は設定への遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
 
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
 dynamic比較条件ではさらに固定高さの接触力表示欄を置く。両modeで同じ領域を確保し、sceneの大きさを変えない。
+デモ/実験によってヘッダー、操作帯、状態欄、左右rail、scene、入力帯の配置や操作部品の寸法を変えない。
+関節が未準備またはモデルに存在しない場合もrailの位置は保ち、理由を示す。状態欄は実行中の実測RTF、停止時の最終RTF、未計測を区別する。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
 Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正面はscreen-right=-Y / screen-up=+Zとする。視点変更で入力mappingは変更しない。
@@ -42,7 +45,8 @@ Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正
 v1.1は主視点:補助列を2:1に拡げ、1pxの境界と入力帯まで続く左右railへ整理する。
 Gamepad操作帯は中央の左Z/左XY/右XY/右Zのみ。Zは確定符号付き入力量の縦バー、ボタン詳細はSetupに置く。
 初期画角とフォーカスはnative変換済みgeometryへ合わせる。表示のためにmodelやphysicsを複製しない。
-「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象を収める。Workbenchの初期cameraはoperatorとする。
+「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象と支持台を収める。補助視点も明示した全体操作で支持台を含めて収める。Workbenchの初期cameraはoperatorとする。
+狭い幅では視点ボタンをsceneと重ならない専有行へ移し、全ボタンのクリック・キーボード焦点領域を確保する。
 停止要求は開始とは別の操作帯右端に置き、確認modalを使わない。停止要求中、停止確認・保存済み、保存中、記録失敗を区別する。
 停止はsimulationの操作であり実機非常停止ではない。障害・記録失敗の明示復旧契約は以下の従来手順を維持する。
 

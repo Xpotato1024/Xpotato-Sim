@@ -236,8 +236,8 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
   const frontCamera = new OrthographicCamera(-1,1,1,-1,0.01,100);
   let assistExtent = 1;
   let assistBounds: DisplayBounds | null = null;
-  const fitAssist = (): void => {
-    assistBounds = displayBounds(true);
+  const fitAssist = (includeSupport = false): void => {
+    assistBounds = displayBounds(!includeSupport);
     const center = assistBounds && boundsCenter(assistBounds);
     if (!center) return;
     assistExtent = Math.max(0.05,...assistBounds!.max.map((v,i)=>v-assistBounds!.min[i]));
@@ -780,7 +780,7 @@ export function createMujocoSceneRenderer(options: MujocoSceneRendererOptions): 
     camera.up.set(...up as [number,number,number]);
     controls.target.set(...fit.target);
     controls.update();
-    fitAssist();
+    fitAssist(view === "fit");
   };
 
   // 描画提出の観測値。GPU完了・表示走査や実device遅延ではない。
