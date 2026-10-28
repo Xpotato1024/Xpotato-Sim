@@ -21,9 +21,6 @@ ACTIVE = {"waiting_input", "running", "finalizing"}
 INPUT_ACTIVE = {"waiting_input", "running"}
 INPUT_FINISHED = {"finalizing", "terminal", "recording_failed"}
 ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
-LEGACY_TASK_PROFILES = {name.removeprefix("shared-") for name in SHARED_TASK_MODELS}
-LEGACY_TASK_PROFILES.update({"research-spring-g", "research-spring-s",
-    "dynamic-fixed-contact-bimanual-device", "dynamic-fixed-contact-single-device"})
 
 
 def owner_disconnect_requires_stop(state, busy):
@@ -88,10 +85,9 @@ def profile_catalog():
             p = resolve_trial_profile(p)
             result.append({"id": name, "available": True, "reason": None,
                 "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps,
-                "input_provider": p.provider_id, "legacy": name in LEGACY_TASK_PROFILES})
+                "input_provider": p.provider_id})
         except Exception as exc:
-            result.append({"id": name, "available": False, "reason": str(exc),
-                "legacy": name in LEGACY_TASK_PROFILES})
+            result.append({"id": name, "available": False, "reason": str(exc)})
     return result
 
 

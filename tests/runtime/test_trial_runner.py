@@ -36,7 +36,7 @@ def message(sequence=0, axes=(0, 0, 0, 0), **gamepad):
     return json.dumps(value)
 
 
-def prepared(tmp_path, name="fast-arm-bimanual-gamepad", ticks=2, **limits):
+def prepared(tmp_path, name="inputs/bimanual-gamepad", ticks=2, **limits):
     clock = Clock()
     runner = TrialRunner(result_root=tmp_path, software_revision="test-only", clock=clock)
     ticket = runner.prepare(load_launch_profile(name), TrialLimits(ticks, **limits))
@@ -62,7 +62,7 @@ def test_unselected_and_ready_are_not_physics(tmp_path):
     runner = TrialRunner(result_root=tmp_path, software_revision="test")
     assert runner.status == "unselected" and runner.snapshot() is None
     assert not list(tmp_path.iterdir())
-    ticket = runner.prepare(load_launch_profile("fast-arm-single-gamepad"), TrialLimits(2))
+    ticket = runner.prepare(load_launch_profile("inputs/single-gamepad"), TrialLimits(2))
     initial = runner.snapshot()
     assert initial.time_s == 0
     assert runner.snapshot().qpos == initial.qpos
@@ -110,10 +110,10 @@ def test_execution_wire_ingress_still_validates_and_faults(tmp_path):
     runner.close()
 
 
-@pytest.mark.parametrize("name", ["fast-arm-single-gamepad", "fast-arm-left-gamepad",
-    "fast-arm-right-gamepad", "fast-arm-bimanual-gamepad",
-    "contact-debug-single", "contact-debug-left", "contact-debug-right", "contact-debug-bimanual",
-    "dynamic-cube-drop", "dynamic-fixed-contact", "dynamic-cube-push"])
+@pytest.mark.parametrize("name", ["inputs/single-gamepad", "examples/left-gamepad",
+    "examples/right-gamepad", "inputs/bimanual-gamepad",
+    "diagnostics/contact-debug-single", "diagnostics/contact-debug-left", "diagnostics/contact-debug-right", "diagnostics/contact-debug-bimanual",
+    "tasks/dynamic-cube-drop", "tasks/dynamic-fixed-contact", "tasks/dynamic-cube-push"])
 def test_common_route_records_resets_and_reuses_model(tmp_path, name):
     runner, ticket, clock = prepared(tmp_path, name)
     provider = runner._execution.instance.provider
@@ -144,7 +144,7 @@ def test_common_route_records_resets_and_reuses_model(tmp_path, name):
 
 
 def test_semantic_digest_uses_effective_fields_not_stored_json(tmp_path):
-    profile = load_launch_profile("fast-arm-bimanual-gamepad")
+    profile = load_launch_profile("inputs/bimanual-gamepad")
     runner = TrialRunner(result_root=tmp_path, software_revision="test")
     a = runner.prepare(profile, TrialLimits(2))
     b = runner.prepare(replace(profile, host="127.0.0.2", web_port=4111, backend_port=4112,
@@ -162,7 +162,7 @@ def test_semantic_digest_uses_effective_fields_not_stored_json(tmp_path):
 
 
 def test_replaced_scene_and_dynamics_are_actual_condition(tmp_path):
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     scene = profile.scene_plan
     settings = replace(scene.dynamics, max_joint_speed_rad_s=9.)
     profile = replace(profile, scene_plan=replace(scene, dynamics=settings))
@@ -178,7 +178,7 @@ def test_replaced_scene_and_dynamics_are_actual_condition(tmp_path):
 def test_invalid_effective_condition_fails_closed(tmp_path, update):
     runner = TrialRunner(result_root=tmp_path, software_revision="test")
     with pytest.raises((ValueError, TypeError)):
-        runner.prepare(replace(load_launch_profile("fast-arm-single-gamepad"), **update), TrialLimits(1))
+        runner.prepare(replace(load_launch_profile("inputs/single-gamepad"), **update), TrialLimits(1))
     assert runner.status == "faulted"
     runner.close()
 
@@ -258,7 +258,7 @@ def test_duplicate_start_active_changes_and_late_inputs(tmp_path):
     runner, ticket, clock = prepared(tmp_path)
     start(runner, ticket, clock)
     for action in (lambda:runner.start(ticket,input_provenance={"test":1}),
-        lambda:runner.prepare(load_launch_profile("fast-arm-single-gamepad"),TrialLimits(2)), runner.retry):
+        lambda:runner.prepare(load_launch_profile("inputs/single-gamepad"),TrialLimits(2)), runner.retry):
         with pytest.raises(RuntimeError):
             action()
     result = runner.abort(ticket)
@@ -286,7 +286,7 @@ def test_owner_thread_and_reentrancy(tmp_path, monkeypatch):
     original = runner._execution.instance.provider.reset
     def reset():
         with pytest.raises(RuntimeError, match="reentrant"):
-            runner.prepare(load_launch_profile("fast-arm-single-gamepad"),TrialLimits(1))
+            runner.prepare(load_launch_profile("inputs/single-gamepad"),TrialLimits(1))
         original()
     monkeypatch.setattr(runner._execution.instance.provider,"reset",reset)
     finish(runner,ticket,clock)
@@ -347,7 +347,7 @@ def test_reset_failure_and_old_provider_ticket(tmp_path, monkeypatch):
 
 
 def test_task_success_and_runner_stop_are_separate(tmp_path):
-    profile=load_launch_profile("dynamic-cube-drop")
+    profile=load_launch_profile("tasks/dynamic-cube-drop")
     params=json.loads(profile.task_parameters_json)
     params["duration_s"]=.01
     profile=replace(profile,task_parameters_json=json.dumps(params))
@@ -364,7 +364,7 @@ def test_task_success_and_runner_stop_are_separate(tmp_path):
 def test_headless_same_runner_and_fixture_identity(tmp_path):
     fixture=load_trial_fixture(FIXTURE)
     clock=Clock()
-    result=run_finite_trial(load_launch_profile("fast-arm-single-gamepad"),fixture=fixture,
+    result=run_finite_trial(load_launch_profile("inputs/single-gamepad"),fixture=fixture,
         limits=TrialLimits(4),result_root=tmp_path,software_revision="test",clock=clock,sleeper=clock.sleep).to_document()
     assert result["ticks"]==4
     start_record=json.loads((tmp_path/result["trial_id"]/"start.json").read_bytes())
@@ -382,7 +382,7 @@ def test_prepare_watchdog_and_monotonic_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(RobotModelRegistration,"build",slow)
     runner=TrialRunner(result_root=tmp_path,software_revision="test",clock=clock)
     with pytest.raises(TimeoutError):
-        runner.prepare(load_launch_profile("fast-arm-single-gamepad"),TrialLimits(1,prepare_s=1))
+        runner.prepare(load_launch_profile("inputs/single-gamepad"),TrialLimits(1,prepare_s=1))
     assert runner.status=="faulted"
     runner.close()
     runner,ticket,clock=prepared(tmp_path)
@@ -393,7 +393,7 @@ def test_prepare_watchdog_and_monotonic_failure(tmp_path, monkeypatch):
 
 
 def test_abort_task_failure_is_not_success(tmp_path):
-    runner,ticket,clock=prepared(tmp_path,"contact-debug-bimanual")
+    runner,ticket,clock=prepared(tmp_path,"diagnostics/contact-debug-bimanual")
     start(runner,ticket,clock)
     result=runner.abort(ticket).to_document()
     assert result["runner_stop_reason"]=="operator_abort"
@@ -414,14 +414,14 @@ def test_old_owners_released_on_retry_and_condition_replacement(tmp_path):
     provider_ref=weakref.ref(execution.instance.provider)
     execution_ref=weakref.ref(execution)
     del execution
-    runner.prepare(load_launch_profile("fast-arm-single-gamepad"),TrialLimits(1))
+    runner.prepare(load_launch_profile("inputs/single-gamepad"),TrialLimits(1))
     gc.collect()
     assert execution_ref() is None and provider_ref() is None
     runner.close()
 
 
 def test_changed_scene_geometry_is_built_and_digest_changes(tmp_path):
-    profile=load_launch_profile("contact-debug-single")
+    profile=load_launch_profile("diagnostics/contact-debug-single")
     runner=TrialRunner(result_root=tmp_path,software_revision="test")
     original=runner.prepare(profile,TrialLimits(1))
     plan=profile.scene_plan
@@ -457,7 +457,7 @@ def test_fixture_negative_contract(tmp_path,mutation):
 
 def test_cli_actual_finite_trial_and_explicit_fixture_required(tmp_path,capsys):
     from xpotato_sim.cli.main import main
-    args=["trial","--profile","fast-arm-left-gamepad","--ticks","2","--result-root",str(tmp_path),
+    args=["trial","--profile","examples/left-gamepad","--ticks","2","--result-root",str(tmp_path),
         "--software-revision","software-test"]
     with pytest.raises(SystemExit):
         main(args)
@@ -471,7 +471,7 @@ def test_cli_actual_finite_trial_and_explicit_fixture_required(tmp_path,capsys):
 def test_v1_is_explicitly_unsupported_in_new_runner(tmp_path):
     runner=TrialRunner(result_root=tmp_path,software_revision="test")
     with pytest.raises(ValueError,match="v1 unsupported"):
-        runner.prepare(load_launch_profile("sim-gamepad"),TrialLimits(1))
+        runner.prepare(load_launch_profile("examples/sim-gamepad"),TrialLimits(1))
     runner.close()
 
 
@@ -552,7 +552,7 @@ def test_state_failure_before_recording_is_not_recording_failure(tmp_path,monkey
 
 
 def test_record_failure_preserves_task_and_stop_reason(tmp_path,monkeypatch):
-    profile=load_launch_profile("dynamic-cube-drop")
+    profile=load_launch_profile("tasks/dynamic-cube-drop")
     parameters=json.loads(profile.task_parameters_json)
     parameters["duration_s"]=.01
     profile=replace(profile,task_parameters_json=json.dumps(parameters))
@@ -570,7 +570,7 @@ def test_record_failure_preserves_task_and_stop_reason(tmp_path,monkeypatch):
 
 
 def test_display_cadence_preserves_task_outcome_and_all_native_state(tmp_path):
-    runners = [prepared(tmp_path / str(i), "dynamic-cube-drop", ticks=30) for i in range(2)]
+    runners = [prepared(tmp_path / str(i), "tasks/dynamic-cube-drop", ticks=30) for i in range(2)]
     try:
         for runner, ticket, clock in runners:
             start(runner, ticket, clock)

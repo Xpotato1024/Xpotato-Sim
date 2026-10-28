@@ -53,7 +53,7 @@ def test_120_native_trials_keep_owners_and_workspaces_bounded(tmp_path,monkeypat
     monkeypatch.setattr(RobotModelRegistration,"build",build)
     monkeypatch.setattr(mujoco.MjModel,"from_xml_string",native)
     fixture=load_trial_fixture(Path(__file__).parents[1]/"fixtures/trial_gamepad/short-movement.json")
-    profile=load_launch_profile("dynamic-cube-drop")
+    profile=load_launch_profile("tasks/dynamic-cube-drop")
     runner=TrialRunner(result_root=tmp_path,software_revision="software-stress",clock=lambda:10.)
     phases=[]
     tracemalloc.start()

@@ -10,7 +10,7 @@ from xpotato_sim.runtime.scene.objects import decode_object_scene, canonical
 from xpotato_sim.runtime.execution.physics import DynamicsSettings
 
 
-def profile(name="dynamic-cube-drop", *, model="bimanual", gravity=None, planes=None):
+def profile(name="tasks/dynamic-cube-drop", *, model="bimanual", gravity=None, planes=None):
     p=load_launch_profile(name)
     from xpotato_sim.runtime.experiment.contracts import PluginSelection
     if model!="bimanual":
@@ -77,7 +77,7 @@ def test_zero_gravity_nonzero_velocity_and_body_angular_frame():
 
 
 def test_fixed_object_does_not_fall_and_arm_produces_contact_force():
-    p=profile("dynamic-fixed-contact");r=p.build_model().provider
+    p=profile("tasks/dynamic-fixed-contact");r=p.build_model().provider
     sample=advance(r,p,120,(.06,0.,0.))
     assert sample.geometry.objects[0].position_m==pytest.approx((.36,.56,.46),abs=1e-12)
     contacts=[c for c in sample.dynamics["contacts"] if c["role1"]["kind"]=="tool" or c["role2"]["kind"]=="tool"]
@@ -87,7 +87,7 @@ def test_fixed_object_does_not_fall_and_arm_produces_contact_force():
 
 
 def test_dynamic_cube_push_translates_object_with_finite_native_force():
-    p=profile("dynamic-cube-push");r=p.build_model().provider
+    p=profile("tasks/dynamic-cube-push");r=p.build_model().provider
     sample=advance(r,p,180,(.06,0.,0.))
     obj=sample.dynamics["objects"][0]
     assert obj["position_m"][0]>.38
@@ -127,7 +127,7 @@ def test_invalid_numerical_settings_are_not_repaired(bad):
 
 
 def test_old_fixed_scene_document_bytes_remain_v1_and_reject_dynamic():
-    p=load_launch_profile("contact-debug-bimanual")
+    p=load_launch_profile("diagnostics/contact-debug-bimanual")
     doc=p.scene_plan.manifest.to_document()
     assert doc["schema_version"]=="object-scene/v1" and "world" not in doc
     assert all("initial_velocity" not in o for o in doc["objects"])
@@ -187,7 +187,7 @@ def test_stale_input_freezes_complete_dynamic_world_and_never_auto_restarts():
 
 
 def test_tool_frame_is_resolved_from_observed_not_desired_orientation(monkeypatch):
-    p=profile("dynamic-fixed-contact");r=p.build_model().provider
+    p=profile("tasks/dynamic-fixed-contact");r=p.build_model().provider
     advance(r,p,90,(.06,0.,0.))
     current=r._data
     planning=r._planning_state(current)
@@ -220,7 +220,7 @@ def test_multiple_dynamic_objects_and_fixed_object_share_one_layout_and_reset():
 
 def test_world_definition_is_reusable_without_dynamic_execution_for_fixed_objects():
     from xpotato_sim.runtime.composition.launch_profile import decode_launch_profile
-    p=profile("dynamic-fixed-contact")
+    p=profile("tasks/dynamic-fixed-contact")
     raw=json.loads(p.document_json);raw["schema_version"]="xpotato-sim-launch-profile/v3";del raw["execution"]["dynamics"]
     k=decode_launch_profile(canonical(raw),source_path=p.source_path)
     assert k.scene_plan.manifest.digest==p.scene_plan.manifest.digest

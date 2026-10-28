@@ -120,7 +120,7 @@
   "display_comparison": {
     "max_arrow_m": 0.12,
     "max_sample_age_s": 0.2,
-    "mode": "force_cue",
+    "mode": "no_force_cue",
     "normal_load_full_scale_n": 30.0,
     "scale_m_per_n": 0.002,
     "schema_version": "force-presentation/v1"
@@ -268,7 +268,7 @@
     "wall_s": 360.0
   },
   "model_configuration_sha256": "40846a802b33f774e4d008a0607fd2838c2dfac640f424e3a37fde38e8d68f0e",
-  "preset_id": "research-spring-g",
+  "preset_id": "tasks/research-spring",
   "schema_version": "workbench-condition/v1",
   "task": {
     "parameters": {

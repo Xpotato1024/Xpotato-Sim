@@ -32,7 +32,7 @@ def test_check_has_no_network_process_or_browser(monkeypatch, capsys):
     # CIのPython jobにfrontend node_modulesは不要。依存file検査は別testで検証。
     monkeypatch.setattr(app, "preflight_application", lambda profile: "node")
     cli = importlib.import_module("xpotato_sim.cli.main")
-    assert cli.main(["app", "--profile", "sim-gamepad", "--check", "--web-port", "5197", "--no-browser"]) == 0
+    assert cli.main(["app", "--profile", "examples/sim-gamepad", "--check", "--web-port", "5197", "--no-browser"]) == 0
     output = json.loads(capsys.readouterr().out)
     assert output["configuration"]["web"]["port"] == 5197
     assert output["configuration"]["web"]["open_browser"] is False
@@ -40,22 +40,22 @@ def test_check_has_no_network_process_or_browser(monkeypatch, capsys):
 
 
 def test_url_owns_endpoint_and_provider_without_silent_default():
-    profile = override_launch_profile(load_launch_profile("sim-keyboard"), web_port=5197, backend_port=8797)
+    profile = override_launch_profile(load_launch_profile("examples/sim-keyboard"), web_port=5197, backend_port=8797)
     url = urlparse(app.application_url(profile))
     assert url.port == 5197
     assert parse_qs(url.query)["websocketUrl"] == ["ws://127.0.0.1:8797"]
     assert parse_qs(url.query)["inputProvider"] == ["keyboard/v1"]
-    assert parse_qs(urlparse(app.application_url(load_launch_profile("replay-sweep"))).query)["inputProvider"] == ["none"]
+    assert parse_qs(urlparse(app.application_url(load_launch_profile("examples/replay-sweep"))).query)["inputProvider"] == ["none"]
 
 
 def test_missing_node_rejected_before_launch(monkeypatch):
     monkeypatch.setattr(app.shutil, "which", lambda _: None)
     with pytest.raises(ValueError, match="Node.js"):
-        app.preflight_application(load_launch_profile("sim-gamepad"))
+        app.preflight_application(load_launch_profile("examples/sim-gamepad"))
 
 
 def test_busy_port_rejected_without_killing_listener(monkeypatch):
-    profile = load_launch_profile("sim-gamepad")
+    profile = load_launch_profile("examples/sim-gamepad")
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
@@ -74,7 +74,7 @@ def test_worker_requires_parent_start_gate(monkeypatch, tmp_path):
 
 
 def test_snapshot_digest_is_rechecked(tmp_path):
-    profile = load_launch_profile("sim-keyboard")
+    profile = load_launch_profile("examples/sim-keyboard")
     raw = {"source_path": str(profile.source_path), "configuration": json.loads(profile.document_json),
            "configuration_sha256": profile.configuration_sha256}
     path = tmp_path / "snapshot.json"
@@ -99,7 +99,7 @@ def test_viewer_provider_mismatch_invalidates_previous_input():
 
 def test_selected_mapping_and_provider_reach_canonical_publisher(monkeypatch):
     from xpotato_sim.runtime.runners import websocket_publisher as publisher
-    profile = load_launch_profile("sim-gamepad")
+    profile = load_launch_profile("examples/sim-gamepad")
     seen = []
     async def capture(**kwargs):
         seen.append(kwargs)

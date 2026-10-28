@@ -69,7 +69,7 @@ class FakeServer:
 
 def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypatch):
     profile = replace(
-        load_launch_profile("fast-arm-bimanual-gamepad"),
+        load_launch_profile("inputs/bimanual-gamepad"),
         steps=4,
         interval_s=.0001,
         grace_period_s=.0001,
@@ -105,7 +105,7 @@ def test_both_sticks_update_eight_joint_payload_in_one_runtime_sequence(monkeypa
 
 def test_no_gamepad_keeps_home_without_faulting(monkeypatch):
     profile = replace(
-        load_launch_profile("fast-arm-bimanual-gamepad"),
+        load_launch_profile("inputs/bimanual-gamepad"),
         steps=2,
         interval_s=.0001,
         grace_period_s=.0001,
@@ -123,7 +123,7 @@ def test_no_gamepad_keeps_home_without_faulting(monkeypatch):
 
 def test_initial_disconnected_sample_waits_for_fresh_neutral_without_fault(monkeypatch):
     profile = replace(
-        load_launch_profile("fast-arm-bimanual-gamepad"),
+        load_launch_profile("inputs/bimanual-gamepad"),
         steps=5,
         interval_s=.0001,
         grace_period_s=.0001,
@@ -145,7 +145,7 @@ def test_initial_disconnected_sample_waits_for_fresh_neutral_without_fault(monke
     assert payloads[-1]["qpos"] != payloads[0]["qpos"]
 
 
-@pytest.mark.parametrize("name,count", [("fast-arm-single-gamepad",4),("fast-arm-left-gamepad",4),("fast-arm-right-gamepad",4),("fast-arm-bimanual-gamepad",8)])
+@pytest.mark.parametrize("name,count", [("inputs/single-gamepad",4),("examples/left-gamepad",4),("examples/right-gamepad",4),("inputs/bimanual-gamepad",8)])
 def test_same_runner_supports_each_registered_model(monkeypatch,name,count):
     profile=replace(load_launch_profile(name),steps=4,interval_s=.0001,grace_period_s=.0001)
     FakeServer.instances.clear()

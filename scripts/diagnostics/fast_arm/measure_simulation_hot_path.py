@@ -16,7 +16,7 @@ parser.add_argument('--velocity', type=float, default=0.)
 parser.add_argument('--no-profile', action='store_true')
 parser.add_argument('--plain', action='store_true')
 args = parser.parse_args()
-p = load_launch_profile('dynamic-fixed-contact')
+p = load_launch_profile('tasks/dynamic-fixed-contact')
 # 同一cubeで両側接触を可能にする診断fixture。サイズ以外はpresetを維持する。
 scene = p.scene_plan.manifest
 definition = replace(scene.definitions[0], half_extents_m=(.05, .60, .05))

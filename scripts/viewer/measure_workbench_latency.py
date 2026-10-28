@@ -47,7 +47,7 @@ def _owned_debugger_tab(browser, profile_dir: Path, timeout_s: float = 10.0):
 
 options_parser=argparse.ArgumentParser(description="Browser operation reproduction options")
 options_parser.add_argument("--dev-server", action="store_true")
-options_parser.add_argument("--profile", default="dynamic-cube-drop")
+options_parser.add_argument("--profile", default="tasks/dynamic-cube-drop")
 options_parser.add_argument("--cpu-throttle", type=float, default=1.0)
 options_parser.add_argument("--capture-cpu-profile", action="store_true")
 options_parser.add_argument("--condition", type=Path)

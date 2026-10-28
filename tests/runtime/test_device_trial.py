@@ -11,7 +11,7 @@ from tests.plugins.mappings.normalized_endpoint_velocity.test_mapping import map
 
 
 def profile(roles=("left",)):
-    base = load_launch_profile("fast-arm-single-gamepad" if len(roles)==1 else "fast-arm-bimanual-gamepad")
+    base = load_launch_profile("inputs/single-gamepad" if len(roles)==1 else "inputs/bimanual-gamepad")
     raw = json.loads(base.document_json)
     raw["input"] = {"plugin": {"name": "selfrionette_device", "version": 1},
         "provider": "selfrionette-device/v1", "preset": None, "parameters": parameters(roles)}
@@ -48,24 +48,25 @@ def test_device_runs_in_one_world_without_reemitting_samples(tmp_path, roles):
         runner.close()
 
 
-@pytest.mark.parametrize("name", ["fast-arm-single-device", "fast-arm-bimanual-device"])
+@pytest.mark.parametrize("name", ["inputs/single-selfrionette-fixture", "inputs/bimanual-selfrionette-fixture"])
 def test_registered_device_fixture_uses_common_finite_driver(tmp_path, name):
     from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
     from xpotato_sim.runtime.runners.finite_trial import run_finite_trial
     now = [10.]
-    fixture = load_trial_fixture(Path(__file__).parents[1] / "fixtures/selfrionette_device" / f"{name}.json")
+    fixture_name = "fast-arm-single-device" if "single" in name else "fast-arm-bimanual-device"
+    fixture = load_trial_fixture(Path(__file__).parents[1] / "fixtures/selfrionette_device" / f"{fixture_name}.json")
     result = run_finite_trial(load_launch_profile(name), fixture=fixture, limits=TrialLimits(12),
         result_root=tmp_path, software_revision="explicit-software-fixture", clock=lambda: now[0],
         sleeper=lambda delta: now.__setitem__(0, now[0]+delta)).to_document()
     assert result["ticks"] == 12 and result["runner_stop_reason"] == "simulation_budget"
     assert fixture.identity()["schema_version"] == "trial-input-fixture/v1"
     with pytest.raises(ValueError, match="fixture input binding"):
-        fixture.assert_profile(load_launch_profile("fast-arm-single-gamepad"))
+        fixture.assert_profile(load_launch_profile("inputs/single-gamepad"))
 
 
 def test_device_identity_and_mapping_are_explicit_editable_frozen_conditions():
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition
-    document = preset_condition("fast-arm-single-device")
+    document = preset_condition("inputs/single-selfrionette-fixture")
     document["configuration"]["input"]["parameters"]["bindings"]["left"]["operator"]["posture"] = "explicit-posture"
     document["configuration"]["mapping"]["parameters"]["channel_axis_weights"]["left"][0] = [0., 1., 0.]
     p, limits, normalized = resolve_condition(document)

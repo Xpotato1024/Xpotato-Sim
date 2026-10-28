@@ -9,7 +9,7 @@ from tests.runtime.test_model_websocket_publisher import FakeServer, message
 
 @pytest.mark.parametrize("suffix,count",[("single",4),("left",4),("right",4),("bimanual",8)])
 def test_scene_task_and_robot_use_same_published_frame(monkeypatch,suffix,count):
-    p=replace(load_launch_profile("contact-debug-"+suffix),steps=5,interval_s=.0001)
+    p=replace(load_launch_profile("diagnostics/contact-debug-"+suffix),steps=5,interval_s=.0001)
     FakeServer.instances.clear();FakeServer.incoming=[message((0,0,0,0),0),message((0,-.6,0,-.6),1)]
     monkeypatch.setattr(module,"WebSocketPublisherServer",FakeServer)
     module.run_model_websocket_publisher(p,clock=lambda:1.)
@@ -29,7 +29,7 @@ def test_scene_task_and_robot_use_same_published_frame(monkeypatch,suffix,count)
 
 
 def test_terminal_freezes_pose_but_keeps_display_frames_consistent(monkeypatch):
-    p=replace(load_launch_profile("contact-debug-bimanual"),steps=8,interval_s=.0001)
+    p=replace(load_launch_profile("diagnostics/contact-debug-bimanual"),steps=8,interval_s=.0001)
     params=json.loads(p.task_parameters_json);params["duration_s"]=.02;p=replace(p,task_parameters_json=json.dumps(params))
     FakeServer.instances.clear();FakeServer.incoming=[message((0,0,0,0),0),message((0,-.6,0,-.6),1)]
     monkeypatch.setattr(module,"WebSocketPublisherServer",FakeServer)
@@ -44,7 +44,7 @@ def test_terminal_freezes_pose_but_keeps_display_frames_consistent(monkeypatch):
 
 
 def test_disconnection_aborts_without_auto_restart(monkeypatch):
-    p=replace(load_launch_profile("contact-debug-bimanual"),steps=7,interval_s=.0001)
+    p=replace(load_launch_profile("diagnostics/contact-debug-bimanual"),steps=7,interval_s=.0001)
     FakeServer.instances.clear();FakeServer.incoming=[message((0,0,0,0),0),message((0,-.6,0,-.6),1),message((0,0,0,0),2,connected=False),message((0,0,0,0),3)]
     monkeypatch.setattr(module,"WebSocketPublisherServer",FakeServer)
     module.run_model_websocket_publisher(p,clock=lambda:1.)
@@ -57,7 +57,7 @@ def test_disconnection_aborts_without_auto_restart(monkeypatch):
     ("single",(.85,0,0,0)),("left",(0,-.85,0,0)),
     ("right",(0,0,0,-.85)),("bimanual",(0,-.85,0,-.85))])
 def test_shipped_scene_is_reachable_from_actual_home_with_production_mapping(monkeypatch,suffix,axes):
-    p=replace(load_launch_profile("contact-debug-"+suffix),steps=100,interval_s=.0001)
+    p=replace(load_launch_profile("diagnostics/contact-debug-"+suffix),steps=100,interval_s=.0001)
     FakeServer.instances.clear();FakeServer.incoming=[message((0,0,0,0),0),message(axes,1)]
     monkeypatch.setattr(module,"WebSocketPublisherServer",FakeServer)
     module.run_model_websocket_publisher(p,clock=lambda:1.)

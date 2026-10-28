@@ -127,7 +127,7 @@ byte digestを持ち、現在sourceと照合する。callerの`software_revision
 任意の代替HTMLをGUIとして生成しない。これは依存JS全体の完全性署名やbrowser動作保証ではない。
 
 ```powershell
-.\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --run-once --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --ticks 5
+.\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --run-once --profile tasks/dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --ticks 5
 ```
 
 `--profile`だけでは初期選択を表示するだけでprepare/Startしない。`--run-once`はprofileとfixtureを
@@ -403,9 +403,21 @@ WebSocket event入口のbrowser時刻をsource metadataのhost monotonicから�
 
 ## 共通タスクと入力 binding
 
-Workbench の `research-spring` は押込ばねの共通タスクであり、Gamepad と Selfrionette は独立した入力 binding として選ぶ。両入力で `profiles/task-templates/research-spring.json` の同じ robot、`single_original` model、ばね scene、`contact_observation_task` を使う。入力 source と mapping は既存の単一 endpoint 用登録 profile から解決し、Task と入力方式の組合せごとに新しい preset を増やさない。操作軸、入力 sample schema、role、model の互換性は既存 decoder と runtime composition で準備前に検証する。Keyboard は Workbench の入力 session が未対応なので選択できない。
+Workbench の通常候補は `tasks/research-spring`、`tasks/dynamic-cube-drop`、
+`tasks/dynamic-cube-push`、`tasks/dynamic-fixed-contact` の4タスクである。
+`profiles/tasks/` は robot、model、scene、execution、Task を定義し、`profiles/inputs/` の
+単腕または両腕の Gamepad / Selfrionette binding と runtime composition で合成する。
+入力方式ごとに別タスクを増やさない。操作軸、sample schema、role、model の不一致は
+decoder と準備時の能力検証で拒否する。Keyboard は Workbench の入力 session に未対応である。
 
-入力方式の変更は active trial 中にできない。停止後に共通タスクの編集済み scene・Task を維持して binding を作り直し、再度「検証・準備」を行う。適用済み条件との不一致では開始を拒否する。実験記録の `condition.json` は計画した source と mapping を含み、`start.json` の `input_provenance` は実際に適用した source/session/Device 準備状態を別に残す。デモは記録を作らない。旧 `research-spring-g` / `research-spring-s` 条件 JSON と launch profile は読み取り互換を維持し、旧 S の fixture identity を実機の校正として扱わない。
-共通タスク候補には `shared-dynamic-cube-drop`、`shared-dynamic-cube-push`、`shared-dynamic-fixed-contact` も含む。これらは `profiles/task-templates/` の入力非依存の定義と、両腕の `fast-arm-bimanual-gamepad` / `fast-arm-bimanual-device` binding を合成する。従来の `dynamic-cube-*` と `dynamic-fixed-contact*` の profile ID は既存 JSON 読取用に残す。モデルや必要 role が足りない入力は composition と準備時の能力検証で拒否し、互換性を推測で広げない。
+入力方式の変更は active trial 中にできない。停止後に編集済み scene・Task を保持して
+binding を作り直し、再度「検証・準備」を行う。要求した入力と条件の入力が違う間は準備できず、
+適用済み条件との不一致では開始を拒否する。実験記録の `condition.json` は計画した入力と
+mapping を含み、`start.json` の `input_provenance` は実際に適用した source/session/Device
+準備状態を別に残す。デモは実験記録を作らない。
 
-通常の選択欄は共通タスクだけを表示する。旧入力固定 profile は既存条件を読み込んだ場合に現在の選択として表示し、CLI と JSON import での互換読取を保つ。
+Selfrionette binding の同梱 identity は名前の通り software fixture であり、実機の校正値ではない。
+実機では正規の個体 identity・校正 profile・role 接続設定を別途入力して検証する。
+旧 `research-spring-g` / `research-spring-s` 等の条件 ID は読み込まない。
+追跡済みの研究比較条件は分類付き ID へ変換済みで、外部に保存された条件は
+[profile 配置と移行手順](../operations/profile-roles-and-migration.md)に従い、元ファイルを残して変換する。

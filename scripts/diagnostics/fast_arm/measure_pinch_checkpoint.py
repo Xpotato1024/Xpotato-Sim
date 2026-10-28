@@ -6,7 +6,7 @@ sys.path[:0]=[str(root/'src'),str(root/'src/xpotato_sim/plugins/robots/fast_arm/
 import mujoco,numpy as np
 from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.schemas.coordinated import EndpointVelocity
-p=load_launch_profile('dynamic-cube-drop');r=p.build_model().provider;m=r.model
+p=load_launch_profile('tasks/dynamic-cube-drop');r=p.build_model().provider;m=r.model
 checkpoint=json.loads((ev/'pinch-checkpoint.json').read_text());speed=float(sys.argv[3]) if len(sys.argv)>3 else 0.;commands=tuple(EndpointVelocity(a,(0.,-speed if a=='left' else speed,0.),'world') for a in r.endpoint_ids)
 rows=[];contacts=[];final=None
 for i in range(220):

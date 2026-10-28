@@ -8,7 +8,7 @@ import pytest
 from xpotato_sim.runtime.composition.launch_profile import load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
-from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition
+from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition, shared_task_profile
 from xpotato_sim.runtime.experiment.continuous_record import comparison_metrics
 from xpotato_sim.runtime.scene.spring import observe_springs, SpringAxis
 from tests.runtime.test_trial_runner import Clock, start, message
@@ -38,7 +38,7 @@ def test_failed_continuous_write_cannot_publish_success(tmp_path):
 
 
 def prepared(root, *, mode="experiment", cue="no_force_cue"):
-    document = preset_condition("research-spring-g")
+    document = preset_condition("tasks/research-spring", input_provider="gamepad/v1")
     document["display_comparison"]["mode"] = cue
     document["limits"]["max_ticks"] = 4
     profile, limits, _ = resolve_condition(document)
@@ -117,18 +117,18 @@ def test_demo_switch_abort_retry_and_experiment_isolation(tmp_path):
         r.session_mode="experiment"
     assert r.session_mode=="demo"
     with pytest.raises(RuntimeError, match="inactive"):
-        r.prepare(load_launch_profile("research-spring-s"), TrialLimits(4), session_mode="demo")
+        r.prepare(shared_task_profile("tasks/research-spring", "selfrionette-device/v1"), TrialLimits(4), session_mode="demo")
     r.abort(ticket)
     assert r.result.to_document()["recording"] == "disabled_demo"
     assert not list(tmp_path.iterdir())
     # input選択を変える準備は別Source/Mapping、epoch、homeと新しいneutral gateを作る。
     old_execution = r._execution
-    fresh = r.prepare(load_launch_profile("research-spring-s"), TrialLimits(4), session_mode="demo")
+    fresh = r.prepare(shared_task_profile("tasks/research-spring", "selfrionette-device/v1"), TrialLimits(4), session_mode="demo")
     assert r._execution is not old_execution and fresh.epoch != ticket.epoch
     assert r._execution.state == "waiting_neutral" and r.tick_count == 0
     with pytest.raises(ValueError, match="old"):
         r.start(ticket, input_provenance={"source":"test"})
-    r.prepare(load_launch_profile("research-spring-g"), TrialLimits(4), session_mode="experiment")
+    r.prepare(shared_task_profile("tasks/research-spring", "gamepad/v1"), TrialLimits(4), session_mode="experiment")
     run(r, r.ticket, clock)
     assert len(list(tmp_path.iterdir())) == 1
     rows = [json.loads(s) for s in (tmp_path/r.ticket.trial_id/"samples.jsonl").read_bytes().splitlines()]
@@ -148,7 +148,7 @@ def test_device_spring_display_replay_and_disconnect(tmp_path):
     from tests.runtime.test_device_force_integration import ingest
     traces=[]
     for mode in ("no_force_cue", "force_cue"):
-        doc=preset_condition("research-spring-s")
+        doc=preset_condition("tasks/research-spring", input_provider="selfrionette-device/v1")
         doc["display_comparison"]["mode"]=mode
         doc["limits"]["max_ticks"]=4
         p, limits, _=resolve_condition(doc)
@@ -184,7 +184,7 @@ def test_device_spring_display_replay_and_disconnect(tmp_path):
 def test_common_input_reaches_and_compresses_spring(tmp_path):
     traces=[]
     for mode in ("no_force_cue", "force_cue"):
-        doc=preset_condition("research-spring-g")
+        doc=preset_condition("tasks/research-spring", input_provider="gamepad/v1")
         doc["display_comparison"]["mode"]=mode
         doc["limits"]["max_ticks"]=180
         p,limits,_=resolve_condition(doc)
@@ -215,7 +215,7 @@ def test_device_input_compresses_spring_identically_across_display_modes(tmp_pat
     from tests.runtime.test_device_force_integration import device_message
     traces=[]
     for mode in ("no_force_cue", "force_cue"):
-        doc=preset_condition("research-spring-s")
+        doc=preset_condition("tasks/research-spring", input_provider="selfrionette-device/v1")
         doc["display_comparison"]["mode"]=mode
         doc["limits"]["max_ticks"]=360
         p,limits,_=resolve_condition(doc)

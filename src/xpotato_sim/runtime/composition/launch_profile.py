@@ -36,6 +36,7 @@ SCENE_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v3"
 DYNAMIC_LAUNCH_PROFILE_SCHEMA = "xpotato-sim-launch-profile/v4"
 MAX_PROFILE_BYTES = 262144
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
+_SELECTOR = re.compile(r"(?:inputs|diagnostics|examples)/[a-z][a-z0-9_-]{0,63}\Z")
 
 
 def _object(value: object, expected: set[str], label: str) -> dict:
@@ -110,7 +111,8 @@ def repository_workspace() -> Path:
 
 
 def list_launch_profiles() -> tuple[str, ...]:
-    return tuple(sorted(path.stem for path in (repository_workspace() / "profiles").glob("*.json")
+    return tuple(sorted(f"{category}/{path.stem}" for category in ("inputs", "diagnostics", "examples")
+                        for path in (repository_workspace() / "profiles" / category).glob("*.json")
                         if _NAME.fullmatch(path.stem)))
 
 
@@ -351,9 +353,16 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
 
 
 def load_launch_profile(selector: str | Path) -> LaunchProfile:
-    """単純名はcheckout内profiles、それ以外は指定JSON。環境変数/継承fallbackなし。"""
+    """分類付きIDはcheckout内profiles、それ以外は指定JSON。旧単純名のfallbackなし。"""
     text = str(selector)
-    path = repository_workspace() / "profiles" / f"{text}.json" if _NAME.fullmatch(text) else Path(selector)
+    if text.startswith("tasks/"):
+        from xpotato_sim.runtime.experiment.edited_condition import default_task_profile, SHARED_TASK_MODELS
+        if text not in SHARED_TASK_MODELS:
+            raise ValueError("登録済みの分類付きtask IDが必要です")
+        return default_task_profile(text)
+    if _NAME.fullmatch(text):
+        raise ValueError("旧profile名は廃止しました。profiles/inputs・diagnostics・examples の分類付きIDを指定してください")
+    path = repository_workspace() / "profiles" / f"{text}.json" if _SELECTOR.fullmatch(text) else Path(selector)
     with path.open("rb") as stream:
         document = stream.read(MAX_PROFILE_BYTES + 1)
     return decode_launch_profile(document, source_path=path)

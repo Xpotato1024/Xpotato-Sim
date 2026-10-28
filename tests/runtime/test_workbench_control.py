@@ -28,7 +28,7 @@ def test_start_rejects_unapplied_condition_and_mode_without_mutation():
     from copy import deepcopy
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
     from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
-    applied = preset_condition("research-spring-g", TrialLimits(100, 5, 30, 30))
+    applied = preset_condition("tasks/research-spring", TrialLimits(100, 5, 30, 30), input_provider="gamepad/v1")
     c = controller()
     c.state.update(phase="ready", ticket=TICKET, applied_condition=applied, session_mode="demo")
     c.renderer_epoch = TICKET["epoch"]
@@ -62,8 +62,8 @@ def test_catalog_has_existing_profiles_and_precise_unavailable_reason():
     assert len(rows) == len({r["id"] for r in rows})
     assert all(r["available"] or r["reason"] for r in rows)
     assert {r["id"] for r in rows if r["available"]} >= {
-        "dynamic-cube-drop", "dynamic-cube-push", "dynamic-fixed-contact",
-        "fast-arm-single-gamepad", "fast-arm-bimanual-gamepad", "contact-debug-single"}
+        "tasks/dynamic-cube-drop", "tasks/dynamic-cube-push", "tasks/dynamic-fixed-contact",
+        "inputs/single-gamepad", "inputs/bimanual-gamepad", "diagnostics/contact-debug-single"}
     for task_id in SHARED_TASK_MODELS:
         shared = next(row for row in rows if row["id"] == task_id)
         assert shared["available"] and shared["input_provider"] is None

@@ -158,7 +158,7 @@ class WorkerScenario:
             if event.get("type") == "worker_status" and event.get("id")}
 
 
-def prepare(profile="fast-arm-single-device"):
+def prepare(profile="inputs/single-selfrionette-fixture"):
     return {"op": "prepare", "id": "prepare", "generation": 1, "profile_id": profile}
 
 
@@ -169,22 +169,22 @@ def operator_steps(roles, prefix="first"):
 
 
 def test_shared_task_rebinds_gamepad_device_gamepad_with_new_epochs_and_no_demo_files(tmp_path, monkeypatch):
-    device_condition = preset_condition("research-spring", input_provider="selfrionette-device/v1")
-    commands = [{**prepare("research-spring"), "session_mode": "demo"},
+    device_condition = preset_condition("tasks/research-spring", input_provider="selfrionette-device/v1")
+    commands = [{**prepare("tasks/research-spring"), "session_mode": "demo"},
         {"op": "stop", "id": "stop-gamepad", "generation": 2},
-        {**prepare("research-spring"), "id": "device-prepare", "generation": 3,
+        {**prepare("tasks/research-spring"), "id": "device-prepare", "generation": 3,
             "condition": device_condition, "session_mode": "demo"},
         *operator_steps(("left",)),
         {"op": "start", "id": "device-start", "generation": 3}, WaitForTicks(2),
         {"op": "stop", "id": "stop-device", "generation": 4},
-        {**prepare("research-spring"), "id": "gamepad-prepare", "generation": 5,
+        {**prepare("tasks/research-spring"), "id": "gamepad-prepare", "generation": 5,
             "session_mode": "demo"}, {"op": "close"}]
     scenario = WorkerScenario(tmp_path, monkeypatch, commands)
     states = scenario.run()
     first = states["prepare"]["state"]
     second = states["device-prepare"]["state"]
     third = states["gamepad-prepare"]["state"]
-    assert [state["profile_id"] for state in (first, second, third)] == ["research-spring"] * 3
+    assert [state["profile_id"] for state in (first, second, third)] == ["tasks/research-spring"] * 3
     assert [state["input_provider"] for state in (first, second, third)] == [
         "gamepad/v1", "selfrionette-device/v1", "gamepad/v1"]
     assert len({state["ticket"]["epoch"] for state in (first, second, third)}) == 3
@@ -203,7 +203,7 @@ def test_device_demo_success_retry_failure_and_reselection_never_record(tmp_path
         commands += operator_steps(("left",), "retry")
         commands += [{"op": "start", "id": "retry-start", "generation": 2}, WaitForTicks(2),
             {"op": "stop", "id": "retry-stop", "generation": 3}]
-    commands += [{**prepare("research-spring-g"), "id": "reselect", "generation": 4, "session_mode": "demo"},
+    commands += [{**prepare("tasks/research-spring"), "id": "reselect", "generation": 4, "session_mode": "demo"},
         {"op": "close"}]
     scenario = WorkerScenario(tmp_path, monkeypatch, commands, fail_bridge_creation=2 if fail_retry else None)
     states = scenario.run()
@@ -220,7 +220,7 @@ def test_device_demo_success_retry_failure_and_reselection_never_record(tmp_path
 @pytest.mark.parametrize("roles", [("left",), ("left", "right")])
 def test_device_explicit_preparation_common_runner_stop_and_retry(tmp_path, monkeypatch, roles):
     """左右の片側だけでは開始せず、再試行は新processで全準備をやり直す。"""
-    commands = [prepare("fast-arm-single-device" if len(roles) == 1 else "fast-arm-bimanual-device"),
+    commands = [prepare("inputs/single-selfrionette-fixture" if len(roles) == 1 else "inputs/bimanual-selfrionette-fixture"),
         {"op": "start", "id": "premature-start", "generation": 1}]
     if len(roles) == 2:
         commands += operator_steps(("left",))

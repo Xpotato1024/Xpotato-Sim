@@ -31,7 +31,7 @@ option、default、検証、physics、保存形式の正本は既存実装であ
 | just入口 | 委譲先 |
 | --- | --- |
 | `just profile` | `xpotato-sim profile` |
-| `just app --profile sim-keyboard --no-browser` | `xpotato-sim app` |
+| `just app --profile examples/sim-keyboard --no-browser` | `xpotato-sim app` |
 | `just replay` | `xpotato-sim replay` |
 | `just viewer-publisher` | `xpotato-sim viewer` |
 | `just trial` | `xpotato-sim trial` |

@@ -67,7 +67,7 @@ def test_invalid_preset_names_do_not_escape_package(name):
 
 @pytest.mark.parametrize("suffix",["single","left","right","bimanual"])
 def test_contact_profiles_keep_current_gamepad_mapping_and_explicit_roles(suffix):
-    p=load_launch_profile("contact-debug-"+suffix);base=load_launch_profile("fast-arm-"+suffix+"-gamepad")
+    p=load_launch_profile("diagnostics/contact-debug-"+suffix);base=load_launch_profile({"single":"inputs/single-gamepad","bimanual":"inputs/bimanual-gamepad","left":"examples/left-gamepad","right":"examples/right-gamepad"}[suffix])
     assert p.model==base.model and p.mapping_parameters==base.mapping_parameters
     assert p.side_to_endpoint==base.side_to_endpoint
     assert p.scene_plan is not None and p.bind_scene_task() is not None
@@ -85,7 +85,7 @@ def test_contact_profiles_keep_current_gamepad_mapping_and_explicit_roles(suffix
     lambda r:r["task"]["parameters"].update(unknown=True),
 ])
 def test_incompatible_profile_rejected_before_build(change):
-    p=load_launch_profile("contact-debug-bimanual");r=json.loads(p.document_json);change(r)
+    p=load_launch_profile("diagnostics/contact-debug-bimanual");r=json.loads(p.document_json);change(r)
     with pytest.raises((ValueError,TypeError,KeyError)):
         decode_launch_profile(canonical(r),source_path=p.source_path)
 

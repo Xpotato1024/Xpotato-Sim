@@ -26,7 +26,7 @@ def test_cli_runtime_failure_keeps_failure_exit_code(monkeypatch, capsys):
     assert "worker cleanup failed" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("flag,value", [("profile","dynamic-cube-drop"),("ticks","5"),
+@pytest.mark.parametrize("flag,value", [("profile","tasks/dynamic-cube-drop"),("ticks","5"),
     ("input-wait-s","7"),("wall-s","60"),("prepare-s","17")])
 @pytest.mark.parametrize("equals", [False,True])
 def test_condition_conflicts_with_explicit_launch_budgets_before_io(tmp_path,capsys,flag,value,equals):

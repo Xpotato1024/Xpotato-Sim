@@ -8,9 +8,9 @@ from xpotato_sim.runtime.execution.model_execution import ModelExecution
 
 
 @pytest.mark.parametrize("name,reason", [
-    ("fast-arm-bimanual-gamepad", "awaiting_gamepad_input"),
-    ("fast-arm-single-device", "awaiting_device_input"),
-    ("fast-arm-bimanual-device", "awaiting_device_input"),
+    ("inputs/bimanual-gamepad", "awaiting_gamepad_input"),
+    ("inputs/single-selfrionette-fixture", "awaiting_device_input"),
+    ("inputs/bimanual-selfrionette-fixture", "awaiting_device_input"),
 ])
 def test_source_wait_reason_survives_initial_empty_ticks_reset_and_restart(name, reason):
     execution = ModelExecution(load_launch_profile(name), clock=lambda: 10.)
@@ -44,7 +44,7 @@ def test_source_wait_reason_survives_initial_empty_ticks_reset_and_restart(name,
 
 
 def test_partial_device_input_keeps_device_wait_until_all_roles_are_neutral():
-    execution = ModelExecution(load_launch_profile("fast-arm-bimanual-device"), clock=lambda: 10.)
+    execution = ModelExecution(load_launch_profile("inputs/bimanual-selfrionette-fixture"), clock=lambda: 10.)
     try:
         home = execution.sample(0).qpos
         execution.ingest(wire("left"))
@@ -59,7 +59,7 @@ def test_partial_device_input_keeps_device_wait_until_all_roles_are_neutral():
 
 
 def test_composition_uses_source_declaration_and_rejects_untyped_reason(monkeypatch):
-    profile = load_launch_profile("fast-arm-bimanual-gamepad")
+    profile = load_launch_profile("inputs/bimanual-gamepad")
     monkeypatch.setattr(GamepadSessionSource, "initial_wait_reason", "awaiting_declared_input")
     execution = ModelExecution(profile, clock=lambda: 10.)
     try:

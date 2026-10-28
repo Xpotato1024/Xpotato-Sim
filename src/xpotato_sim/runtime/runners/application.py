@@ -37,7 +37,11 @@ def _host_for_url(host: str) -> str:
 
 
 # 設定型・名前解決は単腕/双腕で分岐させず、共通LaunchProfileへ委譲する。
-list_application_profiles = list_launch_profiles
+def list_application_profiles() -> tuple[str, ...]:
+    from xpotato_sim.runtime.experiment.edited_condition import SHARED_TASK_MODELS
+    return tuple(sorted((*SHARED_TASK_MODELS, *list_launch_profiles())))
+
+
 load_application_profile = load_launch_profile
 override_application_profile = override_launch_profile
 _decode_application_profile = decode_launch_profile

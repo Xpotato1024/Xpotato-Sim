@@ -32,7 +32,7 @@ type Status = {phase: string; revision: number; generation: number; busy: string
   applied_condition?:Condition|null;device_connection?:{configured:boolean;roles:string[]};
   ticket: Ticket|null; profile_id: string|null; ticks: number; simulation_time_s:number; error: string|null;
   result?:{runner_stop_reason:string; error?:string|null}|null;
-  profiles: {id:string; available:boolean; reason:string|null;input_provider?:string|null;input_bindings?:string[];legacy?:boolean}[];
+  profiles: {id:string; available:boolean; reason:string|null;input_provider?:string|null;input_bindings?:string[]}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   input_provider?:string|null;device_input?:DevicePreparation|null;
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
@@ -306,7 +306,7 @@ export function WorkbenchApp() {
       </select></label>
       <label>タスク・条件<select className={dialogControl} aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;const id=e.target.value;const profile=status?.profiles.find(p=>p.id===id);setSelected(id);setEdited(null);setChanges([]);if(!profile?.input_bindings&&profile?.input_provider)setSourceFilter(profile.input_provider);if(id)editRequest("clone",{profile_id:id,...(profile?.input_bindings?{input_provider:sourceFilter}:{})});}}>
         <option value="">profileを選択してください</option>
-        <optgroup label="共通タスク">{status?.profiles.filter(p=>p.input_bindings).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id==="research-spring"?"押込ばね操作":p.id==="shared-dynamic-cube-push"?"キューブ押し":p.id==="shared-dynamic-cube-drop"?"キューブ落下":"固定面接触"}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}</optgroup>
+        <optgroup label="共通タスク">{status?.profiles.filter(p=>p.input_bindings).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id==="tasks/research-spring"?"押込ばね操作":p.id==="tasks/dynamic-cube-push"?"キューブ押し":p.id==="tasks/dynamic-cube-drop"?"キューブ落下":"固定面接触"}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}</optgroup>
         {status?.profiles.filter(p=>!p.input_bindings&&p.id===selected).map(p=><optgroup key={p.id} label="読み込んだ既存profile（入力方式を含む）"><option value={p.id} disabled={!p.available}>{p.id}（{p.input_provider==="gamepad/v1"?"Gamepad":p.input_provider==="selfrionette-device/v1"?"Selfrionette":"入力固定"}）{p.available?"":` — 利用不可: ${p.reason}`}</option></optgroup>)}
       </select></label>
       <button className={dialogControl} disabled={!owned||!selected||!edited||edited.configuration.input.provider!==sourceFilter||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
@@ -322,7 +322,7 @@ export function WorkbenchApp() {
       {sourceFilter==="selfrionette-device/v1"&&<section className="device-first-run" aria-label="Selfrionette初回設定">
         <h3>Selfrionetteを初めて使う場合</h3>
         <ol><li>Device Managerで個体のsetupと個人校正を完了し、正規の校正profileとstable ID・revisionを確認する。校正fileだけのコピーでは元のsetup recordを代替できません。</li>
-          <li>下のタスク・条件を選び、詳細設定で実測identity・校正revisionを反映して検証し、条件をexportする。研究S fixtureを実機に使用しない。</li>
+          <li>下のタスク・条件を選び、詳細設定で実測identity・校正revisionを反映して検証し、条件をexportする。すべての共通タスクの同梱 Selfrionette binding は合成 fixture であり、実機に使用しない。</li>
           <li>接続設定のひな形に、既存のDevice CLIの絶対path、各roleのportと校正profileの絶対pathを記入する。ひな形は空欄で、記入前には起動できません。</li>
           <li>二つのJSONのpathをroot .envの XPOTATO_CONDITION / XPOTATO_DEVICE_CONFIG に設定し、just runを再起動する。接続・tare・neutral・profile適用は画面で個別に確認する。</li></ol>
         <button disabled={!edited} onClick={saveConnectionTemplate}>接続設定の未完成ひな形を保存</button>

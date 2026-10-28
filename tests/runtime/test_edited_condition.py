@@ -17,7 +17,7 @@ from xpotato_sim.runtime.scene.objects import canonical
 
 
 def condition():
-    d = preset_condition("dynamic-cube-drop")
+    d = preset_condition("tasks/dynamic-cube-drop")
     d["limits"]["max_ticks"] = 3
     return d
 
@@ -25,11 +25,11 @@ def condition():
 def test_shared_spring_task_uses_one_task_and_independent_source_bindings():
     results = {}
     for provider in ("gamepad/v1", "selfrionette-device/v1"):
-        document = preset_condition("research-spring", input_provider=provider)
+        document = preset_condition("tasks/research-spring", input_provider=provider)
         profile, _, normalized = resolve_condition(document)
         assert profile.name == "research-spring"
         assert profile.provider_id == provider
-        assert normalized["preset_id"] == "research-spring"
+        assert normalized["preset_id"] == "tasks/research-spring"
         assert resolve_condition(canonical(normalized))[2] == normalized
         results[provider] = normalized
     gamepad, device = results.values()
@@ -39,18 +39,19 @@ def test_shared_spring_task_uses_one_task_and_independent_source_bindings():
     assert gamepad["task"] == device["task"]
     assert gamepad["configuration"]["input"] != device["configuration"]["input"]
     assert gamepad["configuration"]["mapping"] != device["configuration"]["mapping"]
-    legacy_g = resolve_condition(preset_condition("research-spring-g"))[2]
-    assert legacy_g["preset_id"] == "research-spring-g"
-    for field in ("robot", "model", "execution"):
-        assert gamepad["configuration"][field] == legacy_g["configuration"][field]
-    assert gamepad["environment"] == legacy_g["environment"]
-    assert gamepad["task"] == legacy_g["task"]
     with pytest.raises(ValueError, match="unsupported input binding"):
-        preset_condition("research-spring", input_provider="keyboard/v1")
-    malformed = preset_condition("research-spring")
+        preset_condition("tasks/research-spring", input_provider="keyboard/v1")
+    malformed = preset_condition("tasks/research-spring")
     malformed["configuration"]["input"] = []
     with pytest.raises(ValueError):
         resolve_condition(malformed)
+
+
+def test_old_condition_id_is_rejected_with_explicit_conversion_direction():
+    old = preset_condition("tasks/research-spring")
+    old["preset_id"] = "research-spring-g"
+    with pytest.raises(ValueError, match="convert_workbench_condition.py"):
+        resolve_condition(old)
 
 
 @pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
@@ -65,13 +66,6 @@ def test_all_shared_tasks_keep_task_scene_and_model_across_input_bindings(task_i
     assert gamepad["configuration"]["input"] != device["configuration"]["input"]
     assert gamepad["configuration"]["mapping"] != device["configuration"]["mapping"]
     assert resolve_condition(canonical(device))[2] == device
-    if task_id.startswith("shared-"):
-        legacy = resolve_condition(preset_condition(task_id.removeprefix("shared-")))[2]
-        assert legacy["preset_id"] == task_id.removeprefix("shared-")
-        for field in ("robot", "model", "execution"):
-            assert legacy["configuration"][field] == gamepad["configuration"][field]
-        assert legacy["environment"] == gamepad["environment"]
-        assert legacy["task"] == gamepad["task"]
 
 
 @pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
@@ -181,7 +175,7 @@ def test_legacy_noop_parameters_disabled_and_motion_template_owned():
 
 def test_gui_preset_clones_preserve_launcher_budgets_and_correlation():
     c=WorkbenchControl([],"key",launcher_limits={"ticks":5,"input_wait_s":7,"wall_s":8,"prepare_s":9});c.owner="owner"
-    for preset in ("dynamic-cube-drop","dynamic-cube-push"):
+    for preset in ("tasks/dynamic-cube-drop","tasks/dynamic-cube-push"):
         reply,_=c.command("owner",{"op":"clone","capability":"key","revision":c.revision,"ticket":None,
             "profile_id":preset,"request_id":"clone-request"})
         assert reply["request_id"]=="clone-request"
@@ -200,9 +194,9 @@ def test_clone_path_is_rejected_before_filesystem_load(monkeypatch):
 def test_accepted_condition_watchdog_matches_worker_limits_and_rejects_bad_requests():
     from xpotato_sim.runtime.application.workbench_service import prepare_watchdog_deadline
     d=condition();d["limits"]["prepare_s"]=17.
-    c=WorkbenchControl([{"id":"dynamic-cube-drop","available":True}],"key");c.owner="owner"
+    c=WorkbenchControl([{"id":"tasks/dynamic-cube-drop","available":True}],"key");c.owner="owner"
     request={"op":"prepare","id":"budget","capability":"key","revision":0,"ticket":None,
-        "profile_id":"dynamic-cube-drop","condition":d}
+        "profile_id":"tasks/dynamic-cube-drop","condition":d}
     bad=deepcopy(request);bad["condition"]["limits"]["prepare_s"]=-1
     with pytest.raises(ValueError):c.command("owner",bad)
     assert c.generation==0 and c.busy is None
@@ -231,7 +225,7 @@ def test_backend_rejects_active_or_unfinalized_edit(phase):
     before=deepcopy(c.status())
     for op in ("clone","edit","import","export","diff"):
         r={"op":op,"capability":"key","revision":c.revision,"ticket":None}
-        if op=="clone": r["profile_id"]="dynamic-cube-drop"
+        if op=="clone": r["profile_id"]="tasks/dynamic-cube-drop"
         if op in {"edit","diff"}: r["condition"]=condition()
         if op=="import": r["condition"]=canonical(condition()).decode()
         with pytest.raises(ValueError): c.command("owner",r)
@@ -242,7 +236,7 @@ def test_edit_revision_ticket_import_duplicates_and_immutable_applied():
     c=WorkbenchControl([],"key"); c.owner="owner"
     def request(op,**extra):
         return {"op":op,"capability":"key","revision":c.revision,"ticket":c.state["ticket"],**extra}
-    value,_=c.command("owner",request("clone",profile_id="dynamic-cube-drop"))
+    value,_=c.command("owner",request("clone",profile_id="tasks/dynamic-cube-drop"))
     d=deepcopy(value["condition"]); c.state["applied_condition"]=deepcopy(d)
     d["limits"]["max_ticks"]=4
     c.command("owner",request("edit",condition=d))

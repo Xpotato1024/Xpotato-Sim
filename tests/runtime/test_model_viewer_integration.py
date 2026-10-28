@@ -35,7 +35,7 @@ def _sample(raw, seq, held=(), triggers=(0.0, 0.0)):
 
 def test_live_websocket_both_sticks_trigger_z_and_fault_latch():
     async def scenario():
-        profile = replace(load_launch_profile("fast-arm-bimanual-gamepad"),
+        profile = replace(load_launch_profile("inputs/bimanual-gamepad"),
                           backend_port=_free_port(), steps=1000, interval_s=.01,
                           grace_period_s=2.)
         ready = asyncio.Event()
@@ -81,7 +81,7 @@ def test_live_websocket_both_sticks_trigger_z_and_fault_latch():
 @pytest.mark.parametrize("bad", ["not-json", '{"type":"unknown"}', message((0.,0.,0.,0.),0).replace('gamepad/v1','keyboard/v1')])
 def test_invalid_initial_input_preserves_fault_reason_and_home(bad):
     async def scenario():
-        profile = replace(load_launch_profile("fast-arm-bimanual-gamepad"),
+        profile = replace(load_launch_profile("inputs/bimanual-gamepad"),
                           backend_port=_free_port(), steps=40, interval_s=.01, grace_period_s=2.)
         ready = asyncio.Event()
         task = asyncio.create_task(_run_model_websocket_publisher_async(

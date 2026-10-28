@@ -180,8 +180,8 @@ uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/tri
 
 ```powershell
 uv run xpotato-sim profile
-uv run xpotato-sim profile dynamic-cube-drop
-uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root $results --ticks 5 --software-revision $revision
+uv run xpotato-sim profile tasks/dynamic-cube-drop
+uv run xpotato-sim trial --profile tasks/dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root $results --ticks 5 --software-revision $revision
 uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
 uv run xpotato-sim workbench --help
 ```
@@ -219,7 +219,8 @@ Git・PRに含めないでください。
 接続設定の指定だけでは接続済みになりません。画面でデモを選び、検証・準備後に
 個別の接続、tare、使用姿勢neutral、profile適用を順に確認してから開始します。
 開始時にも新しい中立入力が必要です。デモは実験記録を取得・永続保存しません。
-`research-spring-s` と研究比較templateのS identityはソフト検証用fixtureであり、実機に使用できません。
+`profiles/inputs/` と研究比較条件の Selfrionette identity はソフト検証用 fixture であり、実機に使用できません。
+[profile の分類と保存済み条件の移行](docs/operations/profile-roles-and-migration.md)を参照してください。
 正規の実機条件・校正または接続設定がなければ、それらの提供・確認が先に必要です。
 入力を変えたら停止して条件を選び直し、検証・準備を行います。未適用の条件では開始できません。
 

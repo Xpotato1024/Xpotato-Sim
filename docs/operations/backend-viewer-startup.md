@@ -44,9 +44,9 @@ npm --prefix apps/mujoco-viewer ci
 同じrootから一つのコマンドで起動する。別terminalや別directoryへの移動は不要。
 
 ```powershell
-uv run xpotato-sim app --profile sim-gamepad
-uv run xpotato-sim app --profile sim-keyboard
-uv run xpotato-sim app --profile replay-sweep
+uv run xpotato-sim app --profile examples/sim-gamepad
+uv run xpotato-sim app --profile examples/sim-keyboard
+uv run xpotato-sim app --profile examples/replay-sweep
 ```
 
 上のコマンドは用途に応じて一つを選ぶ。Webとbackendの起動完了後に、接続先と入力providerを
@@ -62,10 +62,10 @@ backend完了に伴いWebも終了する。終了後の画面に残った姿勢�
 ## 設定検査と起動確認
 
 ```powershell
-uv run xpotato-sim profile sim-gamepad
-uv run xpotato-sim app --profile sim-gamepad --check
-uv run xpotato-sim app --profile sim-gamepad --startup-check
-uv run xpotato-sim app --profile sim-gamepad --no-browser --web-port 5178 --backend-port 8768
+uv run xpotato-sim profile examples/sim-gamepad
+uv run xpotato-sim app --profile examples/sim-gamepad --check
+uv run xpotato-sim app --profile examples/sim-gamepad --startup-check
+uv run xpotato-sim app --profile examples/sim-gamepad --no-browser --web-port 5178 --backend-port 8768
 ```
 
 `profile`はJSONと既存resolverの検査・表示だけを行う。`app --check`はさらにsource checkoutとの
@@ -112,7 +112,7 @@ http://127.0.0.1:5173/apps/mujoco-viewer/?websocketUrl=ws://127.0.0.1:8766
 
 ## 左右独立の1スティックXYZ操作
 
-`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`とFastArmのGamepad profileはstick XY + analog trigger Zを使用する。
+`examples/sim-gamepad-left-xyz`／`examples/sim-gamepad-right-xyz`とFastArmのGamepad profileはstick XY + analog trigger Zを使用する。
 起動時はFastArmの`+X`前方と操作方向を合わせた`operator` camera presetを使い、stick上を前進、右を胴体右へ対応させる。
 cameraを手動回転しても入力Mappingはcamera-relativeに変更しない。
 操作と表示は[Gamepad trigger操作契約](../contracts/gamepad-trigger-control.md)を参照する。
@@ -122,10 +122,10 @@ Viewer接続queryは`websocketUrl`を使う。旧`?ws=` aliasは退役エラー�
 ## 単腕・双腕のモデル選択（#574 / #580）
 
 ```powershell
-uv run xpotato-sim app --profile fast-arm-single-gamepad
-uv run xpotato-sim app --profile fast-arm-left-gamepad
-uv run xpotato-sim app --profile fast-arm-right-gamepad
-uv run xpotato-sim app --profile fast-arm-bimanual-gamepad
+uv run xpotato-sim app --profile inputs/single-gamepad
+uv run xpotato-sim app --profile examples/left-gamepad
+uv run xpotato-sim app --profile examples/right-gamepad
+uv run xpotato-sim app --profile inputs/bimanual-gamepad
 ```
 
 用途に応じて一つを選ぶ。原型単腕・左単腕・右単腕・双腕を同じLaunchProfile/v2で選択し、
@@ -166,18 +166,18 @@ OSC/serial、複数視点同時UI、GUI task/spawnは追加しない。
 ## 固定cubeと手先接触の診断（#585）
 
 ```powershell
-uv run xpotato-sim app --profile contact-debug-bimanual --check
-uv run xpotato-sim app --profile contact-debug-bimanual
+uv run xpotato-sim app --profile diagnostics/contact-debug-bimanual --check
+uv run xpotato-sim app --profile diagnostics/contact-debug-bimanual
 ```
 
-他のモデルは`contact-debug-single`、`contact-debug-left`、`contact-debug-right`を使用する。
+他のモデルは`diagnostics/contact-debug-single`、`diagnostics/contact-debug-left`、`diagnostics/contact-debug-right`を使用する。
 各profileは対応するcurrent fast-arm profileと同じTPS軸対応・trigger上下操作を使う。
 本体の物体定義は`plugins/environments/object_scene_environment/resources/objects/test_cube_100mm.json`、
 world配置は同packageの`resources/scenes/`。GUIでなくファイルで明示配置を変更し、実行中変更はしない。
 別の配置はprofileのenvironment.parametersへ完全なscene documentを指定できる。presetの実効値は次で確認する。
 
 ```powershell
-uv run xpotato-sim profile contact-debug-bimanual
+uv run xpotato-sim profile diagnostics/contact-debug-bimanual
 ```
 
 cubeは一辺100 mm、fixed。双腕ではworld (0.36,+/-0.56,0.46) mへ二個置く。世界に固定された治具であり、浮遊する自由物体ではない。
@@ -196,10 +196,10 @@ Ctrl+Cで終了し、再試行は新しい起動sessionで行う。page reload�
 ## 落下・固定接触・押し動かしの診断（#582）
 
 ```powershell
-uv run xpotato-sim app --profile dynamic-cube-drop --check
-uv run xpotato-sim app --profile dynamic-cube-drop
-uv run xpotato-sim app --profile dynamic-fixed-contact
-uv run xpotato-sim app --profile dynamic-cube-push
+uv run xpotato-sim app --profile tasks/dynamic-cube-drop --check
+uv run xpotato-sim app --profile tasks/dynamic-cube-drop
+uv run xpotato-sim app --profile tasks/dynamic-fixed-contact
+uv run xpotato-sim app --profile tasks/dynamic-cube-push
 ```
 
 同時起動せず、一つを選ぶ。中立Gamepadを取得してrunningに入るまで、simulation全体は初期状態で待機する。
@@ -215,4 +215,4 @@ Robot据付位置・肩高さ・homeは変更しない。台は固定object定�
 
 切断・不正入力・Task終了時は全worldの最終stateを凍結する。再開には新session/epochと中立を必要とし、
 既定60 sは観測窓終了であって搬送や力目標の成功判定ではない。物体は実機安全gateやhardware出力へ接続しない。
-設定確認は`uv run xpotato-sim profile dynamic-cube-drop`。geometry-only操作は従来contact-debug-*を使う。
+設定確認は`uv run xpotato-sim profile tasks/dynamic-cube-drop`。geometry-only操作は従来contact-debug-*を使う。

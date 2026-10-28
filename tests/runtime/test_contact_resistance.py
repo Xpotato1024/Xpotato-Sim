@@ -107,7 +107,7 @@ def test_invalid_condition_rejected(field, value):
 
 
 def selected(mode):
-    document = preset_condition("dynamic-fixed-contact")
+    document = preset_condition("tasks/dynamic-fixed-contact")
     document["command_mapping"] = None if mode is None else condition(mode)
     document["limits"]["max_ticks"] = 30
     return resolve_condition(document)
@@ -134,7 +134,7 @@ def test_condition_freezes_independently_and_rejects_target_or_normal_change(tmp
         bad = deepcopy(document);bad["command_mapping"]["targets"]["left"] = target
         with pytest.raises(ValueError):
             resolve_condition(bad)
-    dynamic = preset_condition("dynamic-cube-drop");dynamic["command_mapping"] = condition()
+    dynamic = preset_condition("tasks/dynamic-cube-drop");dynamic["command_mapping"] = condition()
     with pytest.raises(ValueError, match="fixed Task target"):
         resolve_condition(dynamic)
 

@@ -305,14 +305,14 @@ Workbenchの既存process group / job監督で回収する。
 
 ## 合成preset・software fixtureと実機条件
 
-[単手preset](../../profiles/fast-arm-single-device.json)と
-[両手preset](../../profiles/fast-arm-bimanual-device.json)はsoftware検証のための具体的な合成条件である。
+[単手preset](../../profiles/inputs/single-selfrionette-fixture.json)と
+[両手preset](../../profiles/inputs/bimanual-selfrionette-fixture.json)はsoftware検証のための具体的な合成条件である。
 同梱のdevice ID、firmware / bridge SHA、profile record、operator、7×3 weight、速度gainは
 実個体を同定・受入した値ではない。実接続には実際の証跡と対応する条件へ明示編集する。
 fixtureに合わせるため実機の期待identityや品質検査を緩めない。
 
-接触力の表示比較には[dynamic単手preset](../../profiles/dynamic-fixed-contact-single-device.json)と
-[dynamic両手preset](../../profiles/dynamic-fixed-contact-bimanual-device.json)を使える。
+接触力の表示比較には[dynamic単手preset](../../profiles/diagnostics/fixed-contact-single-selfrionette-fixture.json)と
+[dynamic両手preset](../../profiles/diagnostics/fixed-contact-bimanual-selfrionette-fixture.json)を使える。
 上記Device bindingとMappingを、既存`fixed_contact` Environment / native dynamics /
 `contact_observation_task/v1`へ合成しており、別の物理loopは持たない。
 条件を展開したAdvanced表示欄で`no_force_cue` / `force_cue`を選び、物体位置も既存editorで明示編集する。
@@ -331,7 +331,7 @@ fixtureに合わせるため実機の期待identityや品質検査を緩めな�
 
 ```sh
 .venv/bin/xpotato-sim trial \
-  --profile fast-arm-single-device \
+  --profile inputs/single-selfrionette-fixture \
   --fixture tests/fixtures/selfrionette_device/fast-arm-single-device.json \
   --ticks 12 \
   --result-root /absolute/software-trial-results \
@@ -343,7 +343,7 @@ Workbenchと同じservice / workerをheadlessで通す場合は次を使う。te
 
 ```sh
 .venv/bin/xpotato-sim workbench \
-  --profile fast-arm-bimanual-device \
+  --profile inputs/bimanual-selfrionette-fixture \
   --fixture tests/fixtures/selfrionette_device/fast-arm-bimanual-device.json \
   --run-once --ticks 12 \
   --temporary-root /absolute/existing-task-temp \

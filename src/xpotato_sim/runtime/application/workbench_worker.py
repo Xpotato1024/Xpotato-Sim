@@ -71,7 +71,7 @@ def execution_worker(url, config):
     def state():
         return {"phase": runner.status, "ticket": None if runner.ticket is None else asdict(runner.ticket),
             "session_mode": runner.session_mode,
-            "ticks": runner.tick_count, "profile_id": None if profile is None else profile.name,
+            "ticks": runner.tick_count, "profile_id": None if applied_condition is None else applied_condition["preset_id"],
             "simulation_time_s": runner.tick_count * profile.dt_s if profile else 0.0,
             "result": None if runner.result is None else runner.result.to_document(), "error": runner.error,
             "condition": None if runner.condition is None else runner.condition.to_document(),

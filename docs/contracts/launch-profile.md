@@ -28,16 +28,20 @@ network、serial、physical permissionは所有しない。
 
 ## ファイルと選択
 
-リポジトリの`profiles/`に`sim-keyboard.json`、`sim-gamepad.json`、`replay-sweep.json`を置く。
-単純名は実行中Python packageのsource checkoutから解決する。cwdや親directoryにある同名fileを
-暗黙に探索しない。外部JSONは明示pathで指定する。profile内の`workspace`は、そのJSONの所在
-directoryを基準に解決する。profileの名前解決はsource checkout専用で、wheelだけの環境では
-checkoutを含む明示JSON pathが必要である。
+source checkout の `profiles/` は役割別に `tasks/`、`inputs/`、`diagnostics/`、
+`examples/`、`experiments/` を分ける。CLI の登録 ID には `examples/sim-gamepad` や
+`tasks/dynamic-cube-drop` のように分類を含める。旧 root 名の暗黙探索は行わない。
+`tasks/` は入力非依存の template であり、`profile` / `trial` で直接指定した場合は
+Gamepad binding を明示的な既定として合成する。Workbench では入力を別に選択する。
+外部 JSON は明示 path で指定する。`workspace` は JSON の所在 directory を基準に
+検証し、cwd や同名ファイルを暗黙探索しない。source checkout がない環境では
+登録 ID は利用できない。保存済み条件は[移行手順](../operations/profile-roles-and-migration.md)に従う。
 
 ```powershell
 uv run xpotato-sim profile
-uv run xpotato-sim profile sim-gamepad
-uv run xpotato-sim profile ./profiles/replay-sweep.json
+uv run xpotato-sim profile examples/sim-gamepad
+uv run xpotato-sim profile tasks/dynamic-cube-drop
+uv run xpotato-sim profile ./profiles/examples/replay-sweep.json
 ```
 
 このコマンドは設定検査・表示だけを行い、サーバーやブラウザを起動しない。
@@ -94,16 +98,16 @@ cwdとprofile相対path、override、CLI表示、および取得・process・net
 
 ## Gamepadのworld-XY確認用profile
 
-`sim-gamepad-world-xy`は、既存`sim-gamepad`の軸対応だけを明示変更した追加profile。
+`examples/sim-gamepad-world-xy`は、既存`examples/sim-gamepad`の軸対応だけを明示変更した追加profile。
 `gamepad_axis_map={axis_indices:[0,1,3], axis_signs:[1,-1,-1]}`をMappingへ渡す。
 左stick右/上をworld +X/+Y、右stick上をworld +Zへ対応させる案で、
 実機種のstandard配置確認と、固定したviewでの操作受入は別途必要。
-旧`sim-gamepad`の設定・digest・挙動は変更しない。任意cameraのscreen方向へは追従しない。
-`selfrionette profile sim-gamepad-world-xy`で解決後の設定を表示できる。
+`examples/sim-gamepad` への移動で JSON byte と digest は変わる。過去の条件同一性は当時の commit で確認する。任意 camera の screen 方向へは追従しない。
+`selfrionette profile examples/sim-gamepad-world-xy`で解決後の設定を表示できる。
 
 ## 左右独立の1スティックXYZ操作
 
-`sim-gamepad-left-xyz`／`sim-gamepad-right-xyz`と現行FastArm Gamepad profileはstick XY + analog trigger Zを使用する。
+`examples/sim-gamepad-left-xyz`／`examples/sim-gamepad-right-xyz`と現行FastArm Gamepad profileはstick XY + analog trigger Zを使用する。
 FastArmの胴体`+X=前、+Y=左、+Z=上`へ固定したoperator/TPS mappingを採用し、
 stick上=`+X`、右=`-Y`とする。Gamepad viewerは同じ基準に合わせた背後`-X`側の`operator` camera presetで起動する。
 cameraを手動回転してもMapping自体は追従させない。設定・符号ラッチ・表示の詳細は
@@ -137,8 +141,8 @@ cameraを手動回転してもMapping自体は追従させない。設定・符�
 現行v2実行はsimulation・登録済みsession provider・名前付き手先を扱える明示Mappingを要求する。
 `gamepad/v1`と`selfrionette-device/v1`を受理し、後者は`input.parameters`に固定bridge revisionとrole別source/profile/operator bindingを必須とする。
 provider/Source/Mapping/endpoint roleが一致しない組合せは代用せず拒否する。v1の入力対応範囲は変更しない。
-`fast-arm-single-device`と`fast-arm-bimanual-device`は架空identityと明示software軸写像を持つ検証presetであり、実機の校正値ではない。
-`dynamic-fixed-contact-single-device`と`dynamic-fixed-contact-bimanual-device`は同じDevice bindingと
+`inputs/single-selfrionette-fixture`と`inputs/bimanual-selfrionette-fixture`は架空identityと明示software軸写像を持つ検証presetであり、実機の校正値ではない。
+`diagnostics/fixed-contact-single-selfrionette-fixture`と`diagnostics/fixed-contact-bimanual-selfrionette-fixture`は同じDevice bindingと
 Mappingへ、既存の固定cube・native dynamics・接触観測Taskを組み合わせたv4 presetである。
 Workbenchで条件を展開すると、既存の物体位置編集と`no_force_cue` / `force_cue`の選択ができる。
 追加presetの既定gainや軸対応もsoftware検証用で、実個体の校正・操作受入を表さない。
@@ -150,8 +154,8 @@ Workbenchで条件を展開すると、既存の物体位置編集と`no_force_c
 よるもので、双腕専用schemaへの分岐ではない。未マージだった`fast-arm-coordinated-viewer-profile/v1`、
 `CoordinatedViewerProfile`、`profiles/coordinated/`は退役し、誤った取付設定を黙って移行しない。
 
-配布profileは`fast-arm-single-gamepad`、`fast-arm-left-gamepad`、`fast-arm-right-gamepad`、
-`fast-arm-bimanual-gamepad`。GUI task/spawnとruntime中の切替は別Issueである。
+現在の入力 binding は `inputs/single-gamepad` と `inputs/bimanual-gamepad`、左右の起動例は `examples/left-gamepad` と `examples/right-gamepad` に配置する。
+`inputs/bimanual-gamepad`。GUI task/spawnとruntime中の切替は別Issueである。
 
 ## v3: 名前付きモデルと固定物体診断の合成（#585）
 
@@ -183,7 +187,7 @@ v3から旧schemaへラベルだけ変える降格は拒否し、scene選択を�
 数値設定は`dynamics-settings/v1`、semanticsは`coordinated_actuator_servo_dynamic/v1`。
 固定診断へdynamic物体を黙って変換したり、gravity/solverを未知値から補完したりしない。旧v1/v2/v3の設定byteは維持する。
 
-配布profileは`dynamic-cube-drop`、`dynamic-fixed-contact`、`dynamic-cube-push`。共通Robotモデル選択と
+現在の動力学タスク定義は `tasks/dynamic-cube-drop`、`tasks/dynamic-fixed-contact`、`tasks/dynamic-cube-push` に置き、入力 binding を別に合成する。
 `coordination.side_to_endpoint`で原型/左/右単腕/双腕へ接続し、腕数専用のrunnerを追加しない。
 `resolved.scene`にworld/物体条件、`resolved.dynamics`に数値条件、各digestを出力する。
 world条件と積分条件の変更を同じ意味に混同せず、試行の条件固定では両方を保存する。

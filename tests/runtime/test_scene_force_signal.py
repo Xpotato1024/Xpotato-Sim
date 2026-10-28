@@ -130,7 +130,7 @@ def test_native_single_and_bimanual_force_match_independent_solver_oracle():
     import numpy as np
     from tests.integration.fast_arm.test_scene_dynamics import profile, advance
     for model in ("single_left", "bimanual"):
-        p = profile("dynamic-fixed-contact", model=model)
+        p = profile("tasks/dynamic-fixed-contact", model=model)
         instance = p.build_model(); provider = instance.provider
         sample = advance(provider,p,180,(.06,0.,0.))
         targets = tuple(o.instance_id for o in p.scene_plan.manifest.objects)

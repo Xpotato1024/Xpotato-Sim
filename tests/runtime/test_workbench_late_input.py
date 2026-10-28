@@ -24,7 +24,7 @@ def neutral(sequence=0):
 def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp_path, monkeypatch, ending, late_bad):
     now = [10.0]
     events, saved, tickets, runners = [], {}, {}, []
-    condition = preset_condition("dynamic-cube-drop")
+    condition = preset_condition("tasks/dynamic-cube-drop")
     condition["limits"]["max_ticks"] = 4 if ending == "budget" else 100
     if ending == "task":
         condition["task"]["parameters"]["duration_s"] = .05
@@ -77,7 +77,7 @@ def test_native_worker_late_input_preserves_result_and_retry_isolates_ticket(tmp
             generation = 2 if ending == "stop" else 1
             if op == "prepare":
                 return json.dumps({"op": op, "id": op, "generation": 1,
-                    "profile_id": "dynamic-cube-drop", "condition": condition})
+                    "profile_id": "tasks/dynamic-cube-drop", "condition": condition})
             if op in {"neutral", "late", "old", "new_ready", "late_batch", "late_bad"}:
                 sequence += 1
                 ticket = tickets.get("new") if op == "new_ready" else tickets["old"]

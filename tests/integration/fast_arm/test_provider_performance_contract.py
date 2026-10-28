@@ -9,7 +9,7 @@ from xpotato_sim.schemas.coordinated import EndpointVelocity
 
 
 def test_snapshot_sharing_is_immutable_and_expires_on_commit_and_reset():
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     before = provider.snapshot()
     assert provider.snapshot() is before
@@ -31,7 +31,7 @@ def test_snapshot_sharing_is_immutable_and_expires_on_commit_and_reset():
 
 
 def test_neutral_skips_ik_but_keeps_all_physics_substeps_and_servo_targets(monkeypatch):
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     targets = provider._data.ctrl.copy()
     original = mujoco.mj_step
@@ -54,7 +54,7 @@ def test_neutral_skips_ik_but_keeps_all_physics_substeps_and_servo_targets(monke
 
 
 def test_modified_candidate_still_rejected_with_cached_before():
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     before = provider.snapshot()
     commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
@@ -66,7 +66,7 @@ def test_modified_candidate_still_rejected_with_cached_before():
 
 
 def test_native_warning_array_keeps_fail_closed_check_in_all_observations():
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     provider._data.warning[0].number = 1
     for observe in (lambda: provider._check_data(provider._data),
                     lambda: provider._scene_observer.observe(provider._data, frame_index=0),
@@ -82,7 +82,7 @@ def test_native_warning_array_keeps_fail_closed_check_in_all_observations():
     ("actuator_force", float("inf"), "nonfinite"),
 ])
 def test_dynamic_checks_keep_thresholds_and_nonfinite_rejection(field, value, reason):
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     data = provider._data
     if field == "ctrl":
         data.ctrl[0] = data.qpos[0] + value
@@ -93,7 +93,7 @@ def test_dynamic_checks_keep_thresholds_and_nonfinite_rejection(field, value, re
 
 
 def test_live_qpos_mutation_after_prepare_is_rejected_even_with_cached_snapshot():
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     before = provider.snapshot()
     commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
@@ -108,7 +108,7 @@ def test_live_qpos_mutation_after_prepare_is_rejected_even_with_cached_snapshot(
 
 def test_display_sampling_cadence_cannot_change_native_integration_or_contact_state():
     import numpy as np
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     providers = [profile.build_model().provider for _ in range(2)]
     commands = tuple(EndpointVelocity(a, (.002, 0., 0.), "world") for a in providers[0].endpoint_ids)
     for tick in range(30):
@@ -133,7 +133,7 @@ def test_display_sampling_cadence_cannot_change_native_integration_or_contact_st
     ("warning", 1, "warning"),
 ])
 def test_each_physics_substep_rejects_invalid_candidate_before_next_step(monkeypatch, substep, field, value, reason):
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     before = provider.trial_state()
     original = mujoco.mj_step
@@ -165,7 +165,7 @@ def test_each_physics_substep_rejects_invalid_candidate_before_next_step(monkeyp
 
 def test_native_validation_keeps_inclusive_limits_and_reads_live_config():
     from dataclasses import replace
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     data = provider._data
     for arm in provider.addresses:
         for index, limit in zip(arm.qpos_addresses, provider.limits.joints, strict=True):

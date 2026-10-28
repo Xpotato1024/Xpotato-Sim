@@ -17,7 +17,7 @@ from xpotato_sim.runtime.composition.launch_profile import (
 from xpotato_sim.runtime.experiment.input_source import ValidatedManagedInputSourceReader, ValidatedInputSourceReader
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "profiles/sim-gamepad.json"
+SOURCE = ROOT / "profiles/examples/sim-gamepad.json"
 
 
 @pytest.fixture(autouse=True)
@@ -39,10 +39,10 @@ def decode(raw):
     return decode_launch_profile(json.dumps(raw).encode(), source_path=SOURCE)
 
 
-@pytest.mark.parametrize("name", ("sim-gamepad", "sim-keyboard", "replay-sweep"))
+@pytest.mark.parametrize("name", ("examples/sim-gamepad", "examples/sim-keyboard", "examples/replay-sweep"))
 def test_profiles_resolve_without_execution(name):
     profile = load_launch_profile(name)
-    assert profile.name == name and profile.workspace_path == ROOT
+    assert profile.name == name.rsplit("/", 1)[-1] and profile.workspace_path == ROOT
     assert profile.robot.plugin_id == "fast_arm"
     assert len(profile.configuration_sha256) == 64
     assert profile.to_dict()["resolved"]["physical_output"] == "disabled"
@@ -50,7 +50,8 @@ def test_profiles_resolve_without_execution(name):
     assert decode_launch_profile(profile.document_json.encode(), source_path=profile.source_path) == profile
 
 
-@pytest.mark.parametrize("path", sorted((ROOT / "profiles").glob("*.json")), ids=lambda path: path.stem)
+@pytest.mark.parametrize("path", sorted(path for category in ("inputs", "diagnostics", "examples")
+    for path in (ROOT / "profiles" / category).glob("*.json")), ids=lambda path: path.stem)
 def test_all_current_profiles_keep_saved_configuration_and_bytes(path):
     before = path.read_bytes()
     raw = json.loads(before)
@@ -135,11 +136,11 @@ def test_external_path_is_relative_to_profile_not_cwd(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT.parent)
     profile = load_launch_profile(path)
     assert profile.workspace_path == ROOT
-    assert load_launch_profile("sim-keyboard").workspace_path == ROOT
+    assert load_launch_profile("examples/sim-keyboard").workspace_path == ROOT
 
 
 def test_overrides_are_limited_revalidated_and_do_not_mutate_original():
-    profile = load_launch_profile("sim-gamepad")
+    profile = load_launch_profile("examples/sim-gamepad")
     changed = override_launch_profile(profile, web_port=5197, backend_port=8797, open_browser=False)
     assert (changed.web_port, changed.backend_port, changed.open_browser) == (5197, 8797, False)
     assert profile.web_port == 5173 and profile.open_browser
@@ -164,20 +165,28 @@ def test_profile_cli_and_errors(capsys):
     cli = importlib.import_module("xpotato_sim.cli.main")
     assert cli.main(["profile"]) == 0
     listed = json.loads(capsys.readouterr().out)
-    assert listed == list(list_launch_profiles())
-    assert cli.main(["profile", "sim-keyboard"]) == 0
+    from xpotato_sim.runtime.runners.application import list_application_profiles
+    assert listed == list(list_application_profiles())
+    assert "tasks/research-spring" in listed
+    assert cli.main(["profile", "examples/sim-keyboard"]) == 0
     assert json.loads(capsys.readouterr().out)["configuration"]["input"]["provider"] == "keyboard/v1"
     assert cli.main(["profile", "missing-profile"]) == 1
     assert "error" in capsys.readouterr().err
 
 
-def test_world_xy_profile_resolves_axis_map_and_retains_legacy_profile():
-    profile = load_launch_profile("sim-gamepad-world-xy")
+def test_plain_old_profile_name_is_rejected_with_migration_direction():
+    with pytest.raises(ValueError, match="旧profile名は廃止"):
+        load_launch_profile("sim-gamepad")
+    assert all("/" in selector for selector in list_launch_profiles())
+
+
+def test_world_xy_profile_resolves_axis_map_and_retains_base_example():
+    profile = load_launch_profile("examples/sim-gamepad-world-xy")
     assert profile.mapping_parameters["gamepad_axis_map"] == {
         "axis_indices": [0, 1, 3], "axis_signs": [1, -1, -1],
     }
     assert profile.to_dict()["resolved"]["mapping_parameters"]["gamepad_axis_map"] == profile.mapping_parameters["gamepad_axis_map"]
-    assert load_launch_profile("sim-gamepad").mapping_parameters == {}
+    assert load_launch_profile("examples/sim-gamepad").mapping_parameters == {}
     altered = json.loads(profile.document_json)
     altered["mapping"]["parameters"]["gamepad_axis_map"]["axis_signs"][0] = -1
     other = decode_launch_profile(json.dumps(altered).encode(), source_path=profile.source_path)
