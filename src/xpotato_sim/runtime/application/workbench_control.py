@@ -11,7 +11,10 @@ from time import monotonic
 
 from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits, resolve_trial_profile
-from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition, descriptors, condition_diff
+from xpotato_sim.runtime.experiment.edited_condition import (
+    SHARED_SPRING_TASK, SINGLE_ENDPOINT_INPUT_BINDINGS, default_task_profile,
+    preset_condition, resolve_condition, descriptors, condition_diff,
+)
 from xpotato_sim.schemas import parse_viewer_control_message_json
 
 ACTIVE = {"waiting_input", "running", "finalizing"}
@@ -63,7 +66,15 @@ def decode_request(raw):
 
 
 def profile_catalog():
-    result = []
+    shared = {"id": SHARED_SPRING_TASK, "available": True, "reason": None,
+        "model": "single_original", "input_provider": None,
+        "input_bindings": list(SINGLE_ENDPOINT_INPUT_BINDINGS)}
+    try:
+        for provider in SINGLE_ENDPOINT_INPUT_BINDINGS:
+            resolve_condition(preset_condition(SHARED_SPRING_TASK, input_provider=provider))
+    except Exception as exc:
+        shared.update(available=False, reason=str(exc))
+    result = [shared]
     for name in list_launch_profiles():
         try:
             p = load_launch_profile(name)
@@ -72,9 +83,10 @@ def profile_catalog():
             p = resolve_trial_profile(p)
             result.append({"id": name, "available": True, "reason": None,
                 "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps,
-                "input_provider": p.provider_id})
+                "input_provider": p.provider_id, "legacy": name in {"research-spring-g", "research-spring-s"}})
         except Exception as exc:
-            result.append({"id": name, "available": False, "reason": str(exc)})
+            result.append({"id": name, "available": False, "reason": str(exc),
+                "legacy": name in {"research-spring-g", "research-spring-s"}})
     return result
 
 
@@ -162,7 +174,7 @@ class WorkbenchControl:
             self.owner = client
             return {"type": "claimed"}, None
         self.authorize(client, r)
-        if op in {"edit", "clone", "export", "import", "diff"}:
+        if op in {"edit", "clone", "bind", "export", "import", "diff"}:
             return self._editor_command(r)
         if op == "input":
             return self._input_command(r)
@@ -177,10 +189,14 @@ class WorkbenchControl:
             if not isinstance(r["request_id"], str) or not ID.fullmatch(r["request_id"]):
                 raise ValueError("有効なeditor要求IDが必要です")
         correlation = {"request_id": r["request_id"]} if "request_id" in r else {}
-        if op in {"edit", "import", "diff"}:
+        if op in {"edit", "import", "diff", "bind"}:
             expected.add("condition")
+        if op == "bind":
+            expected.add("input_provider")
         if op == "clone":
             expected.add("profile_id")
+            if "input_provider" in r:
+                expected.add("input_provider")
         if set(r) != expected or type(r["revision"]) is not int or r["revision"] != self.revision or r["ticket"] != self.state["ticket"]:
             raise ValueError("未知fieldまたは旧revision/ticketです")
         if self.busy or self.state["phase"] not in {"unselected", "ready", "terminal"}:
@@ -194,12 +210,22 @@ class WorkbenchControl:
                 raise ValueError("次条件がありません")
         else:
             if op == "clone":
-                if r["profile_id"] not in list_launch_profiles():
+                if "input_provider" in r and r["profile_id"] != SHARED_SPRING_TASK:
+                    raise ValueError("explicit input binding is only valid for a shared task")
+                if r["profile_id"] != SHARED_SPRING_TASK and r["profile_id"] not in list_launch_profiles():
                     raise ValueError("cloneは登録preset IDだけです。server pathは受け付けません")
-                selected = load_launch_profile(r["profile_id"])
+                selected = default_task_profile(r["profile_id"])
                 value = preset_condition(r["profile_id"], TrialLimits(self.launcher_limits.get("ticks") or selected.steps,
                     self.launcher_limits.get("input_wait_s", 5), self.launcher_limits.get("wall_s", 360),
-                    self.launcher_limits.get("prepare_s", 30)))
+                    self.launcher_limits.get("prepare_s", 30)), input_provider=r.get("input_provider"))
+            elif op == "bind":
+                if type(r["condition"]) is not dict or r["condition"].get("preset_id") != SHARED_SPRING_TASK:
+                    raise ValueError("input binding requires the shared spring task")
+                source = resolve_condition(r["condition"])[2]
+                binding = preset_condition(SHARED_SPRING_TASK, input_provider=r["input_provider"])
+                value = {**source, "configuration": {**source["configuration"],
+                    "input": binding["configuration"]["input"],
+                    "mapping": binding["configuration"]["mapping"]}}
             else:
                 value = r["condition"]
             if op == "import":

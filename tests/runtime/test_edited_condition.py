@@ -22,6 +22,52 @@ def condition():
     return d
 
 
+def test_shared_spring_task_uses_one_task_and_independent_source_bindings():
+    results = {}
+    for provider in ("gamepad/v1", "selfrionette-device/v1"):
+        document = preset_condition("research-spring", input_provider=provider)
+        profile, _, normalized = resolve_condition(document)
+        assert profile.name == "research-spring"
+        assert profile.provider_id == provider
+        assert normalized["preset_id"] == "research-spring"
+        assert resolve_condition(canonical(normalized))[2] == normalized
+        results[provider] = normalized
+    gamepad, device = results.values()
+    for field in ("robot", "model", "execution"):
+        assert gamepad["configuration"][field] == device["configuration"][field]
+    assert gamepad["environment"] == device["environment"]
+    assert gamepad["task"] == device["task"]
+    assert gamepad["configuration"]["input"] != device["configuration"]["input"]
+    assert gamepad["configuration"]["mapping"] != device["configuration"]["mapping"]
+    legacy_g = resolve_condition(preset_condition("research-spring-g"))[2]
+    assert legacy_g["preset_id"] == "research-spring-g"
+    for field in ("robot", "model", "execution"):
+        assert gamepad["configuration"][field] == legacy_g["configuration"][field]
+    assert gamepad["environment"] == legacy_g["environment"]
+    assert gamepad["task"] == legacy_g["task"]
+    with pytest.raises(ValueError, match="unsupported input binding"):
+        preset_condition("research-spring", input_provider="keyboard/v1")
+    malformed = preset_condition("research-spring")
+    malformed["configuration"]["input"] = []
+    with pytest.raises(ValueError):
+        resolve_condition(malformed)
+
+
+def test_shared_task_records_planned_source_and_actual_provenance_separately(tmp_path):
+    profile, limits, _ = resolve_condition(preset_condition("research-spring", input_provider="gamepad/v1"))
+    runner = TrialRunner(result_root=tmp_path, software_revision="test")
+    ticket = runner.prepare(profile, limits, session_mode="experiment")
+    runner.start(ticket, input_provenance={"source": "verified-test-gamepad", "session": "fresh"})
+    result = runner.abort(ticket)
+    directory = tmp_path / ticket.trial_id
+    condition = json.loads((directory / "condition.json").read_bytes())
+    start = json.loads((directory / "start.json").read_bytes())
+    assert condition["condition"]["input"]["provider"] == "gamepad/v1"
+    assert start["input_provenance"] == {"source": "verified-test-gamepad", "session": "fresh"}
+    assert result.to_document()["runner_stop_reason"] == "operator_abort"
+    runner.close()
+
+
 def test_roundtrip_clone_diff_and_profile_bytes_unchanged():
     d = condition()
     p, limits, normalized = resolve_condition(d)

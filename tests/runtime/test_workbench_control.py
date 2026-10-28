@@ -63,6 +63,35 @@ def test_catalog_has_existing_profiles_and_precise_unavailable_reason():
     assert {r["id"] for r in rows if r["available"]} >= {
         "dynamic-cube-drop", "dynamic-cube-push", "dynamic-fixed-contact",
         "fast-arm-single-gamepad", "fast-arm-bimanual-gamepad", "contact-debug-single"}
+    shared = next(row for row in rows if row["id"] == "research-spring")
+    assert shared["input_provider"] is None
+    assert set(shared["input_bindings"]) == {"gamepad/v1", "selfrionette-device/v1"}
+
+
+def test_shared_task_input_rebinding_preserves_task_and_rejects_active_or_unknown_source():
+    c = controller()
+    clone = {"op": "clone", "capability": KEY, "revision": c.revision,
+        "ticket": None, "profile_id": "research-spring", "input_provider": "gamepad/v1"}
+    first, _ = c.command("owner", clone)
+    document = first["condition"]
+    document["task"]["parameters"]["duration_s"] = 33.0
+    request = {"op": "bind", "capability": KEY, "revision": c.revision,
+        "ticket": None, "condition": document, "input_provider": "selfrionette-device/v1"}
+    second, _ = c.command("owner", request)
+    assert second["condition"]["preset_id"] == "research-spring"
+    assert second["condition"]["configuration"]["input"]["provider"] == "selfrionette-device/v1"
+    assert second["condition"]["task"]["parameters"]["duration_s"] == 33.0
+    request.update(revision=c.revision, condition=second["condition"], input_provider="gamepad/v1")
+    third, _ = c.command("owner", request)
+    assert third["condition"]["configuration"]["input"]["provider"] == "gamepad/v1"
+    request.update(revision=c.revision, condition=third["condition"], input_provider="keyboard/v1")
+    with pytest.raises(ValueError, match="unsupported input binding"):
+        c.command("owner", request)
+    assert c.revision == 3
+    c.state["phase"] = "running"
+    request["input_provider"] = "selfrionette-device/v1"
+    with pytest.raises(ValueError):
+        c.command("owner", request)
 
 
 def test_duplicate_revision_profile_id_and_active_mutation():

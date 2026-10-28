@@ -22,3 +22,11 @@ Taskは接触の観測だけであり、押圧再現・抵抗強弱判断のい�
 実験中は入力と条件を固定する。実験記録の契約は
 [有限試行](../../docs/contracts/finite-trial-runtime.md)、操作は
 [Workbench](../../docs/contracts/workbench.md)を参照する。
+
+新規の Workbench 操作では、入力方式に依存しない `research-spring` 共通タスクを選び、
+Gamepad / Selfrionette の binding を別に選択する。Task は `profiles/task-templates/research-spring.json` に定義する。binding は既存の単一 endpoint 用
+`fast-arm-single-gamepad` / `fast-arm-single-device` から入力と mapping を解決する。
+このフォルダの S/G 別 JSON は旧条件の再読込用に残す。共通タスクの条件 JSON では
+`preset_id` は両入力とも `research-spring` であり、計画した入力方式は
+`configuration.input.provider` に、実際の入力 provenance は試行の `start.json` に記録する。
+実機の校正済み identity、role 接続、neutral 確認を省略できるという意味ではない。

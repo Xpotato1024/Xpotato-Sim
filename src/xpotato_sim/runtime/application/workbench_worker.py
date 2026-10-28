@@ -196,7 +196,8 @@ def execution_worker(url, config):
                         if "condition" in cmd:
                             profile, limits, candidate = resolve_condition(cmd["condition"])
                         else:
-                            profile = load_launch_profile(cmd["profile_id"])
+                            from xpotato_sim.runtime.experiment.edited_condition import default_task_profile
+                            profile = default_task_profile(cmd["profile_id"])
                             limits = TrialLimits(config.get("ticks") or profile.steps,
                                 config["input_wait_s"], config["wall_s"], config["prepare_s"])
                             candidate = preset_condition(cmd["profile_id"], limits)

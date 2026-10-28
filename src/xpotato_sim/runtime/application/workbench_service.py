@@ -82,7 +82,8 @@ async def serve_workbench(config, workers, directory, *, open_browser=False, sta
         "roles": sorted(connection["roles"]) if connection else []}
     control.state["initial_condition"] = config.get("condition")
     if control.state["initial_condition"] is None and config.get("profile") and not config.get("run_once"):
-        selected = load_launch_profile(config["profile"])
+        from xpotato_sim.runtime.experiment.edited_condition import default_task_profile
+        selected = default_task_profile(config["profile"])
         control.state["initial_condition"] = preset_condition(config["profile"], TrialLimits(config.get("ticks") or selected.steps,
             config["input_wait_s"], config["wall_s"], config["prepare_s"]))
     control.next_condition = control.state["initial_condition"]

@@ -10,6 +10,7 @@ from tests.runtime.test_workbench_worker import owner_projection
 import xpotato_sim.runtime.application.workbench_worker as worker
 from xpotato_sim.runtime.application.device_bridge import OPERATOR_PHASES
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+from xpotato_sim.runtime.experiment.edited_condition import preset_condition
 
 
 pytestmark = pytest.mark.usefixtures("owner_projection")
@@ -165,6 +166,31 @@ def operator_steps(roles, prefix="first"):
     return [{"op": "device", "id": f"{prefix}-{role}-{action}", "role": role,
         "action": action, "confirmed": True, "observed_phase": phase}
         for role in roles for action, phase in OPERATOR_PHASES.items()]
+
+
+def test_shared_task_rebinds_gamepad_device_gamepad_with_new_epochs_and_no_demo_files(tmp_path, monkeypatch):
+    device_condition = preset_condition("research-spring", input_provider="selfrionette-device/v1")
+    commands = [{**prepare("research-spring"), "session_mode": "demo"},
+        {"op": "stop", "id": "stop-gamepad", "generation": 2},
+        {**prepare("research-spring"), "id": "device-prepare", "generation": 3,
+            "condition": device_condition, "session_mode": "demo"},
+        *operator_steps(("left",)),
+        {"op": "start", "id": "device-start", "generation": 3}, WaitForTicks(2),
+        {"op": "stop", "id": "stop-device", "generation": 4},
+        {**prepare("research-spring"), "id": "gamepad-prepare", "generation": 5,
+            "session_mode": "demo"}, {"op": "close"}]
+    scenario = WorkerScenario(tmp_path, monkeypatch, commands)
+    states = scenario.run()
+    first = states["prepare"]["state"]
+    second = states["device-prepare"]["state"]
+    third = states["gamepad-prepare"]["state"]
+    assert [state["profile_id"] for state in (first, second, third)] == ["research-spring"] * 3
+    assert [state["input_provider"] for state in (first, second, third)] == [
+        "gamepad/v1", "selfrionette-device/v1", "gamepad/v1"]
+    assert len({state["ticket"]["epoch"] for state in (first, second, third)}) == 3
+    assert states["stop-device"]["state"]["ticks"] == 2
+    assert all(group.closed for group in scenario.groups)
+    assert not scenario.result_root.exists() or not list(scenario.result_root.iterdir())
 
 
 @pytest.mark.parametrize("fail_retry", [False, True])

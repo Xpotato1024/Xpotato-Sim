@@ -400,3 +400,9 @@ WebSocket event入口のbrowser時刻をsource metadataのhost monotonicから�
 数値欄は既存10 Hzの計器購読を維持するため、3D sceneの更新と別の時刻に反映し得る。
 そのDOMにはcondition/sample IDと`data-panel-committed-at-ms`を残し、数値欄への反映とscene提出を区別する。
 保持する値は現在のsampleと有界counterだけで、全frame記録器は追加しない。
+
+## 共通タスクと入力 binding
+
+Workbench の `research-spring` は押込ばねの共通タスクであり、Gamepad と Selfrionette は独立した入力 binding として選ぶ。両入力で `profiles/task-templates/research-spring.json` の同じ robot、`single_original` model、ばね scene、`contact_observation_task` を使う。入力 source と mapping は既存の単一 endpoint 用登録 profile から解決し、Task と入力方式の組合せごとに新しい preset を増やさない。操作軸、入力 sample schema、role、model の互換性は既存 decoder と runtime composition で準備前に検証する。Keyboard は Workbench の入力 session が未対応なので選択できない。
+
+入力方式の変更は active trial 中にできない。停止後に共通タスクの編集済み scene・Task を維持して binding を作り直し、再度「検証・準備」を行う。適用済み条件との不一致では開始を拒否する。実験記録の `condition.json` は計画した source と mapping を含み、`start.json` の `input_provenance` は実際に適用した source/session/Device 準備状態を別に残す。デモは記録を作らない。旧 `research-spring-g` / `research-spring-s` 条件 JSON と launch profile は読み取り互換を維持し、旧 S の fixture identity を実機の校正として扱わない。
