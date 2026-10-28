@@ -7,7 +7,7 @@ import gc
 import weakref
 
 from xpotato_sim.runtime.experiment.edited_condition import (
-    preset_condition, resolve_condition, descriptors, condition_diff, condition_digest,
+    SHARED_TASK_MODELS, preset_condition, resolve_condition, descriptors, condition_diff, condition_digest,
 )
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
 from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
@@ -53,8 +53,30 @@ def test_shared_spring_task_uses_one_task_and_independent_source_bindings():
         resolve_condition(malformed)
 
 
-def test_shared_task_records_planned_source_and_actual_provenance_separately(tmp_path):
-    profile, limits, _ = resolve_condition(preset_condition("research-spring", input_provider="gamepad/v1"))
+@pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
+def test_all_shared_tasks_keep_task_scene_and_model_across_input_bindings(task_id):
+    gamepad = resolve_condition(preset_condition(task_id, input_provider="gamepad/v1"))[2]
+    device = resolve_condition(preset_condition(task_id, input_provider="selfrionette-device/v1"))[2]
+    assert gamepad["preset_id"] == device["preset_id"] == task_id
+    for field in ("robot", "model", "execution"):
+        assert gamepad["configuration"][field] == device["configuration"][field]
+    assert gamepad["environment"] == device["environment"]
+    assert gamepad["task"] == device["task"]
+    assert gamepad["configuration"]["input"] != device["configuration"]["input"]
+    assert gamepad["configuration"]["mapping"] != device["configuration"]["mapping"]
+    assert resolve_condition(canonical(device))[2] == device
+    if task_id.startswith("shared-"):
+        legacy = resolve_condition(preset_condition(task_id.removeprefix("shared-")))[2]
+        assert legacy["preset_id"] == task_id.removeprefix("shared-")
+        for field in ("robot", "model", "execution"):
+            assert legacy["configuration"][field] == gamepad["configuration"][field]
+        assert legacy["environment"] == gamepad["environment"]
+        assert legacy["task"] == gamepad["task"]
+
+
+@pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
+def test_shared_task_records_planned_source_and_actual_provenance_separately(tmp_path, task_id):
+    profile, limits, _ = resolve_condition(preset_condition(task_id, input_provider="gamepad/v1"))
     runner = TrialRunner(result_root=tmp_path, software_revision="test")
     ticket = runner.prepare(profile, limits, session_mode="experiment")
     runner.start(ticket, input_provenance={"source": "verified-test-gamepad", "session": "fresh"})

@@ -6,6 +6,7 @@ import pytest
 
 from xpotato_sim.runtime.application.workbench_control import WorkbenchControl, decode_request, profile_catalog
 from xpotato_sim.runtime.application.workbench_service import Peer
+from xpotato_sim.runtime.experiment.edited_condition import SHARED_TASK_MODELS
 
 
 KEY = "ephemeral-test-capability-not-a-real-secret"
@@ -63,22 +64,24 @@ def test_catalog_has_existing_profiles_and_precise_unavailable_reason():
     assert {r["id"] for r in rows if r["available"]} >= {
         "dynamic-cube-drop", "dynamic-cube-push", "dynamic-fixed-contact",
         "fast-arm-single-gamepad", "fast-arm-bimanual-gamepad", "contact-debug-single"}
-    shared = next(row for row in rows if row["id"] == "research-spring")
-    assert shared["input_provider"] is None
-    assert set(shared["input_bindings"]) == {"gamepad/v1", "selfrionette-device/v1"}
+    for task_id in SHARED_TASK_MODELS:
+        shared = next(row for row in rows if row["id"] == task_id)
+        assert shared["available"] and shared["input_provider"] is None
+        assert set(shared["input_bindings"]) == {"gamepad/v1", "selfrionette-device/v1"}
 
 
-def test_shared_task_input_rebinding_preserves_task_and_rejects_active_or_unknown_source():
+@pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
+def test_shared_task_input_rebinding_preserves_task_and_rejects_active_or_unknown_source(task_id):
     c = controller()
     clone = {"op": "clone", "capability": KEY, "revision": c.revision,
-        "ticket": None, "profile_id": "research-spring", "input_provider": "gamepad/v1"}
+        "ticket": None, "profile_id": task_id, "input_provider": "gamepad/v1"}
     first, _ = c.command("owner", clone)
     document = first["condition"]
     document["task"]["parameters"]["duration_s"] = 33.0
     request = {"op": "bind", "capability": KEY, "revision": c.revision,
         "ticket": None, "condition": document, "input_provider": "selfrionette-device/v1"}
     second, _ = c.command("owner", request)
-    assert second["condition"]["preset_id"] == "research-spring"
+    assert second["condition"]["preset_id"] == task_id
     assert second["condition"]["configuration"]["input"]["provider"] == "selfrionette-device/v1"
     assert second["condition"]["task"]["parameters"]["duration_s"] == 33.0
     request.update(revision=c.revision, condition=second["condition"], input_provider="gamepad/v1")

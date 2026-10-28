@@ -18,37 +18,44 @@ from xpotato_sim.runtime.scene.command_mapping import validate_command_mapping
 SCHEMA = "workbench-condition/v1"
 MAX_BYTES = 60000
 SHARED_SPRING_TASK = "research-spring"
-SHARED_SPRING_TEMPLATE = "research-spring.json"
-SINGLE_ENDPOINT_INPUT_BINDINGS = {
-    "gamepad/v1": "fast-arm-single-gamepad",
-    "selfrionette-device/v1": "fast-arm-single-device",
+SHARED_TASK_MODELS = {
+    "shared-dynamic-cube-drop": "bimanual",
+    "shared-dynamic-cube-push": "bimanual",
+    "shared-dynamic-fixed-contact": "bimanual",
+    SHARED_SPRING_TASK: "single_original",
+}
+INPUT_BINDINGS = {
+    "bimanual": {"gamepad/v1": "fast-arm-bimanual-gamepad",
+                 "selfrionette-device/v1": "fast-arm-bimanual-device"},
+    "single_original": {"gamepad/v1": "fast-arm-single-gamepad",
+                        "selfrionette-device/v1": "fast-arm-single-device"},
 }
 
 
 def default_task_profile(name):
-    return shared_spring_profile("gamepad/v1") if name == SHARED_SPRING_TASK else load_launch_profile(name)
+    return shared_task_profile(name, "gamepad/v1") if name in SHARED_TASK_MODELS else load_launch_profile(name)
 
 
-def shared_spring_profile(input_provider):
-    if input_provider not in SINGLE_ENDPOINT_INPUT_BINDINGS:
-        raise ValueError("unsupported input binding for shared spring task")
-    binding = load_launch_profile(SINGLE_ENDPOINT_INPUT_BINDINGS[input_provider])
-    path = repository_workspace() / "profiles" / "task-templates" / SHARED_SPRING_TEMPLATE
+def shared_task_profile(name, input_provider):
+    if name not in SHARED_TASK_MODELS or input_provider not in INPUT_BINDINGS[SHARED_TASK_MODELS[name]]:
+        raise ValueError("unsupported input binding for shared task")
+    binding = load_launch_profile(INPUT_BINDINGS[SHARED_TASK_MODELS[name]][input_provider])
+    path = repository_workspace() / "profiles" / "task-templates" / f"{name.removeprefix('shared-')}.json"
     template = fields(strict_json(path.read_bytes()),
-        {"schema_version", "robot", "model", "execution", "environment", "task"}, "spring task template")
+        {"schema_version", "robot", "model", "execution", "environment", "task"}, "task template")
     if template["schema_version"] != "xpotato-sim-task-template/v1":
-        raise ValueError("unsupported spring task template schema")
+        raise ValueError("unsupported task template schema")
     raw = json.loads(binding.document_json)
     raw.update({key: deepcopy(template[key]) for key in ("robot", "model", "execution", "environment", "task")})
-    raw.update(schema_version="xpotato-sim-launch-profile/v4", name=SHARED_SPRING_TASK)
+    raw.update(schema_version="xpotato-sim-launch-profile/v4", name=name)
     return resolve_trial_profile(decode_launch_profile(canonical(raw), source_path=binding.source_path))
 
 
 def preset_condition(name, limits=None, *, input_provider=None):
     """登録presetを完全展開し、local pathやportを輸出しない。"""
-    if name != SHARED_SPRING_TASK and name not in list_launch_profiles():
+    if name not in SHARED_TASK_MODELS and name not in list_launch_profiles():
         raise ValueError("登録preset IDが必要です")
-    p = (shared_spring_profile(input_provider or "gamepad/v1") if name == SHARED_SPRING_TASK
+    p = (shared_task_profile(name, input_provider or "gamepad/v1") if name in SHARED_TASK_MODELS
         else resolve_trial_profile(load_launch_profile(name)))
     raw = json.loads(p.document_json)
     mapping = json.loads(p.effective_parameters_json)
@@ -264,7 +271,7 @@ def resolve_condition(document):
             for key in descriptor["path"][:-1]:
                 target = target[key]
             target[descriptor["path"][-1]] = float(target[descriptor["path"][-1]])
-    p = (shared_spring_profile(provider) if document["preset_id"] == SHARED_SPRING_TASK
+    p = (shared_task_profile(document["preset_id"], provider) if document["preset_id"] in SHARED_TASK_MODELS
         else load_launch_profile(document["preset_id"]))
     raw = json.loads(p.document_json)
     raw.update(deepcopy(document["configuration"]))

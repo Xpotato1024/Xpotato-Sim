@@ -299,17 +299,17 @@ export function WorkbenchApp() {
         <option value="demo">デモ（実験データを取得・保存しない）</option><option value="experiment">実験（開始から記録）</option>
       </select></label>
       <label>入力ソースを選び直す<select className={dialogControl} aria-label="入力ソースを選び直す" value={sourceFilter} disabled={active||busy||editingBusy||!owned}
-        onChange={e=>{const provider=e.target.value;setSourceFilter(provider);if(selected==="research-spring"&&edited)editRequest("bind",{condition:edited,input_provider:provider});else {setSelected("");setEdited(null);}}}>
+        onChange={e=>{const provider=e.target.value;setSourceFilter(provider);if(status?.profiles.find(p=>p.id===selected)?.input_bindings&&edited)editRequest("bind",{condition:edited,input_provider:provider});else {setSelected("");setEdited(null);}}}>
         <option value="gamepad/v1">Gamepad（接続と新しい中立が必要）</option>
         <option value="selfrionette-device/v1">Selfrionette（正規profile・接続設定が必要）</option>
         <option disabled>Keyboard：有限共同runtimeのsession入力に未対応</option>
       </select></label>
-      <label>タスク・条件<select className={dialogControl} aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;const id=e.target.value;const profile=status?.profiles.find(p=>p.id===id);setSelected(id);setEdited(null);setChanges([]);if(id!=="research-spring"&&profile?.input_provider)setSourceFilter(profile.input_provider);if(id)editRequest("clone",{profile_id:id,...(id==="research-spring"?{input_provider:sourceFilter}:{})});}}>
+      <label>タスク・条件<select className={dialogControl} aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;const id=e.target.value;const profile=status?.profiles.find(p=>p.id===id);setSelected(id);setEdited(null);setChanges([]);if(!profile?.input_bindings&&profile?.input_provider)setSourceFilter(profile.input_provider);if(id)editRequest("clone",{profile_id:id,...(profile?.input_bindings?{input_provider:sourceFilter}:{})});}}>
         <option value="">profileを選択してください</option>
-        <optgroup label="共通タスク"><option value="research-spring" disabled={!status?.profiles.find(p=>p.id==="research-spring")?.available}>押込ばね操作</option></optgroup>
-        <optgroup label="既存profile（入力方式を含む）">{status?.profiles.filter(p=>p.id!=="research-spring"&&(!p.legacy||p.id===selected)).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}（{p.input_provider==="gamepad/v1"?"Gamepad":p.input_provider==="selfrionette-device/v1"?"Selfrionette":"入力固定"}）{p.available?"":` — 利用不可: ${p.reason}`}</option>)}</optgroup>
+        <optgroup label="共通タスク">{status?.profiles.filter(p=>p.input_bindings).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id==="research-spring"?"押込ばね操作":p.id==="shared-dynamic-cube-push"?"キューブ押し":p.id==="shared-dynamic-cube-drop"?"キューブ落下":"固定面接触"}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}</optgroup>
+        {status?.profiles.filter(p=>!p.input_bindings&&p.id===selected).map(p=><optgroup key={p.id} label="読み込んだ既存profile（入力方式を含む）"><option value={p.id} disabled={!p.available}>{p.id}（{p.input_provider==="gamepad/v1"?"Gamepad":p.input_provider==="selfrionette-device/v1"?"Selfrionette":"入力固定"}）{p.available?"":` — 利用不可: ${p.reason}`}</option></optgroup>)}
       </select></label>
-      <button className={dialogControl} disabled={!owned||!selected||!edited||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
+      <button className={dialogControl} disabled={!owned||!selected||!edited||edited.configuration.input.provider!==sourceFilter||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
       </section>
       <div className="settings-scroll" tabIndex={0} aria-label="接続案内と詳細">
       {notice&&screen==="setup"&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
@@ -318,7 +318,7 @@ export function WorkbenchApp() {
       </section>}
       <p role="status">適用モード: {status?.session_mode==="demo"?"デモ：実験記録なし":status?.profile_id?"実験：開始で記録":"未準備"}。モード変更は停止後の検証・準備で適用します。</p>
       <p className="source-status" role="status">要求: {sourceName(sourceFilter)} / {nextMode==="demo"?"デモ":"実験"} → 適用: {sourceName(status?.input_provider)} / {status?.profile_id?status.session_mode==="demo"?"デモ":"実験":"未準備"}{pendingSelection?"（未適用：検証・準備が必要）":"（適用済み）"}</p>
-      {selected==="research-spring"&&<p>入力切替では identity と mapping を登録 binding の初期値に戻します。実機では正規の校正値を再入力・検証し、準備し直してください。</p>}
+      {!!status?.profiles.find(p=>p.id===selected)?.input_bindings&&<p>入力切替では identity と mapping を登録 binding の初期値に戻します。実機では正規の校正値を再入力・検証し、準備し直してください。</p>}
       {sourceFilter==="selfrionette-device/v1"&&<section className="device-first-run" aria-label="Selfrionette初回設定">
         <h3>Selfrionetteを初めて使う場合</h3>
         <ol><li>Device Managerで個体のsetupと個人校正を完了し、正規の校正profileとstable ID・revisionを確認する。校正fileだけのコピーでは元のsetup recordを代替できません。</li>

@@ -406,3 +406,6 @@ WebSocket event入口のbrowser時刻をsource metadataのhost monotonicから�
 Workbench の `research-spring` は押込ばねの共通タスクであり、Gamepad と Selfrionette は独立した入力 binding として選ぶ。両入力で `profiles/task-templates/research-spring.json` の同じ robot、`single_original` model、ばね scene、`contact_observation_task` を使う。入力 source と mapping は既存の単一 endpoint 用登録 profile から解決し、Task と入力方式の組合せごとに新しい preset を増やさない。操作軸、入力 sample schema、role、model の互換性は既存 decoder と runtime composition で準備前に検証する。Keyboard は Workbench の入力 session が未対応なので選択できない。
 
 入力方式の変更は active trial 中にできない。停止後に共通タスクの編集済み scene・Task を維持して binding を作り直し、再度「検証・準備」を行う。適用済み条件との不一致では開始を拒否する。実験記録の `condition.json` は計画した source と mapping を含み、`start.json` の `input_provenance` は実際に適用した source/session/Device 準備状態を別に残す。デモは記録を作らない。旧 `research-spring-g` / `research-spring-s` 条件 JSON と launch profile は読み取り互換を維持し、旧 S の fixture identity を実機の校正として扱わない。
+共通タスク候補には `shared-dynamic-cube-drop`、`shared-dynamic-cube-push`、`shared-dynamic-fixed-contact` も含む。これらは `profiles/task-templates/` の入力非依存の定義と、両腕の `fast-arm-bimanual-gamepad` / `fast-arm-bimanual-device` binding を合成する。従来の `dynamic-cube-*` と `dynamic-fixed-contact*` の profile ID は既存 JSON 読取用に残す。モデルや必要 role が足りない入力は composition と準備時の能力検証で拒否し、互換性を推測で広げない。
+
+通常の選択欄は共通タスクだけを表示する。旧入力固定 profile は既存条件を読み込んだ場合に現在の選択として表示し、CLI と JSON import での互換読取を保つ。
