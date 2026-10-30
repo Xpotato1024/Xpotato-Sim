@@ -10,6 +10,11 @@ const descriptor={motion_templates:{fixed:{},dynamic:{initial_velocity:{frame:"m
 const dynamic=changedCondition(next,["environment","objects",0,"motion_type"],"dynamic",descriptor);
 assert.deepEqual(dynamic.environment.objects[0].initial_velocity.linear_m_s,[.1,.2,.3]);
 assert.equal("initial_velocity" in changedCondition(dynamic,["environment","objects",0,"motion_type"],"fixed",descriptor).environment.objects[0],false);
+descriptor.motion_templates.spring={spring:{axis:[0,-1,0],stiffness_n_m:100,damping_n_s_m:2,range_m:[0,.05],initial_displacement_m:0,initial_velocity_m_s:0}};
+const spring=changedCondition(dynamic,["environment","objects",0,"motion_type"],"spring",descriptor);
+assert.equal("initial_velocity" in spring.environment.objects[0],false);
+assert.deepEqual(spring.environment.objects[0].spring.range_m,[0,.05]);
+assert.equal("spring" in changedCondition(spring,["environment","objects",0,"motion_type"],"dynamic",descriptor).environment.objects[0],false);
 assert.throws(()=>changedCondition(next,["environment","objects",0,"motion_type"],"dynamic"),/backend motion template/);
 const socket={},captured={revision:2,generation:1,ticket:{epoch:"old"}};
 assert.equal(conditionReadIsCurrent(socket,captured,socket,{...captured}),true);
@@ -27,4 +32,4 @@ assert.equal(editorReplyIsCurrent(pending,reply,socket,{...captured,revision:3})
 assert.equal(editorReplyIsCurrent(pending,{...reply,generation:2},socket,captured),false);
 assert.equal(editorReplyIsCurrent(pending,{...reply,revision:4},socket,captured),false);
 assert.equal(editorReplyIsCurrent(pending,{...reply,type:"rejected"},socket,captured),false);
-console.log("condition editor: 18 assertions passed");
+console.log("condition editor: edit/epoch and spring transition assertions passed");

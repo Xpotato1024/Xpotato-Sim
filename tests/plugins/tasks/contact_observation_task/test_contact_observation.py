@@ -8,7 +8,7 @@ from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification 
 
 
 def setup():
-    p=load_launch_profile("contact-debug-bimanual");b=p.bind_scene_task();v=p.build_model()
+    p=load_launch_profile("diagnostics/contact-debug-bimanual");b=p.bind_scene_task();v=p.build_model()
     return b,v.provider.sample(frame_index=0,metadata={}).geometry
 
 

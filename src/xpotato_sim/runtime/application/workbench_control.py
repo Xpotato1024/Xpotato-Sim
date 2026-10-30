@@ -11,7 +11,10 @@ from time import monotonic
 
 from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, load_launch_profile
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits, resolve_trial_profile
-from xpotato_sim.runtime.experiment.edited_condition import preset_condition, resolve_condition, descriptors, condition_diff
+from xpotato_sim.runtime.experiment.edited_condition import (
+    SHARED_TASK_MODELS, INPUT_BINDINGS, default_task_profile,
+    preset_condition, resolve_condition, descriptors, condition_diff,
+)
 from xpotato_sim.schemas import parse_viewer_control_message_json
 
 ACTIVE = {"waiting_input", "running", "finalizing"}
@@ -64,6 +67,16 @@ def decode_request(raw):
 
 def profile_catalog():
     result = []
+    for name, model in SHARED_TASK_MODELS.items():
+        shared = {"id": name, "available": True, "reason": None,
+            "model": model, "input_provider": None,
+            "input_bindings": list(INPUT_BINDINGS[model])}
+        try:
+            for provider in INPUT_BINDINGS[model]:
+                resolve_condition(preset_condition(name, input_provider=provider))
+        except Exception as exc:
+            shared.update(available=False, reason=str(exc))
+        result.append(shared)
     for name in list_launch_profiles():
         try:
             p = load_launch_profile(name)
@@ -71,7 +84,8 @@ def profile_catalog():
                 raise ValueError("旧形式v1はWorkbench対象外です。既存のapp/replay経路で利用してください")
             p = resolve_trial_profile(p)
             result.append({"id": name, "available": True, "reason": None,
-                "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps})
+                "model": p.model.plugin_id, "dt_s": p.dt_s, "ticks": p.steps,
+                "input_provider": p.provider_id})
         except Exception as exc:
             result.append({"id": name, "available": False, "reason": str(exc)})
     return result
@@ -161,7 +175,7 @@ class WorkbenchControl:
             self.owner = client
             return {"type": "claimed"}, None
         self.authorize(client, r)
-        if op in {"edit", "clone", "export", "import", "diff"}:
+        if op in {"edit", "clone", "bind", "export", "import", "diff"}:
             return self._editor_command(r)
         if op == "input":
             return self._input_command(r)
@@ -176,10 +190,14 @@ class WorkbenchControl:
             if not isinstance(r["request_id"], str) or not ID.fullmatch(r["request_id"]):
                 raise ValueError("有効なeditor要求IDが必要です")
         correlation = {"request_id": r["request_id"]} if "request_id" in r else {}
-        if op in {"edit", "import", "diff"}:
+        if op in {"edit", "import", "diff", "bind"}:
             expected.add("condition")
+        if op == "bind":
+            expected.add("input_provider")
         if op == "clone":
             expected.add("profile_id")
+            if "input_provider" in r:
+                expected.add("input_provider")
         if set(r) != expected or type(r["revision"]) is not int or r["revision"] != self.revision or r["ticket"] != self.state["ticket"]:
             raise ValueError("未知fieldまたは旧revision/ticketです")
         if self.busy or self.state["phase"] not in {"unselected", "ready", "terminal"}:
@@ -193,12 +211,22 @@ class WorkbenchControl:
                 raise ValueError("次条件がありません")
         else:
             if op == "clone":
-                if r["profile_id"] not in list_launch_profiles():
+                if "input_provider" in r and r["profile_id"] not in SHARED_TASK_MODELS:
+                    raise ValueError("explicit input binding is only valid for a shared task")
+                if r["profile_id"] not in SHARED_TASK_MODELS and r["profile_id"] not in list_launch_profiles():
                     raise ValueError("cloneは登録preset IDだけです。server pathは受け付けません")
-                selected = load_launch_profile(r["profile_id"])
+                selected = default_task_profile(r["profile_id"])
                 value = preset_condition(r["profile_id"], TrialLimits(self.launcher_limits.get("ticks") or selected.steps,
                     self.launcher_limits.get("input_wait_s", 5), self.launcher_limits.get("wall_s", 360),
-                    self.launcher_limits.get("prepare_s", 30)))
+                    self.launcher_limits.get("prepare_s", 30)), input_provider=r.get("input_provider"))
+            elif op == "bind":
+                if type(r["condition"]) is not dict or r["condition"].get("preset_id") not in SHARED_TASK_MODELS:
+                    raise ValueError("input binding requires a shared task")
+                source = resolve_condition(r["condition"])[2]
+                binding = preset_condition(source["preset_id"], input_provider=r["input_provider"])
+                value = {**source, "configuration": {**source["configuration"],
+                    "input": binding["configuration"]["input"],
+                    "mapping": binding["configuration"]["mapping"]}}
             else:
                 value = r["condition"]
             if op == "import":
@@ -239,10 +267,14 @@ class WorkbenchControl:
         fields = {"op", "capability", "id", "revision", "ticket"}
         if op == "prepare":
             fields.add("profile_id")
+            if "session_mode" in r:
+                fields.add("session_mode")
             if "condition" in r:
                 fields.add("condition")
         if op == "device":
             fields.update({"role", "action", "confirmed", "observed_phase"})
+        if op == "start":
+            fields.update(k for k in ("requested_condition", "requested_session_mode") if k in r)
         if set(r) != fields or op not in {"prepare", "start", "retry", "stop", "renderer_ready", "device"}:
             raise ValueError("未知operationまたはfieldです")
         rid = r["id"]
@@ -264,6 +296,8 @@ class WorkbenchControl:
         if op != "stop" and self.busy:
             raise ValueError("処理中です")
         if op == "prepare":
+            if r.get("session_mode", "experiment") not in {"experiment", "demo"}:
+                raise ValueError("実験またはデモを選択してください")
             if phase not in {"unselected", "ready", "terminal", "faulted", "recording_failed"}:
                 raise ValueError("停止中の正常なownerだけが準備できます")
             if not any(p["id"] == r["profile_id"] and p["available"] for p in self.catalog):
@@ -273,6 +307,7 @@ class WorkbenchControl:
                 if normalized["preset_id"] != r["profile_id"]:
                     raise ValueError("preset/condition ID不一致")
                 r = {**r, "condition": normalized}
+                self.next_condition = normalized
             self.generation += 1
             self.renderer_epoch = None
         elif op == "retry":
@@ -284,6 +319,14 @@ class WorkbenchControl:
                 raise ValueError("ready試行の初期scene ACKが必要です")
             self.renderer_epoch = r["ticket"]["epoch"]
         elif op == "start":
+            applied = self.state.get("applied_condition")
+            if "requested_condition" in r and r["requested_condition"] is None:
+                raise ValueError("要求条件は未適用です。停止中に検証・準備を行ってください")
+            for requested in (self.next_condition, r.get("requested_condition")):
+                if requested is not None and (applied is None or resolve_condition(requested)[2] != applied):
+                    raise ValueError("要求条件は未適用です。停止中に検証・準備を行ってください")
+            if "requested_session_mode" in r and r["requested_session_mode"] != self.state.get("session_mode"):
+                raise ValueError("要求モードは未適用です。停止中に検証・準備を行ってください")
             if phase != "ready" or (self.require_renderer and self.renderer_epoch != r["ticket"]["epoch"]):
                 raise ValueError("初期scene・shader準備完了後に開始してください")
             if self.state.get("device_input") is not None and not self.state["device_input"].get("ready"):
@@ -323,5 +366,5 @@ class WorkbenchControl:
         rid = event.get("id")
         self.complete(rid, event.get("error"))
         result = self.state.get("result")
-        if result and not any(x["trial_id"] == result["trial_id"] for x in self.results):
+        if result and result.get("recording") != "disabled_demo" and not any(x["trial_id"] == result["trial_id"] for x in self.results):
             self.results.append(result)

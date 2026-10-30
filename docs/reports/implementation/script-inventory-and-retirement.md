@@ -113,3 +113,7 @@ option/default/validationを再定義せず、実機操作のmonitor/measure/liv
 ## #456 Device互換入口の追加
 
 `run_device_serial_tool.py`を`hardware/selfrionette/`に追加した。monitor/measureのserial・option/default・表示・集計はDevice Rust CLIへ移し、Simの2 PowerShellはargv/stdin/終了code転送だけを持つ。Deviceの先行採用とnative CLI準備がSim変更の採用条件である。
+
+## 2026-10-28: 保存済み Workbench 条件の明示的変換
+
+`convert_workbench_condition.py`（`scripts/repository/convert_workbench_condition.py`）を追加した。旧 profile ID を分類別 ID へ一度だけ変換し、新しい出力先へ保存する。通常の条件読込には旧 ID の暗黙互換を追加しない。

@@ -147,16 +147,21 @@ def test_malformed_import_rejects_without_owner_disconnect_and_stop_remains_usab
                 await owner.send(json.dumps({"op":"claim","capability":"test-capability"}))
                 await until(owner,lambda e:e["type"]=="claimed")
                 for value in (None,[],"invalid"):
-                    d=preset_condition("dynamic-cube-drop");d["environment"]["parameters"]=value
+                    d=preset_condition("tasks/dynamic-cube-drop");d["environment"]["parameters"]=value
                     await owner.send(json.dumps({"op":"import","request_id":"bad-import","condition":json.dumps(d),
                         "capability":"test-capability","revision":0,"ticket":None}))
                     rejected=await until(owner,lambda e:e["type"]=="rejected")
-                    assert rejected["request_id"]=="bad-import" and "AttributeError" not in rejected["error"]
+                    assert rejected["request_id"]=="bad-import" and rejected["op"]=="import"
+                    assert rejected["id"] is None and "AttributeError" not in rejected["error"]
+                await owner.send(json.dumps({"op":"stop","id":"bad-stop","capability":"test-capability",
+                    "revision":0,"ticket":None}))
+                rejected=await until(owner,lambda e:e["type"]=="rejected")
+                assert rejected["id"]=="bad-stop" and rejected["op"]=="stop"
                 await owner.send('{"op":"status"}')
                 state=await until(owner,lambda e:e["type"]=="status")
                 assert state["revision"]==0 and state["phase"]=="unselected"
-                d=preset_condition("dynamic-cube-drop");d["limits"]["prepare_s"]=17.
-                await owner.send(json.dumps({"op":"prepare","id":"valid-after-bad","profile_id":"dynamic-cube-drop",
+                d=preset_condition("tasks/dynamic-cube-drop");d["limits"]["prepare_s"]=17.
+                await owner.send(json.dumps({"op":"prepare","id":"valid-after-bad","profile_id":"tasks/dynamic-cube-drop",
                     "capability":"test-capability","revision":0,"ticket":None,"condition":d}))
                 assert (await until(owner,lambda e:e["type"]=="accepted"))["id"]=="valid-after-bad"
                 prepared=await asyncio.wait_for(worker.commands.get(),5)

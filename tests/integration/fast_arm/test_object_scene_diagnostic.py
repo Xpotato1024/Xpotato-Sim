@@ -15,7 +15,7 @@ from xpotato_sim.plugins.environments.object_scene_environment.implementation im
 @pytest.mark.parametrize("suffix",["single","left","right","bimanual"])
 @pytest.mark.parametrize("count",[1,2])
 def test_shared_model_factory_for_all_arm_and_object_counts(suffix,count):
-    p=load_launch_profile("contact-debug-"+suffix)
+    p=load_launch_profile("diagnostics/contact-debug-"+suffix)
     manifest=ConfiguredObjectSceneProvider().resolve_parameters({"preset":"two_cubes"})
     manifest=replace(manifest,objects=manifest.objects[:count])
     plan=replace(p.scene_plan,manifest=manifest)
@@ -82,20 +82,20 @@ def test_initial_penetration_rejected_by_native_geometry():
 
 
 def test_distinct_fixed_boxes_cannot_overlap_at_start():
-    p=load_launch_profile("contact-debug-bimanual");m=p.scene_plan.manifest
+    p=load_launch_profile("diagnostics/contact-debug-bimanual");m=p.scene_plan.manifest
     duplicate=replace(m.objects[1],position_m=m.objects[0].position_m)
     with pytest.raises(ValueError,match="initial scene penetration"):
         p.model_registration().build(replace(p.scene_plan,manifest=replace(m,objects=(m.objects[0],duplicate))))
 
 
 def test_fixed_box_below_floor_rejected():
-    p=load_launch_profile("contact-debug-left");m=p.scene_plan.manifest
+    p=load_launch_profile("diagnostics/contact-debug-left");m=p.scene_plan.manifest
     with pytest.raises(ValueError,match="initial scene penetration"):
         p.model_registration().build(replace(p.scene_plan,manifest=replace(m,objects=(replace(m.objects[0],position_m=(.36,.56,0.)),))))
 
 
 def test_model_asset_roundtrip_matches_viewer_resource():
-    value=load_launch_profile("contact-debug-bimanual").build_model();built=value.viewer.built
+    value=load_launch_profile("diagnostics/contact-debug-bimanual").build_model();built=value.viewer.built
     model=mujoco.MjModel.from_xml_string(built.xml.decode(),dict(built.assets))
     assert model.ngeom==value.provider.model.ngeom
     assert model.nq==8
@@ -105,7 +105,7 @@ def test_model_asset_roundtrip_matches_viewer_resource():
 
 @pytest.mark.parametrize("gap,allowed",[(.001,True),(0.,False),(-.01,False)])
 def test_fixed_box_pairs_require_positive_native_separation(gap,allowed):
-    p=load_launch_profile("contact-debug-bimanual");m=p.scene_plan.manifest
+    p=load_launch_profile("diagnostics/contact-debug-bimanual");m=p.scene_plan.manifest
     a=m.objects[0];b=replace(m.objects[1],position_m=(a.position_m[0]+.1+gap,*a.position_m[1:]))
     plan=replace(p.scene_plan,manifest=replace(m,objects=(a,b)))
     if allowed: p.model_registration().build(plan)

@@ -70,7 +70,8 @@ def execution_worker(url, config):
             if receipt - json.loads(message)["source_age_s"] >= runner.input_accepting_monotonic_s)
     def state():
         return {"phase": runner.status, "ticket": None if runner.ticket is None else asdict(runner.ticket),
-            "ticks": runner.tick_count, "profile_id": None if profile is None else profile.name,
+            "session_mode": runner.session_mode,
+            "ticks": runner.tick_count, "profile_id": None if applied_condition is None else applied_condition["preset_id"],
             "simulation_time_s": runner.tick_count * profile.dt_s if profile else 0.0,
             "result": None if runner.result is None else runner.result.to_document(), "error": runner.error,
             "condition": None if runner.condition is None else runner.condition.to_document(),
@@ -195,7 +196,8 @@ def execution_worker(url, config):
                         if "condition" in cmd:
                             profile, limits, candidate = resolve_condition(cmd["condition"])
                         else:
-                            profile = load_launch_profile(cmd["profile_id"])
+                            from xpotato_sim.runtime.experiment.edited_condition import default_task_profile
+                            profile = default_task_profile(cmd["profile_id"])
                             limits = TrialLimits(config.get("ticks") or profile.steps,
                                 config["input_wait_s"], config["wall_s"], config["prepare_s"])
                             candidate = preset_condition(cmd["profile_id"], limits)
@@ -205,7 +207,7 @@ def execution_worker(url, config):
                         if application_input is not None:
                             application_input.close()
                             application_input = None
-                        runner.prepare(profile, limits)
+                        runner.prepare(profile, limits, session_mode=cmd.get("session_mode", "experiment"))
                         if fixture is None:
                             application_input = create_application_input(profile, config.get("device_connection"))
                         applied_condition = candidate
@@ -239,6 +241,10 @@ def execution_worker(url, config):
                             raise ValueError("Device operator steps require a prepared Device trial")
                         application_input.operate(cmd["role"], cmd["action"], cmd["confirmed"], cmd["observed_phase"])
                     elif op == "start":
+                        if "requested_condition" in cmd and resolve_condition(cmd["requested_condition"])[2] != applied_condition:
+                            raise ValueError("Requested condition is not applied; prepare before start")
+                        if "requested_session_mode" in cmd and cmd["requested_session_mode"] != runner.session_mode:
+                            raise ValueError("Requested session mode is not applied; prepare before start")
                         if application_input is not None and not application_input.state()["ready"]:
                             raise ValueError("Device preparation is incomplete")
                         provenance = fixture.identity() if fixture else ({"source": "selfrionette-bridge/v1",

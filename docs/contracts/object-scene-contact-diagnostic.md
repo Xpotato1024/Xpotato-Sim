@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-09-28
+last_verified: 2026-10-26
 canonical_for:
   - fixed object definitions and instances in shared robot scenes
   - geometry-only contact diagnostic task and viewer presentation
@@ -15,11 +15,26 @@ related:
 
 # 固定物体sceneと幾何接触診断
 
+## 一自由度の押込ばね
+
+明示world/v2のobjectに `motion_type: spring` と `spring` を指定できる。`runtime/scene/spring.py` が
+単位方向 `axis`、正の `stiffness_n_m`、非負の `damping_n_s_m`、`range_m`、初期変位・速度を検査する。
+方向は基準姿勢の局所座標で、正変位を押込とする。範囲は0から正の上限、自然長は0。
+固定world基部に対する一つのslide jointとし、他の並進・回転自由度を持たない。
+既存scene ownerがMJCFへ投影し、既存dynamic providerだけが積分・全状態resetを行う。
+kinematic実行と旧fixed/v1への混入は拒否する。joint limitの数値的な食い込みはMuJoCoの制約解法に従う。
+
+復元力は `-k*q`、減衰力は `-c*v`。接触solverの `solref/solimp`、固定面向けcommand gain、
+実物材料特性とは別物である。`scene_dynamics_v1.springs` は変位・速度・復元力・減衰力・合計軸力を
+同一MjDataから記録し、接触原力は引き続き `contacts` に分離する。resetは初期変位・速度も復元する。
+`compression_spring` は正規実機値を主張しないソフト用presetである。
+
 ## 目的と責務
 
 単腕/双腕、1物体/複数物体を同じmodel/scene/provider/Task/Viewer経路で組み合わせる。
-本契約は`coordinated_joint_position_kinematic/v1`の診断であり、qpos直接更新と`mj_forward`で現在poseを観測する。
-`mj_step`、物体の運動、押し返し、力、ばね、貫通防止を実装したという意味ではない。
+旧fixed/v1の幾何診断は`coordinated_joint_position_kinematic/v1`で、qpos直接更新と`mj_forward`で現在poseを観測する。
+この旧診断の観測だけから`mj_step`、物体の運動、押し返し、力、ばね、貫通防止を主張しない。
+明示world/v2のdynamic実行と一自由度ばねは、上記「一自由度の押込ばね」および後述のworld/v2契約に従う。
 
 | Owner | 責務 |
 |---|---|

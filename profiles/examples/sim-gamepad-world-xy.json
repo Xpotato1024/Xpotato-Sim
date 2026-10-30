@@ -1,29 +1,42 @@
 {
   "schema_version": "xpotato-sim-launch-profile/v1",
-  "name": "replay-sweep",
-  "workspace": "..",
-  "mode": "replay",
+  "name": "sim-gamepad-world-xy",
+  "workspace": "../..",
+  "mode": "simulation",
   "robot": {
     "name": "fast_arm",
     "version": 1
   },
   "input": {
     "plugin": {
-      "name": "programmed_target",
+      "name": "viewer",
       "version": 1
     },
-    "provider": null,
-    "preset": "sweep_x"
+    "provider": "gamepad/v1",
+    "preset": null
   },
   "mapping": {
     "plugin": {
-      "name": "replay_mapping",
+      "name": "viewer_keyboard_gamepad_mapping",
       "version": 1
     },
-    "parameters": {}
+    "parameters": {
+      "gamepad_axis_map": {
+        "axis_indices": [
+          0,
+          1,
+          3
+        ],
+        "axis_signs": [
+          1,
+          -1,
+          -1
+        ]
+      }
+    }
   },
   "execution": {
-    "steps": 600,
+    "steps": 18000,
     "dt_s": 0.016666666666666666,
     "interval_s": 0.016666666666666666,
     "grace_period_s": 60

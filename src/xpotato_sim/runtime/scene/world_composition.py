@@ -66,6 +66,10 @@ def finalize_home(tree, source_xml, assets, manifest):
             raise ValueError("Robot actuator disappeared during scene composition")
         ctrl[new]=data.ctrl[aid]
     for obj in manifest.objects:
+        if obj.spring is not None:
+            jid=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,"object__"+obj.instance_id+"__spring")
+            qpos[int(model.jnt_qposadr[jid])]=obj.spring.initial_displacement_m
+            qvel[int(model.jnt_dofadr[jid])]=obj.spring.initial_velocity_m_s
         if obj.motion_type!="dynamic":
             continue
         jid=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,"object__"+obj.instance_id+"__free")

@@ -20,7 +20,7 @@ from tests.plugins.mappings.viewer_keyboard_gamepad_mapping.test_gamepad_trigger
 
 def make_plan(side):
     source = ViewerInputSource(clock=lambda: 0.)
-    profile = load_launch_profile(f"sim-gamepad-{side}-xyz")
+    profile = load_launch_profile(f"examples/sim-gamepad-{side}-xyz")
     selection = select_runtime_input_source(
         "viewer", steps=1, control_mapping_parameters=profile.mapping_parameters,
     )
@@ -143,7 +143,7 @@ def test_invalid_input_drops_mapping_session():
 
 @pytest.mark.parametrize("side", ("left", "right"))
 def test_xyz_profiles_use_trigger_control_and_old_generic_profile_is_unchanged(side):
-    profile = load_launch_profile(f"sim-gamepad-{side}-xyz")
+    profile = load_launch_profile(f"examples/sim-gamepad-{side}-xyz")
     resolved = profile.to_dict()["resolved"]["mapping_parameters"]["gamepad_trigger_control"]
     assert resolved["output_side"] == side
     assert resolved["left"]["axes"] == [1, 0]
@@ -152,4 +152,4 @@ def test_xyz_profiles_use_trigger_control_and_old_generic_profile_is_unchanged(s
     assert resolved["right"]["signs"] == [-1, -1]
     assert resolved[side]["trigger_button"] == (6 if side == "left" else 7)
     assert resolved[side]["sign_button"] == (4 if side == "left" else 5)
-    assert load_launch_profile("sim-gamepad").mapping_parameters == {}
+    assert load_launch_profile("examples/sim-gamepad").mapping_parameters == {}

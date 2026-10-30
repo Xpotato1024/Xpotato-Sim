@@ -267,8 +267,12 @@ class DeviceBridgeGroup:
         self.processes = {}
         self.error = None
         self.clock = clock
-        if connection is None or set(connection["roles"]) != set(self.parameters["bindings"]):
-            raise ValueError("Device profile requires matching explicit --device-config role connections")
+        if connection is None:
+            raise ValueError("Device profile requires matching explicit --device-config role connections: "
+                             "接続設定が未指定です。正規の実機条件とXPOTATO_DEVICE_CONFIGを指定して再起動してください。研究fixture profileは実機に使用できません")
+        if set(connection["roles"]) != set(self.parameters["bindings"]):
+            raise ValueError("Device profile requires matching explicit --device-config role connections: "
+                             "接続設定と条件のroleが一致しません。正規profileに対応するrole接続を確認してください")
         try:
             for role, expected in sorted(self.parameters["bindings"].items()):
                 local = connection["roles"][role]

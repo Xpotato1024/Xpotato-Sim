@@ -1,0 +1,287 @@
+{
+  "command_mapping": null,
+  "configuration": {
+    "coordination": {
+      "epoch": "condition-ready",
+      "max_input_age_s": 0.2,
+      "side_to_endpoint": {
+        "left": "arm"
+      }
+    },
+    "execution": {
+      "dt_s": 0.016666666666666666,
+      "dynamics": {
+        "integrator": "implicitfast",
+        "iterations": 50,
+        "max_joint_speed_rad_s": 10.0,
+        "max_tracking_error_rad": 0.75,
+        "physics_dt_s": 0.0016666666666666668,
+        "schema_version": "dynamics-settings/v1",
+        "semantics": "coordinated_actuator_servo_dynamic/v1",
+        "solver": "Newton",
+        "tolerance": 1e-10
+      },
+      "grace_period_s": 60.0,
+      "interval_s": 0.016666666666666666,
+      "steps": 18000
+    },
+    "input": {
+      "parameters": {
+        "bindings": {
+          "left": {
+            "domain": "normalized_input",
+            "operator": {
+              "grip": "supported",
+              "operator": "fixture-operator",
+              "posture": "seated"
+            },
+            "profile": {
+              "assembly_revision": 1,
+              "config_revision": 1,
+              "method": "diagonal",
+              "record": "calibration-1.srncal",
+              "revision": 1
+            },
+            "settings_generation": 1,
+            "source": {
+              "device_id": "srn-0123456789abcdef0123456789abcdef",
+              "firmware_version": "1.0.0",
+              "protocol": 3,
+              "source_sha": "0123456789abcdef0123456789abcdef01234567"
+            }
+          }
+        },
+        "bridge_revision": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "plugin": {
+        "name": "selfrionette_device",
+        "version": 1
+      },
+      "preset": null,
+      "provider": "selfrionette-device/v1"
+    },
+    "mapping": {
+      "parameters": {
+        "channel_axis_weights": {
+          "left": [
+            [
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ]
+        },
+        "control_frame": "world",
+        "max_speed_m_s": 0.05,
+        "speed_m_s": 0.02
+      },
+      "plugin": {
+        "name": "normalized_endpoint_velocity",
+        "version": 1
+      }
+    },
+    "model": {
+      "name": "single_original",
+      "version": 1
+    },
+    "robot": {
+      "name": "fast_arm",
+      "version": 1
+    }
+  },
+  "display_comparison": {
+    "max_arrow_m": 0.12,
+    "max_sample_age_s": 0.2,
+    "mode": "no_force_cue",
+    "normal_load_full_scale_n": 30.0,
+    "scale_m_per_n": 0.002,
+    "schema_version": "force-presentation/v1"
+  },
+  "environment": {
+    "parameters": {
+      "scene": {
+        "contact": {
+          "condim": 3,
+          "initial_penetration_tolerance_m": 1e-06,
+          "margin_m": 0.0,
+          "solimp": [
+            0.9,
+            0.95,
+            0.001,
+            0.5,
+            2.0
+          ],
+          "solref": [
+            0.02,
+            1.0
+          ]
+        },
+        "definitions": [
+          {
+            "appearance": {
+              "rgba": [
+                0.75,
+                0.25,
+                0.1,
+                0.85
+              ]
+            },
+            "definition_id": "test_cube_100mm",
+            "geometry": {
+              "half_extents_m": [
+                0.05,
+                0.05,
+                0.05
+              ],
+              "type": "box"
+            },
+            "inertia": {
+              "mass_kg": 0.1,
+              "mode": "uniform_box"
+            },
+            "provenance": "simulation diagnostic assumption; not measured material properties",
+            "surface": {
+              "rolling_friction_m": 0.0,
+              "sliding_friction": 0.8,
+              "torsional_friction_m": 0.0
+            },
+            "version": 1
+          }
+        ],
+        "objects": [
+          {
+            "definition": {
+              "name": "test_cube_100mm",
+              "version": 1
+            },
+            "instance_id": "cube",
+            "motion_type": "spring",
+            "pose": {
+              "frame": "mujoco_world",
+              "orientation_wxyz": [
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "position_m": [
+                0.24,
+                -0.36,
+                0.28
+              ]
+            },
+            "spring": {
+              "axis": [
+                0.0,
+                -1.0,
+                0.0
+              ],
+              "damping_n_s_m": 2.0,
+              "initial_displacement_m": 0.0,
+              "initial_velocity_m_s": 0.0,
+              "range_m": [
+                0.0,
+                0.05
+              ],
+              "stiffness_n_m": 100.0
+            }
+          }
+        ],
+        "scene_id": "compression_spring",
+        "schema_version": "object-scene/v2",
+        "world": {
+          "frame": "mujoco_world",
+          "gravity_m_s2": [
+            0.0,
+            0.0,
+            -9.81
+          ],
+          "support_planes": [
+            {
+              "friction": [
+                0.8,
+                0.0,
+                0.0
+              ],
+              "orientation_wxyz": [
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "plane_id": "floor",
+              "position_m": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rgba": [
+                0.35,
+                0.4,
+                0.45,
+                1.0
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "evaluation": null,
+  "limits": {
+    "input_wait_s": 5.0,
+    "max_ticks": 18000,
+    "prepare_s": 30.0,
+    "wall_s": 360.0
+  },
+  "model_configuration_sha256": "40846a802b33f774e4d008a0607fd2838c2dfac640f424e3a37fde38e8d68f0e",
+  "preset_id": "tasks/research-spring",
+  "schema_version": "workbench-condition/v1",
+  "task": {
+    "parameters": {
+      "duration_s": 60.0,
+      "target_object_ids": [
+        "cube"
+      ]
+    },
+    "plugin": {
+      "name": "contact_observation_task",
+      "version": 1
+    }
+  }
+}

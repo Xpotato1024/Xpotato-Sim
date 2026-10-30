@@ -12,13 +12,10 @@
 .workbench.operation-shell > header { height:28px; min-height:28px; gap:12px; flex-wrap:nowrap; font-size:12px; }
 .workbench.operation-shell > header h1 { font-size:13px; margin:0; }
 .workbench.operation-shell > header p { margin:0; }
-.workbench.operation-shell[data-screen=operate] { height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
-.workbench.operation-shell[data-screen=operate] .workbench-body { display:block; flex:1; min-height:0; }
+.workbench.operation-shell { height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+.workbench.operation-shell .workbench-body { display:block; flex:1; min-height:0; }
 .workbench.operation-shell[data-screen=setup] .operation-workspace { height:520px; }
 .operation-workspace { display:grid; grid-template-columns:88px minmax(0,1fr) 88px; grid-template-rows:minmax(0,1fr) 100px; gap:1px; min-height:0; height:100%; background:#cbd1d3; border:1px solid #cbd1d3; }
-.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 88px; }
-.operation-workspace[data-right=false] { grid-template-columns:88px minmax(0,1fr) 0; }
-.operation-workspace[data-left=false][data-right=false] { grid-template-columns:0 minmax(0,1fr) 0; }
 .joint-rail { overflow-y:auto; min-height:0; border:0; background:#f9faf9; max-height:none !important; }
 .joint-rail--left { grid-column:1;grid-row:1 / -1; }.joint-rail--right { grid-column:3;grid-row:1 / -1; }
 .joint-rail h2 { font-size:12px;text-align:center;margin:4px; }
@@ -33,9 +30,10 @@
 .operation-views { position:relative; grid-column:2;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr);min-height:0; height:100%; overflow:hidden; }
 .operation-views[data-layout=assist] { grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:1px; }
 .operation-views > canvas,.workbench .operation-views > canvas { position:absolute; inset:0; width:100%;height:100%;border-radius:0;z-index:0; }
-.operation-pane { display:grid;grid-template-rows:28px minmax(0,1fr);min-height:0;min-width:0;position:relative; }
-.operation-pane header { display:flex;align-items:center;gap:6px; padding:0 4px;overflow:hidden;white-space:nowrap;font-size:11px;height:28px;min-height:28px;background:#eef1f2;border-bottom:1px solid #bdc8cc;z-index:1; }
+.operation-pane { display:grid;grid-template-rows:40px minmax(0,1fr);min-height:0;min-width:0;position:relative; }
+.operation-pane header { display:flex;flex-wrap:nowrap;align-items:center;gap:6px; padding:6px;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;white-space:nowrap;font-size:11px;height:40px;min-height:40px;background:#eef1f2;border-bottom:1px solid #bdc8cc;z-index:1; }
 .operation-pane header strong { font-size:11px; }.operation-pane header button { margin-left:auto;padding:1px 7px;font-size:10px; }
+.camera-actions { display:flex;gap:6px;flex:0 0 auto;align-items:center; }
 .main-interaction { touch-action:none; cursor:grab; }.main-interaction:active { cursor:grabbing; }
 .assist-column { display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1px;min-height:0; }
 .input-strip { grid-column:2;grid-row:2;border:0;background:#f9faf9;padding:4px 10px;box-sizing:border-box;overflow:auto;min-width:0; }
@@ -75,6 +73,8 @@
 .product-operation[data-screen=operate] .scene-toolbar,.product-operation[data-screen=operate] .scene-timeline { display:none; }
 .product-operation .workbench-header { padding:0 4px;min-height:40px;gap:8px; }
 @media(max-height:800px) { .operation-workspace { grid-template-columns:72px minmax(0,1fr) 72px;grid-template-rows:minmax(0,1fr) 100px; }.operation-workspace[data-right=false] { grid-template-columns:72px minmax(0,1fr) 0; }.operation-workspace[data-left=false] { grid-template-columns:0 minmax(0,1fr) 72px; }.joint-rail .angle-indicator { width:56px;height:56px; }.joint-rail .joint-instrument { padding:0; } }
+.workbench.operation-shell .operation-workspace { grid-template-columns:88px minmax(0,1fr) 88px; }
+@media(max-height:800px) { .workbench.operation-shell .operation-workspace { grid-template-columns:72px minmax(0,1fr) 72px; } }
 @media(max-width:950px) { .operation-shell[data-screen=operate] .workbench-body,.product-operation[data-screen=operate] .product-operation-body { overflow:auto; }.operation-workspace { min-width:880px;min-height:430px; }.operation-controls { overflow-x:auto; }.operation-controls span { display:none; }.operation-shell > header p { display:none; }.operation-shell::after { content:'狭い表示では区域をスクロールしてください。停止は操作帯の右端です。';font-size:10px; }.product-operation .workbench-header { flex-wrap:wrap; }.workbench.operation-shell[data-screen=setup] .workbench-body { display:block; } }
 
 /* 旧Workbenchのフォーム色だけを共通chromeへ合わせる。状態色は継承規則で上書きしない。 */
@@ -83,7 +83,12 @@
 /* 小さい操作枠でもボタンとview凡例を区画内で判読できる大きさに保つ。 */
 .operation-pane header strong { font-size:12px; }
 .operation-pane header span { overflow:hidden; text-overflow:ellipsis; min-width:0; }
-.operation-pane header button { min-height:24px; margin-left:0; flex-shrink:0; }
+.workbench.operation-shell .operation-pane header button { box-sizing:border-box;height:26px;min-height:26px;padding:2px 7px;line-height:18px;margin-left:0; flex-shrink:0; }
+@media(max-width:800px) {
+  .operation-pane--main { grid-template-rows:72px minmax(0,1fr); }
+  .operation-pane--main header { display:grid;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:20px 30px;align-content:center;gap:2px 6px;height:72px;min-height:72px;overflow:visible; }
+  .operation-pane--main header .camera-actions { grid-column:1 / -1;grid-row:2; }
+}
 .workbench.operation-shell .condition-fields small { color:#50626b; }
 .product-operation[data-screen=operate] .workbench-identity { display:none; }
 
@@ -91,3 +96,7 @@
 .operation-shell .workbench-body { gap:0; }
 .operation-shell[data-screen=setup] .workbench-body { gap:12px; }
 .operation-shell .joint-rail .joint-instrument { box-sizing:border-box; }
+.workbench.operation-shell .operation-workspace { grid-template-rows:minmax(0,1fr) 100px 100px; }
+.workbench.operation-shell .force-cue-slot { grid-column:2;grid-row:3;min-width:0;overflow:auto;background:#f9faf9; }
+.workbench.operation-shell .force-cue-slot>.force-cue-panel { min-height:100%;box-sizing:border-box; }
+.workbench.operation-shell .force-cue-slot>p { margin:0;padding:8px 10px;color:#596c75;font-size:11px; }

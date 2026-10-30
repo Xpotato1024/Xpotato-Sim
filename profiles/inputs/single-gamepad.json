@@ -1,7 +1,7 @@
 {
   "schema_version": "xpotato-sim-launch-profile/v2",
-  "name": "fast-arm-single-gamepad",
-  "workspace": "..",
+  "name": "single-gamepad",
+  "workspace": "../..",
   "mode": "simulation",
   "robot": {
     "name": "fast_arm",

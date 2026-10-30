@@ -8,7 +8,7 @@ from tests.runtime.test_model_websocket_publisher import FakeServer, message
 
 
 def run(monkeypatch, *, terminal=False, disconnect=False):
-    p=replace(load_launch_profile("dynamic-cube-drop"),steps=15,interval_s=.0001)
+    p=replace(load_launch_profile("tasks/dynamic-cube-drop"),steps=15,interval_s=.0001)
     if terminal:
         params=json.loads(p.task_parameters_json);params["duration_s"]=.03;p=replace(p,task_parameters_json=json.dumps(params))
     FakeServer.instances.clear();FakeServer.incoming=[message((0,0,0,0),0),message((0,0,0,0),1)]

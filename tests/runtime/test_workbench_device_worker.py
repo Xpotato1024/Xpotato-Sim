@@ -10,6 +10,7 @@ from tests.runtime.test_workbench_worker import owner_projection
 import xpotato_sim.runtime.application.workbench_worker as worker
 from xpotato_sim.runtime.application.device_bridge import OPERATOR_PHASES
 from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
+from xpotato_sim.runtime.experiment.edited_condition import preset_condition
 
 
 pytestmark = pytest.mark.usefixtures("owner_projection")
@@ -106,6 +107,8 @@ class WorkerScenario:
             return runner
 
         def new_bridge(profile, connection):
+            if profile.provider_id != "selfrionette-device/v1":
+                return None
             self.creation_count += 1
             assert all(group.closed for group in self.groups), "previous bridge owner still live"
             if self.creation_count == fail_bridge_creation:
@@ -155,7 +158,7 @@ class WorkerScenario:
             if event.get("type") == "worker_status" and event.get("id")}
 
 
-def prepare(profile="fast-arm-single-device"):
+def prepare(profile="inputs/single-selfrionette-fixture"):
     return {"op": "prepare", "id": "prepare", "generation": 1, "profile_id": profile}
 
 
@@ -165,10 +168,59 @@ def operator_steps(roles, prefix="first"):
         for role in roles for action, phase in OPERATOR_PHASES.items()]
 
 
+def test_shared_task_rebinds_gamepad_device_gamepad_with_new_epochs_and_no_demo_files(tmp_path, monkeypatch):
+    device_condition = preset_condition("tasks/research-spring", input_provider="selfrionette-device/v1")
+    commands = [{**prepare("tasks/research-spring"), "session_mode": "demo"},
+        {"op": "stop", "id": "stop-gamepad", "generation": 2},
+        {**prepare("tasks/research-spring"), "id": "device-prepare", "generation": 3,
+            "condition": device_condition, "session_mode": "demo"},
+        *operator_steps(("left",)),
+        {"op": "start", "id": "device-start", "generation": 3}, WaitForTicks(2),
+        {"op": "stop", "id": "stop-device", "generation": 4},
+        {**prepare("tasks/research-spring"), "id": "gamepad-prepare", "generation": 5,
+            "session_mode": "demo"}, {"op": "close"}]
+    scenario = WorkerScenario(tmp_path, monkeypatch, commands)
+    states = scenario.run()
+    first = states["prepare"]["state"]
+    second = states["device-prepare"]["state"]
+    third = states["gamepad-prepare"]["state"]
+    assert [state["profile_id"] for state in (first, second, third)] == ["tasks/research-spring"] * 3
+    assert [state["input_provider"] for state in (first, second, third)] == [
+        "gamepad/v1", "selfrionette-device/v1", "gamepad/v1"]
+    assert len({state["ticket"]["epoch"] for state in (first, second, third)}) == 3
+    assert states["stop-device"]["state"]["ticks"] == 2
+    assert all(group.closed for group in scenario.groups)
+    assert not scenario.result_root.exists() or not list(scenario.result_root.iterdir())
+
+
+@pytest.mark.parametrize("fail_retry", [False, True])
+def test_device_demo_success_retry_failure_and_reselection_never_record(tmp_path, monkeypatch, fail_retry):
+    commands = [{**prepare(), "session_mode": "demo"}, *operator_steps(("left",)),
+        {"op": "start", "id": "start", "generation": 1}, WaitForTicks(3),
+        {"op": "stop", "id": "stop", "generation": 2},
+        {"op": "retry", "id": "retry", "generation": 2}]
+    if not fail_retry:
+        commands += operator_steps(("left",), "retry")
+        commands += [{"op": "start", "id": "retry-start", "generation": 2}, WaitForTicks(2),
+            {"op": "stop", "id": "retry-stop", "generation": 3}]
+    commands += [{**prepare("tasks/research-spring"), "id": "reselect", "generation": 4, "session_mode": "demo"},
+        {"op": "close"}]
+    scenario = WorkerScenario(tmp_path, monkeypatch, commands, fail_bridge_creation=2 if fail_retry else None)
+    states = scenario.run()
+    assert states["stop"]["state"]["ticks"] == 3
+    assert states["stop"]["state"]["session_mode"] == "demo"
+    assert states["reselect"]["state"]["input_provider"] == "gamepad/v1"
+    assert states["reselect"]["state"]["ticks"] == 0
+    assert all(group.closed for group in scenario.groups)
+    if fail_retry:
+        assert states["retry"]["error"] and states["retry"]["state"]["ticket"] is None
+    assert not scenario.result_root.exists() or not list(scenario.result_root.iterdir())
+
+
 @pytest.mark.parametrize("roles", [("left",), ("left", "right")])
 def test_device_explicit_preparation_common_runner_stop_and_retry(tmp_path, monkeypatch, roles):
     """左右の片側だけでは開始せず、再試行は新processで全準備をやり直す。"""
-    commands = [prepare("fast-arm-single-device" if len(roles) == 1 else "fast-arm-bimanual-device"),
+    commands = [prepare("inputs/single-selfrionette-fixture" if len(roles) == 1 else "inputs/bimanual-selfrionette-fixture"),
         {"op": "start", "id": "premature-start", "generation": 1}]
     if len(roles) == 2:
         commands += operator_steps(("left",))

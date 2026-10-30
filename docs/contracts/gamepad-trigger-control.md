@@ -125,12 +125,12 @@ Viewerはこのmetadataを再計算せず、入力欄へコンパクトに表示
 
 次のprofileはtrigger controlを使用する。
 
-- `sim-gamepad-left-xyz`
-- `sim-gamepad-right-xyz`
-- `fast-arm-single-gamepad`
-- `fast-arm-left-gamepad`
-- `fast-arm-right-gamepad`
-- `fast-arm-bimanual-gamepad`
+- `examples/sim-gamepad-left-xyz`
+- `examples/sim-gamepad-right-xyz`
+- `inputs/single-gamepad`
+- `examples/left-gamepad`
+- `examples/right-gamepad`
+- `inputs/bimanual-gamepad`
 
 ## 検証境界
 

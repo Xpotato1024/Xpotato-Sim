@@ -1,7 +1,7 @@
 {
   "schema_version": "xpotato-sim-launch-profile/v2",
-  "name": "fast-arm-single-device",
-  "workspace": "..",
+  "name": "bimanual-selfrionette-fixture",
+  "workspace": "../..",
   "mode": "simulation",
   "robot": {
     "name": "fast_arm",
@@ -38,6 +38,28 @@
             "source_sha": "0123456789abcdef0123456789abcdef01234567",
             "protocol": 3
           }
+        },
+        "right": {
+          "operator": {
+            "operator": "fixture-operator",
+            "posture": "seated",
+            "grip": "supported"
+          },
+          "profile": {
+            "record": "calibration-1.srncal",
+            "revision": 1,
+            "assembly_revision": 1,
+            "config_revision": 1,
+            "method": "diagonal"
+          },
+          "domain": "normalized_input",
+          "settings_generation": 1,
+          "source": {
+            "device_id": "srn-fedcba9876543210fedcba9876543210",
+            "firmware_version": "1.0.0",
+            "source_sha": "0123456789abcdef0123456789abcdef01234567",
+            "protocol": 3
+          }
         }
       }
     }
@@ -50,6 +72,43 @@
     "parameters": {
       "channel_axis_weights": {
         "left": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "right": [
           [
             1.0,
             0.0,
@@ -105,14 +164,15 @@
     "open_browser": true
   },
   "model": {
-    "name": "single_original",
+    "name": "bimanual",
     "version": 1
   },
   "coordination": {
     "side_to_endpoint": {
-      "left": "arm"
+      "left": "left",
+      "right": "right"
     },
-    "epoch": "fast-arm-single-gamepad-1",
+    "epoch": "fast-arm-bimanual-gamepad-1",
     "max_input_age_s": 0.2
   }
 }

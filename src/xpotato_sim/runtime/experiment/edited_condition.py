@@ -5,7 +5,7 @@ from hashlib import sha256
 import json
 
 from xpotato_sim.runtime.composition.launch_profile import (
-    decode_launch_profile, load_launch_profile, list_launch_profiles,
+    decode_launch_profile, load_launch_profile, list_launch_profiles, repository_workspace,
 )
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits, resolve_trial_profile
 from xpotato_sim.runtime.scene.objects import canonical, fields, strict_json, number, decode_object_scene
@@ -17,13 +17,46 @@ from xpotato_sim.runtime.scene.command_mapping import validate_command_mapping
 
 SCHEMA = "workbench-condition/v1"
 MAX_BYTES = 60000
+SHARED_SPRING_TASK = "tasks/research-spring"
+SHARED_TASK_MODELS = {
+    "tasks/dynamic-cube-drop": "bimanual",
+    "tasks/dynamic-cube-push": "bimanual",
+    "tasks/dynamic-fixed-contact": "bimanual",
+    SHARED_SPRING_TASK: "single_original",
+}
+INPUT_BINDINGS = {
+    "bimanual": {"gamepad/v1": "inputs/bimanual-gamepad",
+                 "selfrionette-device/v1": "inputs/bimanual-selfrionette-fixture"},
+    "single_original": {"gamepad/v1": "inputs/single-gamepad",
+                        "selfrionette-device/v1": "inputs/single-selfrionette-fixture"},
+}
 
 
-def preset_condition(name, limits=None):
+def default_task_profile(name):
+    return shared_task_profile(name, "gamepad/v1") if name in SHARED_TASK_MODELS else load_launch_profile(name)
+
+
+def shared_task_profile(name, input_provider):
+    if name not in SHARED_TASK_MODELS or input_provider not in INPUT_BINDINGS[SHARED_TASK_MODELS[name]]:
+        raise ValueError("unsupported input binding for shared task")
+    binding = load_launch_profile(INPUT_BINDINGS[SHARED_TASK_MODELS[name]][input_provider])
+    path = repository_workspace() / "profiles" / f"{name}.json"
+    template = fields(strict_json(path.read_bytes()),
+        {"schema_version", "robot", "model", "execution", "environment", "task"}, "task template")
+    if template["schema_version"] != "xpotato-sim-task-template/v1":
+        raise ValueError("unsupported task template schema")
+    raw = json.loads(binding.document_json)
+    raw.update({key: deepcopy(template[key]) for key in ("robot", "model", "execution", "environment", "task")})
+    raw.update(schema_version="xpotato-sim-launch-profile/v4", name=name.removeprefix("tasks/"))
+    return resolve_trial_profile(decode_launch_profile(canonical(raw), source_path=binding.source_path))
+
+
+def preset_condition(name, limits=None, *, input_provider=None):
     """登録presetを完全展開し、local pathやportを輸出しない。"""
-    if name not in list_launch_profiles():
-        raise ValueError("登録preset IDが必要です")
-    p = resolve_trial_profile(load_launch_profile(name))
+    if name not in SHARED_TASK_MODELS and name not in list_launch_profiles():
+        raise ValueError("分類付きpreset IDが必要です。旧条件は scripts/repository/convert_workbench_condition.py で別ファイルへ変換してください")
+    p = (shared_task_profile(name, input_provider or "gamepad/v1") if name in SHARED_TASK_MODELS
+        else resolve_trial_profile(load_launch_profile(name)))
     raw = json.loads(p.document_json)
     mapping = json.loads(p.effective_parameters_json)
     raw["mapping"]["parameters"] = mapping
@@ -68,7 +101,7 @@ def descriptors(document):
         if path == ("command_mapping", "mode"):
             choices, editable = ["baseline", "fixed_gain", "contact_dependent"], True
         if key == "motion_type":
-            choices = ["fixed", "dynamic"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
+            choices = ["fixed", "dynamic", "spring"] if document["configuration"]["execution"].get("dynamics") else ["fixed"]
             editable = True
         if path == ("configuration", "model", "name"):
             choices = [m.identity.name for m in models]
@@ -158,7 +191,10 @@ def resolve_condition(document):
     fields(document, {"schema_version", "preset_id", "model_configuration_sha256", "configuration", "environment", "task", "evaluation", "limits", "display_comparison", "command_mapping"}, "condition")
     if document["schema_version"] != SCHEMA or document["evaluation"] is not None:
         raise ValueError("診断条件/v1のみ対応。正式Evaluation/metricsは未対応です")
-    baseline = preset_condition(document["preset_id"])
+    configuration = document.get("configuration")
+    input_selection = configuration.get("input") if type(configuration) is dict else None
+    provider = input_selection.get("provider") if type(input_selection) is dict else None
+    baseline = preset_condition(document["preset_id"], input_provider=provider)
     display = validate_presentation(document["display_comparison"])
     if display is None:
         baseline["display_comparison"] = None
@@ -185,6 +221,10 @@ def resolve_condition(document):
         if type(objects) is not list:
             raise ValueError("bounded object array required")
         for actual, expected in zip(objects, baseline["environment"]["parameters"]["scene"]["objects"]):
+            if type(actual) is dict:
+                expected.pop("spring", None)
+                expected.pop("initial_velocity", None)
+                expected.update(ObjectInstance.motion_templates().get(actual.get("motion_type"), {}))
             if type(actual) is dict and actual.get("motion_type") == "fixed":
                 expected.pop("initial_velocity", None)
             elif type(actual) is dict and actual.get("motion_type") == "dynamic" and "initial_velocity" not in expected:
@@ -231,7 +271,8 @@ def resolve_condition(document):
             for key in descriptor["path"][:-1]:
                 target = target[key]
             target[descriptor["path"][-1]] = float(target[descriptor["path"][-1]])
-    p = load_launch_profile(document["preset_id"])
+    p = (shared_task_profile(document["preset_id"], provider) if document["preset_id"] in SHARED_TASK_MODELS
+        else load_launch_profile(document["preset_id"]))
     raw = json.loads(p.document_json)
     raw.update(deepcopy(document["configuration"]))
     for key in ("environment", "task"):

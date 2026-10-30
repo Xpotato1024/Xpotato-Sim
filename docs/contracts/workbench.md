@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-19
+last_verified: 2026-10-26
 canonical_for:
   - local simulation workbench control and resource lifetime
 related:
@@ -12,15 +12,32 @@ related:
 
 # 実験Workbench
 
-## 設定・準備と操作画面（#564/#587、レイアウトv1.0）
+## データを取らないデモ
 
-初期画面はSetup（設定・準備）。profile、condition editor、import/export/diff、適用条件と次条件、
-hash/epoch/tick、結果とraw診断はSetupに置く。ready後の「操作画面へ」はローカル表示遷移のみで、
-Startを送らない。「開始」はOperateでのみ有効とし、従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
-waiting_input/running/finalizing中はSetupへの遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
+次モードの初期値は「デモ（実験データを取得・保存しない）」で、検証・準備時に適用する。
+適用モードは操作画面にも常時表示する。実験は明示的に選び直して準備する。開始前にモードを
+編集しただけでは適用中の試行を変更しない。デモの状態と実験の保存結果を分離する。
+
+デモ中の「入力を選び直す（停止）」は既存STOP監督を通し、停止後に設定画面で入力providerと
+登録profileを選び直せる。準備は古いadapterをcloseし、command、source session、frame、Taskをresetし、
+新epochで新しい中立を待つ。保持した非中立キー・stickで自動再開しない。実験active中の
+入力切替・条件変更は従来どおり拒否する。戻る操作も実験中は無効。接続断は既存STOP/fault経路を使う。
+Gamepadは接続と中立、Deviceは正規profile・明示bridge接続・個別準備が必要である。
+Keyboardは有限共同runtimeのsession入力に未対応として選択不可・理由表示する。
+デモでも未接続・staleをneutralで補完しない。
+
+## 設定・準備と操作画面（#564/#587、レイアウトv1.2）
+
+初期画面は主ビューと操作帯である。基本設定ダイアログはmode、入力、条件、検証・準備を同じ位置・寸法の操作として示す。
+明示した「詳細設定」でだけ広い編集画面へ移り、condition editor、import/export/diff、診断、過去の実験結果を表示する。
+詳細画面から戻ってもdraftは保持するが、検証・準備までは適用しない。閉じる、Escape、戻るの焦点を復帰させる。
+「開始」は主画面でのみ有効とし、従来の操作権、busy、generation、renderer ACK/epochと新しい中立入力のgateを使う。
+waiting_input/running/finalizing中は設定への遷移・条件編集を無効にする。画面切替ではrenderer、model、socket、pollerを再生成しない。
 
 Operateは状態帯、固定操作帯、関節railと大きな自由視点、下のInput stripで構成する。
 dynamic比較条件ではさらに固定高さの接触力表示欄を置く。両modeで同じ領域を確保し、sceneの大きさを変えない。
+デモ/実験によってヘッダー、操作帯、状態欄、左右rail、scene、入力帯の配置や操作部品の寸法を変えない。
+関節が未準備またはモデルに存在しない場合もrailの位置は保ち、理由を示す。状態欄は実行中の実測RTF、停止時の最終RTF、未計測を区別する。
 初回Singleは補助列なし。明示Assistは上面XYと正面YZを上下の別矩形に追加し、選択をapp session中保持する。
 各viewの名前・軸凡例・カメラ操作はsceneの外headerへ置く。自由視点はPerspective/Orbit、補助は固定正投影。
 Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正面はscreen-right=-Y / screen-up=+Zとする。視点変更で入力mappingは変更しない。
@@ -28,7 +45,8 @@ Assistはoperator基準へ揃え、上面はscreen-right=-Y / screen-up=+X、正
 v1.1は主視点:補助列を2:1に拡げ、1pxの境界と入力帯まで続く左右railへ整理する。
 Gamepad操作帯は中央の左Z/左XY/右XY/右Zのみ。Zは確定符号付き入力量の縦バー、ボタン詳細はSetupに置く。
 初期画角とフォーカスはnative変換済みgeometryへ合わせる。表示のためにmodelやphysicsを複製しない。
-「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象を収める。Workbenchの初期cameraはoperatorとする。
+「操作視点」はoperator presetへ戻し、「全体」は現在の観察方向を保持して対象と支持台を収める。補助視点も明示した全体操作で支持台を含めて収める。Workbenchの初期cameraはoperatorとする。
+狭い幅では視点ボタンをsceneと重ならない専有行へ移し、全ボタンのクリック・キーボード焦点領域を確保する。
 停止要求は開始とは別の操作帯右端に置き、確認modalを使わない。停止要求中、停止確認・保存済み、保存中、記録失敗を区別する。
 停止はsimulationの操作であり実機非常停止ではない。障害・記録失敗の明示復旧契約は以下の従来手順を維持する。
 
@@ -37,7 +55,7 @@ Workbenchは選択したGamepadまたは品質付きDevice sourceだけを受け
 Deviceは7 channelの正規化command、role、個体、sequence、元時刻、profile/tareを表示する。
 値は無次元で、raw countやNへの換算、filter、neutral再補正をViewerに置かない。
 旧raw Selfrionette、Keyboard、unknownの表示能力と本Device取得経路は別契約である。鮮度、切断、別epochでは旧active値を表示しない。
-正常終端後は入力を現在値として表示せず、関節は「終了時」として保持する。Setupから終端の操作画面への再表示は開始を伴わない。
+終端後は入力と力提示を現在値として表示しない。操作者が停止したとき、画面と関節計器は最後に受信・描画したsampleを「最終受信」として保持する。これは停止処理でcommitされた最終姿勢の保証ではない。別trial、切断、失敗では保持表示を無効化する。Setupから終端の操作画面への再表示は開始を伴わない。
 関節表示・source表示・補助cameraの詳細は [viewer操作契約](../operations/product-viewer-wasm-scene-renderer.md) に従う。
 
 接触力の表示比較は下記の固定条件を使う。Quad、正式Evaluation、連続evidenceの受入は後続課題であり、本表示を研究条件受入の完了と扱わない。
@@ -109,7 +127,7 @@ byte digestを持ち、現在sourceと照合する。callerの`software_revision
 任意の代替HTMLをGUIとして生成しない。これは依存JS全体の完全性署名やbrowser動作保証ではない。
 
 ```powershell
-.\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --run-once --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --ticks 5
+.\.venv\Scripts\xpotato-sim.exe workbench --temporary-root $taskRoot --result-root $resultRoot --software-revision $sourceIdentity --run-once --profile tasks/dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --ticks 5
 ```
 
 `--profile`だけでは初期選択を表示するだけでprepare/Startしない。`--run-once`はprofileとfixtureを
@@ -382,3 +400,24 @@ WebSocket event入口のbrowser時刻をsource metadataのhost monotonicから�
 数値欄は既存10 Hzの計器購読を維持するため、3D sceneの更新と別の時刻に反映し得る。
 そのDOMにはcondition/sample IDと`data-panel-committed-at-ms`を残し、数値欄への反映とscene提出を区別する。
 保持する値は現在のsampleと有界counterだけで、全frame記録器は追加しない。
+
+## 共通タスクと入力 binding
+
+Workbench の通常候補は `tasks/research-spring`、`tasks/dynamic-cube-drop`、
+`tasks/dynamic-cube-push`、`tasks/dynamic-fixed-contact` の4タスクである。
+`profiles/tasks/` は robot、model、scene、execution、Task を定義し、`profiles/inputs/` の
+単腕または両腕の Gamepad / Selfrionette binding と runtime composition で合成する。
+入力方式ごとに別タスクを増やさない。操作軸、sample schema、role、model の不一致は
+decoder と準備時の能力検証で拒否する。Keyboard は Workbench の入力 session に未対応である。
+
+入力方式の変更は active trial 中にできない。停止後に編集済み scene・Task を保持して
+binding を作り直し、再度「検証・準備」を行う。要求した入力と条件の入力が違う間は準備できず、
+適用済み条件との不一致では開始を拒否する。実験記録の `condition.json` は計画した入力と
+mapping を含み、`start.json` の `input_provenance` は実際に適用した source/session/Device
+準備状態を別に残す。デモは実験記録を作らない。
+
+Selfrionette binding の同梱 identity は名前の通り software fixture であり、実機の校正値ではない。
+実機では正規の個体 identity・校正 profile・role 接続設定を別途入力して検証する。
+旧 `research-spring-g` / `research-spring-s` 等の条件 ID は読み込まない。
+追跡済みの研究比較条件は分類付き ID へ変換済みで、外部に保存された条件は
+[profile 配置と移行手順](../operations/profile-roles-and-migration.md)に従い、元ファイルを残して変換する。

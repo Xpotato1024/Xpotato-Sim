@@ -17,7 +17,8 @@ class FastArmDynamicMotionProvider(FastArmAssemblyMotionProvider):
         self.settings=settings
         super().__init__(assembly,built=built,object_scene=object_scene)
         self.state_layout=resolve_scene_state_layout(self.model,self.assembly.joint_names,
-            tuple("object__"+o.instance_id+"__free" for o in object_scene.manifest.objects if o.motion_type=="dynamic"))
+            tuple("object__"+o.instance_id+("__spring" if o.spring is not None else "__free")
+                for o in object_scene.manifest.objects if o.motion_type in {"dynamic", "spring"}))
         # frozen scene/settingsのidentityだけを固定し、物理値は毎回live dataから読む。
         self._observation_plan = _DynamicsObservationPlan.prepare(self.model, object_scene, settings, self.addresses)
         if abs(float(self.model.opt.timestep)-settings.physics_dt_s)>1e-15:

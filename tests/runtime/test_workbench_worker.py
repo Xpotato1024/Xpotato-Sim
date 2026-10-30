@@ -67,7 +67,7 @@ def test_worker_memory_profiling_is_explicit(tmp_path, monkeypatch, diagnostic):
 def test_worker_explicit_prepare_recovers_after_discard_or_reset_failure(tmp_path, monkeypatch, failed_reset):
     from xpotato_sim.runtime.execution.model_execution import ModelExecution
     events = []
-    prepare = {"op": "prepare", "id": "p1", "generation": 1, "profile_id": "dynamic-cube-drop"}
+    prepare = {"op": "prepare", "id": "p1", "generation": 1, "profile_id": "tasks/dynamic-cube-drop"}
     commands = [prepare]
     if not failed_reset:
         commands.append({"op": "stop", "id": "s1", "generation": 2})
@@ -122,7 +122,7 @@ def test_worker_retry_reuses_prepared_assets_after_terminal_or_stop(tmp_path, mo
     from xpotato_sim.runtime.experiment.trial_runner import TrialRunner
     now = [10.0]
     events = []
-    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "dynamic-cube-drop"},
+    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "tasks/dynamic-cube-drop"},
                 {"op": "start", "id": "start", "generation": 1}]
     commands += ([{"op": "stop", "id": "stop", "generation": 2}] if operator_stop else ["wait_terminal"])
     commands += [{"op": "retry", "id": "retry", "generation": 2 if operator_stop else 1}, {"op": "close"}]
@@ -171,11 +171,11 @@ def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_
     from xpotato_sim.runtime.experiment.trial_record import TrialRecorder
     from xpotato_sim.runtime.experiment.edited_condition import preset_condition
     now=[10.];events=[];failed_files={};failed_trial=[]
-    d=preset_condition("dynamic-cube-drop");d["limits"].update(max_ticks=2,prepare_s=11.)
-    commands=[{"op":"prepare","id":"p1","generation":1,"profile_id":"dynamic-cube-drop","condition":d},
+    d=preset_condition("tasks/dynamic-cube-drop");d["limits"].update(max_ticks=2,prepare_s=11.)
+    commands=[{"op":"prepare","id":"p1","generation":1,"profile_id":"tasks/dynamic-cube-drop","condition":d},
         {"op":"start","id":"start","generation":1},"wait_failure",
         {"op":"retry","id":"retry","generation":1},
-        {"op":"prepare","id":"p2","generation":2,"profile_id":"dynamic-cube-drop","condition":d},
+        {"op":"prepare","id":"p2","generation":2,"profile_id":"tasks/dynamic-cube-drop","condition":d},
         {"op":"close"}]
     original=TrialRecorder.write
     def write(recorder,name,doc):
@@ -216,8 +216,8 @@ def test_worker_manual_prepare_recovers_recording_failure_without_overwrite(tmp_
 
 def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypatch):
     events = []
-    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "dynamic-cube-drop"},
-                None, None, None, {"op": "prepare", "id": "p2", "generation": 2, "profile_id": "dynamic-cube-drop"},
+    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "tasks/dynamic-cube-drop"},
+                None, None, None, {"op": "prepare", "id": "p2", "generation": 2, "profile_id": "tasks/dynamic-cube-drop"},
                 None, None, {"op": "close"}]
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
     # 時計を進めなくてもprepare/reprepareの新しいticketは即座に公開される。
@@ -243,7 +243,7 @@ def test_worker_publishes_ready_once_and_new_ticket_promptly(tmp_path, monkeypat
 @pytest.mark.parametrize("failure",["sender failure","receiver closure","control FIFO overflow"])
 def test_worker_transport_failure_records_technical_invalid(tmp_path,monkeypatch,failure):
     from xpotato_sim.runtime.application import workbench_worker as module
-    events=[];commands=[{"op":"prepare","generation":1,"profile_id":"dynamic-cube-push"},{"op":"start"}]
+    events=[];commands=[{"op":"prepare","generation":1,"profile_id":"tasks/dynamic-cube-push"},{"op":"start"}]
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY","test")
     class Wire:
         def __enter__(self):return self
@@ -295,7 +295,7 @@ def test_overdue_worker_polls_input_without_adding_another_wait(tmp_path, monkey
     clock = [10.0]
     runners, events, overdue_timeouts = [], [], []
     commands = [
-        {"op": "prepare", "id": "prepare", "generation": 1, "profile_id": "dynamic-cube-drop"},
+        {"op": "prepare", "id": "prepare", "generation": 1, "profile_id": "tasks/dynamic-cube-drop"},
         {"op": "start", "id": "start", "generation": 1},
     ]
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
@@ -340,7 +340,7 @@ def test_inactive_worker_uses_bounded_wait_not_expired_deadline(tmp_path, monkey
     """未選択・readyでは古いtick期限によるbusy pollingを作らない。"""
     from xpotato_sim.runtime.application import workbench_worker as module
     commands = [{"op": "prepare", "id": "p", "generation": 1,
-                 "profile_id": "dynamic-cube-drop"}, None, None, {"op": "close"}]
+                 "profile_id": "tasks/dynamic-cube-drop"}, None, None, {"op": "close"}]
     timeouts = []
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")
     monkeypatch.setattr(module, "monotonic", lambda: 10.)

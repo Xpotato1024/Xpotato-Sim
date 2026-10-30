@@ -205,7 +205,7 @@ def test_worker_drains_available_batch_and_prioritizes_stop(tmp_path, monkeypatc
     import xpotato_sim.runtime.application.workbench_worker as module
     now = [10.]
     events = []
-    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "fast-arm-bimanual-gamepad"},
+    commands = [{"op": "prepare", "id": "p", "generation": 1, "profile_id": "inputs/bimanual-gamepad"},
                 {"op": "start", "id": "start", "generation": 1}]
     ticket = [None]
     runners = []
@@ -347,7 +347,7 @@ def _exercise_stalled_worker(tmp_path, monkeypatch, stall, position, *,
         try:
             assert json.loads(ws.recv(timeout=remaining()))["op"] == "worker"
             ws.send(json.dumps({"op": "prepare", "id": "p", "generation": 1,
-                                "profile_id": "fast-arm-bimanual-gamepad"}))
+                                "profile_id": "inputs/bimanual-gamepad"}))
             while not cancel.is_set():
                 try:
                     raw = ws.recv(timeout=remaining())
@@ -514,7 +514,7 @@ def test_continuous_full_batches_do_not_bypass_supervision(tmp_path, monkeypatch
     import xpotato_sim.runtime.application.workbench_worker as module
     now, runners, events, bursts = [10.], [], [], [0]
     commands = [{"op": "prepare", "id": "p", "generation": 1,
-                 "profile_id": "fast-arm-bimanual-gamepad"},
+                 "profile_id": "inputs/bimanual-gamepad"},
                 {"op": "start", "id": "start", "generation": 1}]
     ticket = [None]
     monkeypatch.setenv("XPOTATO_WORKBENCH_WORKER_KEY", "test")

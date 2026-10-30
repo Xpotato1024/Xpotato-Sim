@@ -58,3 +58,14 @@ const noForce=fixture();delete noForce.metadata.scene_dynamics_v1;assert.equal(p
 const stream=new DynamicsStream();assert.equal(stream.apply(good).status,"available");
 const changed=fixture();(changed.metadata.scene_dynamics_v1 as any).settings_digest="e".repeat(64);assert.equal(stream.apply(changed).status,"unavailable");
 console.log("full scene layout, dynamic state and force presentation tests passed");
+const spring=fixture();
+const springRaw=spring.metadata.scene_dynamics_v1 as any;
+springRaw.objects[0].motion_type="spring";
+springRaw.springs=[{instance_id:"cube",displacement_m:.01,velocity_m_s:.02,restoring_force_n:-1,damping_force_n:-.04,axial_force_n:-1.04}];
+assert.equal(parseDynamics(spring).status,"available");
+assert.equal(renderToStaticMarkup(<DynamicsPanel value={parseDynamics(spring)} comparison={true}/>),"");
+for(const mutate of [
+ (d:any)=>{delete d.springs},(d:any)=>{d.springs[0].axial_force_n=NaN},
+ (d:any)=>{d.springs[0].unknown=1},(d:any)=>{d.springs.push(d.springs[0])},
+ (d:any)=>{d.springs[0].instance_id="other"},
+]){const p=structuredClone(spring);mutate(p.metadata.scene_dynamics_v1);assert.equal(parseDynamics(p).status,"unavailable");}

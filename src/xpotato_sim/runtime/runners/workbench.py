@@ -13,7 +13,7 @@ import tempfile
 
 from xpotato_sim.runtime.composition.launch_profile import list_launch_profiles, repository_workspace
 from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
-from xpotato_sim.runtime.experiment.edited_condition import resolve_condition, MAX_BYTES
+from xpotato_sim.runtime.experiment.edited_condition import resolve_condition, MAX_BYTES, SHARED_TASK_MODELS
 from xpotato_sim.runtime.application.owned_processes import OwnedApplicationWorkers, join_application_job
 
 from xpotato_sim.runtime.application import workbench_service, workbench_worker
@@ -37,7 +37,7 @@ def run_workbench(args):
         if getattr(args, key) is None:
             setattr(args, key, default)
     TrialLimits(args.ticks or 1, args.input_wait_s, args.wall_s, args.prepare_s)
-    if args.profile and args.profile not in list_launch_profiles():
+    if args.profile and args.profile not in SHARED_TASK_MODELS and args.profile not in list_launch_profiles():
         raise ValueError("登録profile IDだけを指定できます")
     args.result_root = args.result_root.resolve()
     if not args.temporary_root.is_absolute() or not args.temporary_root.is_dir():

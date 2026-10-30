@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: runtime
-last_verified: 2026-10-19
+last_verified: 2026-10-26
 canonical_for:
   - finite model trial condition lifecycle and local result
 related:
@@ -12,6 +12,31 @@ related:
 ---
 
 # 有限試行の条件・実行・結果
+
+## 実験の連続記録とデモの分離
+
+`prepare(..., session_mode="experiment"|"demo")` は停止状態だけで受理する。既定のAPI/CLIはexperiment。
+Workbenchの次モードはdemoを初期選択し、実際の適用モードを常時表示する。モードは研究の表示軸と独立する。
+demoは同じModelExecution、有限予算、Task、stop、epoch、reset、中立gateを使うが、TrialRecorder、
+連続記録owner、保存processを作らない。終端結果は最新一件の一時状態で `recording: disabled_demo`。
+実験結果履歴へ加えない。動作に必要なviewer資源・一時設定は実験記録とは別である。
+demoから実験へは停止後に再prepareし、旧入力・Task・保留command・epochを持ち越さない。
+
+experimentは既存start保存後に `samples.jsonl.pending` を新規作成する。
+`runtime/experiment/continuous_record.py` が一試行64 MiBまでの連続JSONLを所有し、
+入力receiptごとの元messageとidentity、commitごとのtick・host monotonic・simulation時刻、
+全qpos/qvel・native site pose、接触原力・ばね状態、Task状態と終端停止理由を保存する。
+表示OFFでもこのraw値を保存する。欠測はnull/失敗のままにし、無接触を測定力0やTask成功へ補完しない。
+上限・書込・read-back失敗はrecording_failedとなり、成功markerを作らない。
+
+終端前にflush/fsync・SHA-256 read-backを確認し、`samples.jsonl` を排他的公開する。
+既存terminal markerに `continuous_ref` を追加する。中断・切断・再試行も同じ有限trial境界で記録する。
+途中のpendingやterminalのないdirectoryを完了データとして読まない。常時同期のdisk書込は周期性能へ影響し得る。
+これは最小ローカル連続記録であり、OS crash耐久性・改竄防止・完全な再生基盤を保証しない。
+
+`comparison_metrics(directory)` は完了marker・identity・hash・連続tickを照合し、tick数、
+最大ばね変位、最大接触原力ノルム、欠測件数、Task結果と停止理由を保存値から再計算する。
+研究の成功閾値や知覚成績を決める指標ではない。
 
 ## 所有と対応範囲
 

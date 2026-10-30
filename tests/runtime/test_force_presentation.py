@@ -16,7 +16,7 @@ from tests.runtime.test_trial_runner import Clock, start, message
 
 
 def selected(mode="no_force_cue"):
-    document = preset_condition("dynamic-cube-drop")
+    document = preset_condition("tasks/dynamic-cube-drop")
     document["display_comparison"]["mode"] = mode
     document["limits"]["max_ticks"] = 20
     return resolve_condition(document)
@@ -31,7 +31,7 @@ def test_defaults_roundtrip_legacy_and_descriptor():
     del d["display_comparison"]
     old, _, normalized = resolve_condition(d)
     assert profile_presentation(old) is None and normalized["display_comparison"] is None
-    assert preset_condition("contact-debug-left")["display_comparison"] is None
+    assert preset_condition("diagnostics/contact-debug-left")["display_comparison"] is None
 
 
 @pytest.mark.parametrize("change", [
@@ -47,7 +47,7 @@ def test_invalid_display_fails_closed(change):
 
 
 def test_kinematic_cannot_claim_solver_force_comparison():
-    p = replace(load_launch_profile("contact-debug-left"), display_comparison_json=canonical(default_presentation()).decode())
+    p = replace(load_launch_profile("diagnostics/contact-debug-left"), display_comparison_json=canonical(default_presentation()).decode())
     with pytest.raises(ValueError, match="dynamic scene"):
         profile_presentation(p)
 

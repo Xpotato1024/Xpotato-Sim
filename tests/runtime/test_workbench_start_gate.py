@@ -112,7 +112,7 @@ def test_async_recording_gate_does_not_block_execution_owner(tmp_path, monkeypat
     recording_factory(monkeypatch,entered,release,failed)
     clock = Clock()
     runner = TrialRunner(result_root=tmp_path, software_revision="test", clock=clock, async_terminal_recording=True)
-    ticket = runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"), TrialLimits(1))
+    ticket = runner.prepare(load_launch_profile("inputs/bimanual-gamepad"), TrialLimits(1))
     try:
         start(runner, ticket, clock)
         runner.advance(ticket)
@@ -149,12 +149,12 @@ def test_recording_hang_is_reclaimed_without_late_terminal(tmp_path,monkeypatch,
     clock=Clock();runner=TrialRunner(result_root=tmp_path,software_revision="test",clock=clock,async_terminal_recording=True)
     if task_terminal:
         from xpotato_sim.runtime.experiment.edited_condition import preset_condition,resolve_condition
-        condition=preset_condition("dynamic-cube-drop")
+        condition=preset_condition("tasks/dynamic-cube-drop")
         condition["task"]["parameters"]["duration_s"]=.016
         profile,limits,_=resolve_condition(condition)
         ticket=runner.prepare(profile,limits)
     else:
-        ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
+        ticket=runner.prepare(load_launch_profile("inputs/bimanual-gamepad"),TrialLimits(1))
     try:
         start(runner,ticket,clock);runner.advance(ticket);assert entered.wait(1)
         if task_terminal:assert runner._pending_terminal["runner_stop_reason"]=="task_success"
@@ -183,7 +183,7 @@ def test_recording_startup_hang_is_reclaimed_before_input_acceptance(tmp_path,mo
     from xpotato_sim.runtime.experiment import trial_record
     monkeypatch.setattr(trial_record,"prepared_terminal_process",hung_recording_start)
     runner=TrialRunner(result_root=tmp_path,software_revision="test",async_terminal_recording=True)
-    ticket=runner.prepare(load_launch_profile("fast-arm-bimanual-gamepad"),TrialLimits(1))
+    ticket=runner.prepare(load_launch_profile("inputs/bimanual-gamepad"),TrialLimits(1))
     try:
         with pytest.raises(TimeoutError,match="startup deadline"):
             runner.start(ticket,input_provenance={"synthetic":True})

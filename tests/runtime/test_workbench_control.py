@@ -6,6 +6,7 @@ import pytest
 
 from xpotato_sim.runtime.application.workbench_control import WorkbenchControl, decode_request, profile_catalog
 from xpotato_sim.runtime.application.workbench_service import Peer
+from xpotato_sim.runtime.experiment.edited_condition import SHARED_TASK_MODELS
 
 
 KEY = "ephemeral-test-capability-not-a-real-secret"
@@ -23,6 +24,31 @@ def request(c, op, **extra):
             "ticket": c.state["ticket"], **extra}
 
 
+def test_start_rejects_unapplied_condition_and_mode_without_mutation():
+    from copy import deepcopy
+    from xpotato_sim.runtime.experiment.edited_condition import preset_condition
+    from xpotato_sim.runtime.experiment.trial_condition import TrialLimits
+    applied = preset_condition("tasks/research-spring", TrialLimits(100, 5, 30, 30), input_provider="gamepad/v1")
+    c = controller()
+    c.state.update(phase="ready", ticket=TICKET, applied_condition=applied, session_mode="demo")
+    c.renderer_epoch = TICKET["epoch"]
+    changed = deepcopy(applied)
+    changed["display_comparison"]["mode"] = "force_cue"
+    if changed == applied:
+        changed["display_comparison"]["mode"] = "no_force_cue"
+    c.next_condition = changed
+    with pytest.raises(ValueError, match="未適用"):
+        c.command("owner", request(c, "start"))
+    c.next_condition = applied
+    with pytest.raises(ValueError, match="未適用"):
+        c.command("owner", request(c, "start", requested_condition=changed, requested_session_mode="demo"))
+    with pytest.raises(ValueError, match="未適用"):
+        c.command("owner", request(c, "start", requested_condition=applied, requested_session_mode="experiment"))
+    assert c.revision == 0 and c.busy is None
+    response, command = c.command("owner", request(c, "start", requested_condition=applied, requested_session_mode="demo"))
+    assert response["type"] == "accepted" and command["op"] == "start"
+
+
 @pytest.mark.parametrize("raw", ["null", "[]", "1", '"text"', '{"op":"status","op":"start"}',
     '{"op":"status","x":NaN}', "{", " " * 65537, b'{}', '{"op":1}'],
     ids=["null", "list", "integer", "string", "duplicate", "nonfinite", "syntax", "oversize", "binary", "op-type"])
@@ -36,8 +62,39 @@ def test_catalog_has_existing_profiles_and_precise_unavailable_reason():
     assert len(rows) == len({r["id"] for r in rows})
     assert all(r["available"] or r["reason"] for r in rows)
     assert {r["id"] for r in rows if r["available"]} >= {
-        "dynamic-cube-drop", "dynamic-cube-push", "dynamic-fixed-contact",
-        "fast-arm-single-gamepad", "fast-arm-bimanual-gamepad", "contact-debug-single"}
+        "tasks/dynamic-cube-drop", "tasks/dynamic-cube-push", "tasks/dynamic-fixed-contact",
+        "inputs/single-gamepad", "inputs/bimanual-gamepad", "diagnostics/contact-debug-single"}
+    for task_id in SHARED_TASK_MODELS:
+        shared = next(row for row in rows if row["id"] == task_id)
+        assert shared["available"] and shared["input_provider"] is None
+        assert set(shared["input_bindings"]) == {"gamepad/v1", "selfrionette-device/v1"}
+
+
+@pytest.mark.parametrize("task_id", sorted(SHARED_TASK_MODELS))
+def test_shared_task_input_rebinding_preserves_task_and_rejects_active_or_unknown_source(task_id):
+    c = controller()
+    clone = {"op": "clone", "capability": KEY, "revision": c.revision,
+        "ticket": None, "profile_id": task_id, "input_provider": "gamepad/v1"}
+    first, _ = c.command("owner", clone)
+    document = first["condition"]
+    document["task"]["parameters"]["duration_s"] = 33.0
+    request = {"op": "bind", "capability": KEY, "revision": c.revision,
+        "ticket": None, "condition": document, "input_provider": "selfrionette-device/v1"}
+    second, _ = c.command("owner", request)
+    assert second["condition"]["preset_id"] == task_id
+    assert second["condition"]["configuration"]["input"]["provider"] == "selfrionette-device/v1"
+    assert second["condition"]["task"]["parameters"]["duration_s"] == 33.0
+    request.update(revision=c.revision, condition=second["condition"], input_provider="gamepad/v1")
+    third, _ = c.command("owner", request)
+    assert third["condition"]["configuration"]["input"]["provider"] == "gamepad/v1"
+    request.update(revision=c.revision, condition=third["condition"], input_provider="keyboard/v1")
+    with pytest.raises(ValueError, match="unsupported input binding"):
+        c.command("owner", request)
+    assert c.revision == 3
+    c.state["phase"] = "running"
+    request["input_provider"] = "selfrionette-device/v1"
+    with pytest.raises(ValueError):
+        c.command("owner", request)
 
 
 def test_duplicate_revision_profile_id_and_active_mutation():

@@ -30,8 +30,8 @@ Selfrionetteは対応する入力装置の名称として残す。FastArm、MuJo
 uv sync --frozen --group dev
 uv run xpotato-sim --help
 uv run xpotato-sim profile
-uv run xpotato-sim app --profile sim-gamepad-left-xyz --check
-uv run xpotato-sim app --profile sim-gamepad-left-xyz
+uv run xpotato-sim app --profile examples/sim-gamepad-left-xyz --check
+uv run xpotato-sim app --profile examples/sim-gamepad-left-xyz
 ```
 
 Pythonのimportとモジュール指定には `xpotato_sim` を使用する。旧Python名前空間と旧CLIを

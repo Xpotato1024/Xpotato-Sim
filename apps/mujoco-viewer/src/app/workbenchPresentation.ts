@@ -44,3 +44,15 @@ export function formatWorkbenchAge(age: number | null): string {
   if (age === null) return "受信時刻なし";
   return age < 1000 ? `${Math.floor(age)} ms` : `${(age / 1000).toFixed(1)} s`;
 }
+
+/** RTFの最後の標本を停止後のlive値と取り違えない。 */
+export function formatWorkbenchRtf(phase: string | null | undefined, value: number | null | undefined,
+  windowSeconds?: number | null): string {
+  const measured = value !== null && value !== undefined && Number.isFinite(value) && value >= 0;
+  const suffix = measured && windowSeconds !== null && windowSeconds !== undefined && Number.isFinite(windowSeconds) && windowSeconds > 0
+    ? `（観測窓 ${windowSeconds.toFixed(1)} s）` : "";
+  if (phase === "running") return `実行中 RTF: ${measured ? value.toFixed(2) : "未計測"}${suffix}`;
+  if (["terminal", "finalizing", "faulted", "recording_failed"].includes(phase ?? ""))
+    return `停止時の最終 RTF: ${measured ? value.toFixed(2) : "未計測"}${suffix}`;
+  return "RTF: 未計測";
+}

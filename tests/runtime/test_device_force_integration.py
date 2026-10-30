@@ -17,7 +17,8 @@ from xpotato_sim.runtime.scene.objects import canonical
 
 
 TICKS = 180
-PROFILES = ("dynamic-fixed-contact-single-device", "dynamic-fixed-contact-bimanual-device")
+PROFILES = ("diagnostics/fixed-contact-single-selfrionette-fixture",
+            "diagnostics/fixed-contact-bimanual-selfrionette-fixture")
 
 
 def selected(name, mode="no_force_cue"):
@@ -26,7 +27,7 @@ def selected(name, mode="no_force_cue"):
     document["display_comparison"]["mode"] = mode
     document["limits"]["max_ticks"] = TICKS
     # single_originalとbimanualは異なるhome位置。初期貫通なしの明示software配置を使う。
-    position = ([.315, -.246, .284] if name.endswith("single-device") else [.315, .56, .46])
+    position = ([.315, -.246, .284] if "single" in name else [.315, .56, .46])
     document["environment"]["parameters"]["scene"]["objects"][0]["pose"]["position_m"] = position
     return resolve_condition(document)
 

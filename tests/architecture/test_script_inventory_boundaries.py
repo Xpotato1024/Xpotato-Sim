@@ -11,6 +11,7 @@ TEXT_SUFFIXES = {".md", ".py", ".ps1", ".yml", ".yaml", ".toml", ".txt"}
 EXPECTED_SCRIPTS = {
     "scripts/workbench_local.py",
     "scripts/repository/commands.py",
+    "scripts/repository/convert_workbench_condition.py",
     "scripts/repository/powershell_launcher.py",
     "scripts/hardware/selfrionette/plot_loadcell_vectors.py",
     "scripts/viewer/run_browser_viewer_smoke.py",

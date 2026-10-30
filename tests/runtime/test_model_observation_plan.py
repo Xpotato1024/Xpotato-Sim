@@ -13,7 +13,7 @@ from xpotato_sim.schemas.coordinated import EndpointVelocity
 def test_viewer_declaration_is_prepared_and_replacement_gets_new_identity(monkeypatch):
     from xpotato_sim.plugins.robots.fast_arm.adapter import assembly_viewer
     from xpotato_sim.runtime.composition.viewer_robot_declaration import viewer_robot_declaration_digest
-    bundle = load_launch_profile("dynamic-cube-drop").build_model().viewer
+    bundle = load_launch_profile("tasks/dynamic-cube-drop").build_model().viewer
     expected = viewer_robot_declaration_digest(bundle.declaration)
     calls = []
     original = assembly_viewer.viewer_robot_declaration_digest
@@ -36,7 +36,7 @@ def test_viewer_declaration_is_prepared_and_replacement_gets_new_identity(monkey
 
 
 def test_sampling_uses_prepared_names_and_reads_current_native_values(monkeypatch):
-    p = load_launch_profile("dynamic-cube-drop")
+    p = load_launch_profile("tasks/dynamic-cube-drop")
     provider = p.build_model().provider
     calls = []
     original = mujoco.mj_id2name
@@ -64,7 +64,7 @@ def test_sampling_uses_prepared_names_and_reads_current_native_values(monkeypatc
 
 def test_prepared_layout_rejects_replacement_model():
     from xpotato_sim.mujoco_backend.snapshot import _read_synchronized_mujoco_state
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     model = mujoco.MjModel.from_xml_string(provider.built.xml.decode(), dict(provider.built.assets))
     with pytest.raises(ValueError, match="layout/model mismatch"):
         _read_synchronized_mujoco_state(model, mujoco.MjData(model), frame_index=0,
@@ -73,7 +73,7 @@ def test_prepared_layout_rejects_replacement_model():
 
 def test_geometry_projection_does_not_rewalk_immutable_dataclasses(monkeypatch):
     from xpotato_sim.runtime.scene import observation
-    sample = load_launch_profile("dynamic-cube-drop").build_model().provider.sample(frame_index=0, metadata={})
+    sample = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider.sample(frame_index=0, metadata={})
     expected = sample.geometry.to_document()
     def forbidden(*args):
         pytest.fail("immutable geometry must have a direct document projection")
@@ -82,7 +82,7 @@ def test_geometry_projection_does_not_rewalk_immutable_dataclasses(monkeypatch):
 
 
 def test_sample_metadata_is_detached_from_input_task_and_other_samples():
-    execution = ModelExecution(load_launch_profile("dynamic-cube-drop"), clock=lambda: 10.)
+    execution = ModelExecution(load_launch_profile("tasks/dynamic-cube-drop"), clock=lambda: 10.)
     from xpotato_sim.schemas import RawInputFrame
     input_metadata = {"nested": {"values": [1, 2]}}
     execution.runtime.last_frame = RawInputFrame("test", 0., metadata=input_metadata)
@@ -99,7 +99,7 @@ def test_sample_metadata_is_detached_from_input_task_and_other_samples():
 
 def test_provider_metadata_copy_detaches_nested_consumer_values():
     from types import MappingProxyType
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     metadata = {"nested": MappingProxyType({"values": [1]})}
     first = provider.sample(frame_index=0, metadata=metadata)
     first.state.metadata["nested"]["values"].append(2)
@@ -110,7 +110,7 @@ def test_provider_metadata_copy_detaches_nested_consumer_values():
 def test_trigger_presentation_copy_preserves_wire_shape_without_json_roundtrip(monkeypatch):
     from xpotato_sim.plugins.mappings.viewer_keyboard_gamepad_mapping import implementation
     strategy = implementation.ViewerKeyboardGamepadMappingStrategy(session=True)
-    parameters = load_launch_profile("dynamic-cube-drop").mapping_parameters
+    parameters = load_launch_profile("tasks/dynamic-cube-drop").mapping_parameters
     strategy.reset_coordinated_presentation(parameters, reason="awaiting_gamepad_input")
     expected = json.loads(json.dumps(strategy.latest_trigger_presentation, allow_nan=False))
     def forbidden(*args, **kwargs):
@@ -124,13 +124,13 @@ def test_trigger_presentation_copy_preserves_wire_shape_without_json_roundtrip(m
 
 
 def test_dynamics_plan_follows_replaced_settings_and_isolates_roles():
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     old = provider._dynamics_observation(0)
     provider.settings = replace(provider.settings, max_joint_speed_rad_s=1.)
     new = provider._dynamics_observation(1)
     assert new["settings_digest"] == provider.settings.digest != old["settings_digest"]
     assert new["frame_index"] == 1
-    p = load_launch_profile("dynamic-cube-drop")
+    p = load_launch_profile("tasks/dynamic-cube-drop")
     commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
     for _ in range(60):
         provider.commit(provider.prepare(commands, p.dt_s))
@@ -142,7 +142,7 @@ def test_dynamics_plan_follows_replaced_settings_and_isolates_roles():
 
 @pytest.mark.parametrize("field", ["qpos", "qvel", "ctrl", "actuator_force", "xpos", "xquat", "cvel"])
 def test_dynamic_observation_keeps_all_emitted_numeric_values_finite(field):
-    provider = load_launch_profile("dynamic-cube-drop").build_model().provider
+    provider = load_launch_profile("tasks/dynamic-cube-drop").build_model().provider
     values = getattr(provider._data, field)
     if field in {"xpos", "xquat", "cvel"}:
         values[provider._observation_plan.objects[0][2], 0] = float("nan")
@@ -155,7 +155,7 @@ def test_dynamic_observation_keeps_all_emitted_numeric_values_finite(field):
 @pytest.mark.parametrize("field", ["geom1", "geom2"])
 @pytest.mark.parametrize("bad_id", [-1, 100000])
 def test_review_invalid_contact_geom_ids_are_not_other_rigid_objects(field, bad_id):
-    profile = load_launch_profile("dynamic-cube-drop")
+    profile = load_launch_profile("tasks/dynamic-cube-drop")
     provider = profile.build_model().provider
     commands = tuple(EndpointVelocity(a, (0., 0., 0.), "world") for a in provider.endpoint_ids)
     for _ in range(60):

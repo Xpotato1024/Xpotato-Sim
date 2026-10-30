@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describeWorkbenchConnection, formatWorkbenchAge } from "../src/app/workbenchPresentation.js";
+import { describeWorkbenchConnection, formatWorkbenchAge, formatWorkbenchRtf } from "../src/app/workbenchPresentation.js";
 import { cameraPresentation } from "../src/wasm-scene/cameraPresentation.js";
 import { createInitialProductViewerState } from "../src/wasm-scene/productViewerState.js";
 import { createViewerFrameTiming } from "../src/wasm-scene/viewerFrameTiming.js";
@@ -26,6 +26,12 @@ state.viewerTiming.latestIngressStatus = "parse_error";
 assert.equal(describeWorkbenchConnection(state, 200).tone, "danger");
 assert.equal(formatWorkbenchAge(null), "受信時刻なし");
 assert.equal(formatWorkbenchAge(1234), "1.2 s");
+assert.equal(formatWorkbenchRtf("ready", 1.2), "RTF: 未計測");
+assert.equal(formatWorkbenchRtf("running", null), "実行中 RTF: 未計測");
+assert.equal(formatWorkbenchRtf("running", 1.234), "実行中 RTF: 1.23");
+assert.equal(formatWorkbenchRtf("running", 1.234, 2.5), "実行中 RTF: 1.23（観測窓 2.5 s）");
+assert.equal(formatWorkbenchRtf("terminal", 1.234), "停止時の最終 RTF: 1.23");
+assert.equal(formatWorkbenchRtf("faulted", NaN), "停止時の最終 RTF: 未計測");
 
 const positions = [0, 0, 0, 0, 0, 0.5, 0.6, 0, 0.7];
 const original = [...positions];

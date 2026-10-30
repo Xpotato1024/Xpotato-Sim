@@ -14,6 +14,7 @@ export function changedCondition(document:Condition,path:(string|number)[],value
     const template=descriptor?.motion_templates?.[value];
     if(!template) throw new Error("backend motion templateがありません");
     delete target.initial_velocity;
+    delete target.spring;
     Object.assign(target,structuredClone(template));
   }
   return next;
@@ -65,6 +66,7 @@ export function ConditionEditor({condition,descriptors,onChange,onValidate,onImp
         </label>;
       })}</div>
       {index===1 && <p>物体定義の半寸法・質量・表面と、同じworld内の配置を別項目として編集します。初期貫通はnative準備時に検査します。</p>}
+      {index===1 && descriptors.some(d=>d.path.includes("spring")) && <p>ばねの可動範囲はMuJoCoのsoft制約です。硬い位置clampではなく、観測変位が公称範囲を超える場合があります。記録値を範囲内へ丸めません。</p>}
       {index===2 && <p>入力は選択presetで固定します。Deviceでは個体ID・profile revision・operator条件を明示し、準備画面でtareと使用姿勢neutralを別々に確認します。</p>}
       {index===3 && condition.command_mapping && <p>接近成分だけを変更するsoftware条件です。離脱・接線方向は維持し、実機gainや知覚効果を示しません。比較時は表示条件を固定してください。</p>}
       {index===5 && <p>正式experimentのEvaluation・metricsは未対応です。接触観測Taskは診断であり、未評価を0や成功にしません。</p>}

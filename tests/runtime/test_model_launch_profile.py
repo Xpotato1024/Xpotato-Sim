@@ -10,10 +10,10 @@ from xpotato_sim.runtime.runners.application import list_application_profiles, a
 
 
 @pytest.mark.parametrize("name,model,endpoints", [
-    ("fast-arm-single-gamepad","single_original",("arm",)),
-    ("fast-arm-left-gamepad","single_left",("left",)),
-    ("fast-arm-right-gamepad","single_right",("right",)),
-    ("fast-arm-bimanual-gamepad","bimanual",("left","right")),
+    ("inputs/single-gamepad","single_original",("arm",)),
+    ("examples/left-gamepad","single_left",("left",)),
+    ("examples/right-gamepad","single_right",("right",)),
+    ("inputs/bimanual-gamepad","bimanual",("left","right")),
 ])
 def test_peer_model_profiles_share_loader_and_endpoint_contract(name,model,endpoints):
     p=load_launch_profile(name)
@@ -21,7 +21,7 @@ def test_peer_model_profiles_share_loader_and_endpoint_contract(name,model,endpo
     assert p.model.plugin_id==model
     assert p.model_registration().endpoint_ids==endpoints
     assert set(p.side_to_endpoint.values())==set(endpoints)
-    assert p.name in list_application_profiles()
+    assert name in list_application_profiles()
     assert parse_qs(urlparse(application_url(p)).query)["inputStartup"]==["scene"]
     resolved = p.to_dict()["resolved"]
     assert resolved["physical_output"]=="disabled"
@@ -33,7 +33,7 @@ def test_peer_model_profiles_share_loader_and_endpoint_contract(name,model,endpo
 
 
 def test_old_single_profile_configuration_and_digest_are_not_rewritten():
-    p=load_launch_profile("sim-gamepad")
+    p=load_launch_profile("examples/sim-gamepad")
     assert p.model is None
     assert "inputStartup" not in parse_qs(urlparse(application_url(p)).query)
     assert "model" not in json.loads(p.document_json)
@@ -41,7 +41,7 @@ def test_old_single_profile_configuration_and_digest_are_not_rewritten():
 
 
 def test_override_changes_only_web_fields():
-    p=load_launch_profile("fast-arm-bimanual-gamepad")
+    p=load_launch_profile("inputs/bimanual-gamepad")
     new=override_launch_profile(p,web_port=5198,backend_port=8798,open_browser=False)
     assert (new.web_port,new.backend_port,new.open_browser)==(5198,8798,False)
     assert new.model==p.model and new.coordination_json==p.coordination_json
@@ -61,14 +61,14 @@ def test_override_changes_only_web_fields():
     lambda x:x.update(assembly=[]),
 ])
 def test_bad_models_bindings_and_fields_fail_before_runtime(mutation):
-    p=load_launch_profile("fast-arm-bimanual-gamepad");raw=json.loads(p.document_json)
+    p=load_launch_profile("inputs/bimanual-gamepad");raw=json.loads(p.document_json)
     mutation(raw)
     with pytest.raises((ValueError,TypeError)):
         decode_launch_profile(json.dumps(raw).encode(),source_path=p.source_path)
 
 
 def test_side_rebinding_changes_input_not_model():
-    p=load_launch_profile("fast-arm-bimanual-gamepad");raw=json.loads(p.document_json)
+    p=load_launch_profile("inputs/bimanual-gamepad");raw=json.loads(p.document_json)
     raw["coordination"]["side_to_endpoint"]={"left":"right","right":"left"}
     rebound=decode_launch_profile(json.dumps(raw).encode(),source_path=p.source_path)
     assert rebound.model_registration() is p.model_registration()
@@ -77,7 +77,7 @@ def test_side_rebinding_changes_input_not_model():
 
 
 def test_draft_specific_old_dual_schema_is_not_silently_migrated():
-    p=load_launch_profile("fast-arm-bimanual-gamepad");raw=json.loads(p.document_json)
+    p=load_launch_profile("inputs/bimanual-gamepad");raw=json.loads(p.document_json)
     raw["schema_version"]="fast-arm-coordinated-viewer-profile/v1"
     with pytest.raises(ValueError,match="schema_version"):
         decode_launch_profile(json.dumps(raw).encode(),source_path=p.source_path)

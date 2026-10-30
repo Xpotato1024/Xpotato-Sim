@@ -10,8 +10,8 @@ from tests.integration.fast_arm.test_scene_dynamics import advance, profile
 
 
 def test_push_floor_and_finite_fixed_pedestal_do_not_change_robot_mount():
-    p=profile('dynamic-cube-push');r=p.build_model().provider
-    reference=profile('dynamic-cube-drop').build_model().provider
+    p=profile('tasks/dynamic-cube-push');r=p.build_model().provider
+    reference=profile('tasks/dynamic-cube-drop').build_model().provider
     world=p.scene_plan.manifest.world
     assert len(world.support_planes)==1 and world.support_planes[0].position_m==(0.,0.,0.)
     objects={o.instance_id:o for o in p.scene_plan.manifest.objects}
@@ -34,7 +34,7 @@ def test_push_floor_and_finite_fixed_pedestal_do_not_change_robot_mount():
 
 
 def test_cube_is_supported_by_fixed_box_and_resets_with_pedestal():
-    p=profile('dynamic-cube-push');r=p.build_model().provider
+    p=profile('tasks/dynamic-cube-push');r=p.build_model().provider
     initial=r.sample(frame_index=0,metadata={})
     s=advance(r,p,120)
     cube=next(o for o in s.dynamics['objects'] if o['instance_id']=='cube')
@@ -51,7 +51,7 @@ def test_cube_is_supported_by_fixed_box_and_resets_with_pedestal():
 
 
 def test_cube_beyond_platform_edge_falls_to_real_floor():
-    p=profile('dynamic-cube-push');m=p.scene_plan.manifest
+    p=profile('tasks/dynamic-cube-push');m=p.scene_plan.manifest
     objects=tuple(replace(o,position_m=(1.15,.56,.461)) if o.instance_id=='cube' else o for o in m.objects)
     p=replace(p,scene_plan=replace(p.scene_plan,manifest=replace(m,objects=objects)))
     r=p.build_model().provider;s=advance(r,p,120)
@@ -59,7 +59,7 @@ def test_cube_beyond_platform_edge_falls_to_real_floor():
     assert cube.position_m[2]==pytest.approx(.05,abs=.001)
 
 
-@pytest.mark.parametrize('name',['fast-arm-bimanual-gamepad','contact-debug-bimanual','dynamic-cube-drop','dynamic-fixed-contact','dynamic-cube-push'])
+@pytest.mark.parametrize('name',['inputs/bimanual-gamepad','diagnostics/contact-debug-bimanual','tasks/dynamic-cube-drop','tasks/dynamic-fixed-contact','tasks/dynamic-cube-push'])
 def test_hot_loop_does_not_allocate_new_mjdata(monkeypatch,name):
     p=load_launch_profile(name);r=p.build_model().provider
     commands=tuple(EndpointVelocity(a,(.01,0.,0.),'world') for a in r.endpoint_ids)
@@ -94,7 +94,7 @@ def test_pooled_candidates_recover_after_fault_and_never_share_live_data(monkeyp
 
 
 def test_fk_only_native_stage_matches_full_forward_without_touching_live_world():
-    p=profile('dynamic-fixed-contact');r=p.build_model().provider
+    p=profile('tasks/dynamic-fixed-contact');r=p.build_model().provider
     ref=mujoco.MjData(r.model);rng=np.random.default_rng(590)
     live=r._data.qpos.copy()
     for arm in r.addresses:

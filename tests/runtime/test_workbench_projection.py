@@ -214,7 +214,7 @@ def test_native_execution_and_stop_progress_while_real_display_socket_is_blocked
         async def peer(ws):
             try:
                 assert json.loads(await ws.recv())["op"]=="worker"
-                await ws.send(json.dumps({"op":"prepare","id":"p","generation":1,"profile_id":"fast-arm-bimanual-gamepad"}))
+                await ws.send(json.dumps({"op":"prepare","id":"p","generation":1,"profile_id":"inputs/bimanual-gamepad"}))
                 while True:
                     event=json.loads(await ws.recv())
                     if event.get("id")=="p":break

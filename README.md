@@ -39,6 +39,30 @@ just doctor
 
 `setup`は専用`.venv`を指定Python 3.12・固定lockで同期し、directoryを準備してnpm依存と固定production buildを作ります。appや試行は開始しません。自動Pythonダウンロードは行わないため、指定Pythonを先に用意してください。
 
+### build出力先の所有エラーからの復旧
+
+既存の`XPOTATO_WEB_DIST`にこのcheckoutと一致する所有markerがない、markerが不正、またはlinkを含む場合は、
+依存同期やbuildより前に停止します。手動のVite buildや別checkoutの出力も自動採用しません。
+このエラーだけでは、実際の原因がmarker欠落・workspace不一致・linkのどれかは確定しません。
+既存出力やresultを削除せず、所有markerを手作成・コピーして通さないでください。
+
+PowerShellでは、同じterminalで次を実行できます。
+
+```powershell
+$env:XPOTATO_WEB_DIST = just new-build-path | ConvertFrom-Json
+just setup
+just run
+```
+
+`new-build-path`は現在の`XPOTATO_TEMP_ROOT`内に未作成の新しい候補を選び、ASCII JSON文字列で返すだけです。
+directory、`.env`、所有markerを作成・変更せず、日本語や空白を含むpathも`ConvertFrom-Json`で復元できます。
+候補を事前にmkdirしないでください。実際のsetupでも所有検査を再実行し、不明な既存出力を上書きしません。
+buildとtemporary rootは同じvolumeになり、旧buildとresultは保持されます。
+
+この環境変数は現在のterminalだけに適用され、`.env`より優先します。再起動後も使う場合は、
+`$env:XPOTATO_WEB_DIST`の値だけをroot `.env`の同名キーへ明示的に保存してください。
+手動で別の未作成pathを設定する方法も使えます。`just doctor`もbuild出力先の所有を検査します。
+
 ## 通常の起動
 
 ```powershell
@@ -156,8 +180,8 @@ uv run xpotato-sim workbench --condition $condition --fixture tests/fixtures/tri
 
 ```powershell
 uv run xpotato-sim profile
-uv run xpotato-sim profile dynamic-cube-drop
-uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root $results --ticks 5 --software-revision $revision
+uv run xpotato-sim profile tasks/dynamic-cube-drop
+uv run xpotato-sim trial --profile tasks/dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root $results --ticks 5 --software-revision $revision
 uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
 uv run xpotato-sim workbench --help
 ```
@@ -172,3 +196,33 @@ uv run xpotato-sim workbench --help
 Selfrionetteのfirmwareは[Selfrionette-Deviceで管理する](docs/operations/selfrionette-firmware-location.md)。Simの起動・offline検証にfirmware buildは不要です。
 
 全commandのflag、組合せ、publisher・legacy参照は[統一CLI](docs/operations/unified-cli.md)、条件と停止・資源契約は[Workbench](docs/contracts/workbench.md)、設計の入口は[Source of Truth Map](docs/README.md)を参照してください。ブラウザ閲覧URLとWebSocket接続URLは別です。Workbenchはloopbackのみで、LAN／公開bindを提供しません。
+### Selfrionetteを非記録デモで使う
+
+初回起動で条件JSONや接続設定JSONが自動生成されるわけではありません。
+まずDevice Managerで個体setupと個人校正を完了し、元のsetup recordに結び付いた
+校正 `.srncal`、stable ID、校正revisionを確認します。校正fileだけをコピーしても
+元のsetup recordを代替できません。これらは実機ごとに取得する値です。
+Workbenchの「入力・条件を設定」でタスクを選び、詳細設定に正規の実機identityを反映して
+検証した条件をexportすると、`workbench-condition.json` がブラウザのダウンロード先へ保存されます。
+接続設定は同画面から空欄の未完成ひな形をダウンロードできます。既存Device CLI実行fileの
+絶対path、roleごとのportと校正profileの絶対pathを実際の環境に合わせて記入します。
+未完成ひな形は読み込めません。二つのJSONは個人用のローカル領域に保管し、
+Git・PRに含めないでください。
+
+正規の実機条件JSONとDevice接続設定JSONを既に持っている場合は、root `.env` に
+`XPOTATO_CONDITION` と `XPOTATO_DEVICE_CONFIG` をその既存fileへのpathとして設定し、
+`just run` を再起動します。相対pathはrepository基準です。空または未指定なら従来どおりです。
+この設定はfileを作成・上書きせず、既存CLIの `--condition` / `--device-config` に渡します。
+
+条件には実Device identity・校正profileのrevision・operator条件が必要です。
+接続設定には条件と一致するroleごとのport・既存 `.srncal` と正規bridge executableが必要です。
+接続設定の指定だけでは接続済みになりません。画面でデモを選び、検証・準備後に
+個別の接続、tare、使用姿勢neutral、profile適用を順に確認してから開始します。
+開始時にも新しい中立入力が必要です。デモは実験記録を取得・永続保存しません。
+`profiles/inputs/` と研究比較条件の Selfrionette identity はソフト検証用 fixture であり、実機に使用できません。
+[profile の分類と保存済み条件の移行](docs/operations/profile-roles-and-migration.md)を参照してください。
+正規の実機条件・校正または接続設定がなければ、それらの提供・確認が先に必要です。
+入力を変えたら停止して条件を選び直し、検証・準備を行います。未適用の条件では開始できません。
+
+Windows PowerShellでの`just run`のCtrl+Cは、子Workbenchが停止処理を終えた後に正常終了として
+戻ります。起動失敗・実行失敗は引き続き非ゼロの終了codeで通知します。

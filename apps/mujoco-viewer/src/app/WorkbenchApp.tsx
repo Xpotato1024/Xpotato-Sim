@@ -13,19 +13,26 @@ import type {ViewLayout} from "../wasm-scene/viewportPresentation.js";
 import {formatInputOverlayText} from "../wasm-scene/productViewerState.js";
 import type {TransportPayloadV0} from "../types/transportPayload.js";
 import "./productViewer.css";
+import "./workbenchTailwind.css";
 import "./workbench.css";
 import "../ui/operation.css";
-import {telemetryIdentity, telemetryIsCurrent, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
+import {telemetryIdentity, telemetryIsCurrent, mayRetainStoppedDisplay, canConnect, conditionReadIsCurrent, editorReplyIsCurrent, createWorkbenchGamepadLifecycle, preparationIsCurrent, workbenchNotice, workbenchTimingLabel, type Preparation} from "./workbenchLifecycle.js";
 import {ConditionEditor,type Condition,type Descriptor} from "./ConditionEditor.js";
 import {DeviceInputPanel,type DevicePreparation} from "./DeviceInputPanel.js";
+import {formatWorkbenchRtf} from "./workbenchPresentation.js";
 
 type TimingStage = {count:number;observed:number;last_ns:number|null;mean_ns:number|null;p50_ns:number|null;p95_ns:number|null;p99_ns:number|null;max_ns:number|null};
 type RuntimeEnvironment = {python:string;platform:string;logical_cpus:number|null;mujoco:string;numpy:string;websockets:string;diagnostic_memory:boolean;thread_settings:Record<string,string|null>};
 type Ticket = {trial_id: string; epoch: string; condition_sha256: string};
+// Size variants are shared by both session modes; hierarchy is set separately.
+const toolbarControl = "min-h-9! px-3! text-sm!";
+const dialogControl = "min-h-10! px-3! text-base!";
 type Status = {phase: string; revision: number; generation: number; busy: string|null; busy_operation?:string|null;
+  session_mode?:"experiment"|"demo";
+  applied_condition?:Condition|null;device_connection?:{configured:boolean;roles:string[]};
   ticket: Ticket|null; profile_id: string|null; ticks: number; simulation_time_s:number; error: string|null;
   result?:{runner_stop_reason:string; error?:string|null}|null;
-  profiles: {id:string; available:boolean; reason:string|null}[];
+  profiles: {id:string; available:boolean; reason:string|null;input_provider?:string|null;input_bindings?:string[]}[];
   results: {trial_id:string; runner_stop_reason:string; recording:string; ticks:number}[];
   input_provider?:string|null;device_input?:DevicePreparation|null;
   fixture_mode: boolean; renderer_ready:boolean; preselected_profile?:string; native_builds?:number; python_heap?:number;
@@ -37,11 +44,18 @@ const phases: Record<string,string> = {unselected:"未選択・待機",ready:"�
 export function WorkbenchApp() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const interaction = useRef<HTMLDivElement>(null);
-  const [screen,setScreen]=useState<"setup"|"operate">("setup");
+  const [screen,setScreen]=useState<"setup"|"advanced"|"operate">("operate");
+  const settingsDialog=useRef<HTMLDialogElement>(null);
+  const settingsButton=useRef<HTMLButtonElement>(null);
+  const advancedButton=useRef<HTMLButtonElement>(null);
+  const advancedBack=useRef<HTMLButtonElement>(null);
+  const previousScreen=useRef<"setup"|"advanced"|"operate">("operate");
+  const [toast,setToast]=useState("");
   const [layout,setLayout]=useState<ViewLayout>("single");
   const rawMailbox=useRef<BrowserGamepadDisplay|null>(null);
   const receivedAt=useRef<number|null>(null);
   const [frameStale,setFrameStale]=useState(false);
+  const [stopPending,setStopPending]=useState(false);
   const renderer = useRef<MujocoSceneRenderer|null>(null);
   const socket = useRef<WebSocket|null>(null);
   const current = useRef<Status|null>(null);
@@ -49,6 +63,8 @@ export function WorkbenchApp() {
   const capability = useRef(new URLSearchParams(location.hash.slice(1)).get("capability") || "");
   const [status, setStatus] = useState<Status|null>(null);
   const [selected,setSelected] = useState("");
+  const [nextMode,setNextMode] = useState<"experiment"|"demo">("demo");
+  const [sourceFilter,setSourceFilter] = useState("selfrionette-device/v1");
   const [owned,setOwned] = useState(false);
   const [connected,setConnected] = useState(false);
   const [ready,setReady] = useState<string|null>(null);
@@ -69,18 +85,37 @@ export function WorkbenchApp() {
   const sendEditor=(pending:NonNullable<typeof editorPending.current>,op:string,extra:object={})=>
     send({op,request_id:pending.id,capability:capability.current,revision:pending.status.revision,ticket:pending.status.ticket,...extra});
   const editRequest=(op:string,extra:object={},exportFile=false)=>{const pending=beginEditor(exportFile);if(pending) sendEditor(pending,op,extra);};
+  const saveConnectionTemplate=()=>{
+    const roles=Object.fromEntries(Object.keys(edited?.configuration?.input?.parameters?.bindings??{}).map(role=>[role,{port:"",profile_path:""}]));
+    const template={schema_version:"selfrionette-workbench-connection/v1",executable:"",roles};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(template,null,2)],{type:"application/json"}));
+    const link=document.createElement("a");link.href=url;link.download="selfrionette-connection-incomplete.json";link.click();URL.revokeObjectURL(url);
+  };
   const stateMailbox=useRef(createInitialProductViewerState());
   const identityMailbox=useRef<string|null>(null);
   const telemetryInvalidation=useRef(0);
   const readyEpoch = useRef<string|null>(null);
+  const stopping = useRef(false);
+  const stoppedDisplayIdentity = useRef<string|null>(null);
+  const pendingStopId = useRef<string|null>(null);
   const preparing = useRef<Preparation|null>(null);
   const failedEpoch = useRef<string|null>(null);
+  const errorRegion = useRef<HTMLElement|null>(null);
   const send = (value: object) => {if(socket.current?.readyState===WebSocket.OPEN) socket.current.send(JSON.stringify(value));};
   const command = (op:string, extra:object={}) => {
     const s=current.current;
     if(!s) return;
-    if(op==="stop"){telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;setReady(null);renderer.current?.invalidateWorkbench();}
-    send({op, id:crypto.randomUUID(), revision:s.revision, ticket:s.ticket, capability:capability.current,...extra});
+    const id=crypto.randomUUID();
+    if(["prepare","retry","start"].includes(op))setError("");
+    if(op==="prepare"||op==="retry"){stopping.current=false;stoppedDisplayIdentity.current=null;}
+    if(op==="stop"){
+      if(stopping.current)return;
+      // Keep the last received scene and joint sample visible while the trial closes.
+      // Raw input and force cues must no longer be presented as live.
+      stopping.current=true;stoppedDisplayIdentity.current=identityMailbox.current;rawMailbox.current=null;setFrameStale(true);
+      pendingStopId.current=id;setStopPending(true);
+    }
+    send({op, id, revision:s.revision, ticket:s.ticket, capability:capability.current,...extra});
   };
   useEffect(()=>{
     if(!editingBusy)return;
@@ -91,7 +126,7 @@ export function WorkbenchApp() {
   useEffect(()=>{
     history.replaceState(null,"",location.pathname+location.search);
     let disposed=false;
-    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;identityMailbox.current=telemetryIdentity(current.current,telemetryInvalidation.current);},onError:e=>setError(e.message)});
+    const r=createMujocoSceneRenderer({canvas:canvas.current!,interactionElement:interaction.current!,getScenePanes:()=>scenePanes(canvas.current!),initialCameraView:"operator",profile:null,onStateChange:next=>{stateMailbox.current=next;identityMailbox.current=stopping.current?stoppedDisplayIdentity.current:telemetryIdentity(current.current,telemetryInvalidation.current);},onError:e=>setError(e.message)});
     renderer.current=r;
     // 明示再接続は状態照会だけ。claimもStartも自動送信しない。
     const connect=()=>{
@@ -103,6 +138,7 @@ export function WorkbenchApp() {
       const isCurrent=()=>!disposed && socket.current===ws;
       ws.onopen=()=>{if(!isCurrent()) return;setConnected(true);send({op:"status"});};
       ws.onclose=()=>{if(!isCurrent()) return;claimed.current=false;setOwned(false);setConnected(false);
+        stopping.current=false;stoppedDisplayIdentity.current=null;pendingStopId.current=null;setStopPending(false);
         clearEditor();
         telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench();preparing.current=null;failedEpoch.current=null;setReady(null);readyEpoch.current=null;};
       ws.onerror=()=>{if(isCurrent()) setError("制御接続を確認してください");};
@@ -116,12 +152,15 @@ export function WorkbenchApp() {
             if(current.current?.phase==="ready" && current.current.ticket?.epoch===readyEpoch.current) command("renderer_ready");
           }
           if(message.type==="rejected" || message.error) setError(message.error);
+          if(message.type==="rejected" && pendingStopId.current && message.id===pendingStopId.current && message.op==="stop"){
+            stopping.current=false;stoppedDisplayIdentity.current=null;pendingStopId.current=null;setStopPending(false);
+          }
           const pending=editorPending.current;
           const editorReply=editorReplyIsCurrent(pending,message,socket.current,current.current);
           if(message.type==="rejected" && pending && message.request_id===pending.id) clearEditor();
           if(message.type==="edited_condition" && editorReply && message.generation===current.current?.generation
               && message.ticket?.epoch===current.current?.ticket?.epoch && message.revision===pending!.status.revision+1) {
-            setEdited(message.condition);setSelected(message.condition.preset_id);setDescriptors(message.descriptors);
+            setEdited(message.condition);setSelected(message.condition.preset_id);setSourceFilter(message.condition.configuration.input.provider);setDescriptors(message.descriptors);
             current.current={...current.current!,revision:message.revision};setStatus(current.current);setError("");
             clearEditor();
             if(pending!.export) {
@@ -131,25 +170,31 @@ export function WorkbenchApp() {
           }
           if(message.type==="condition_diff" && editorReply) {setChanges(message.changes);clearEditor();}
           if(message.type==="status") {
-            if(message.ticket?.epoch!==current.current?.ticket?.epoch) setError("");
             if(message.ticket?.epoch!==current.current?.ticket?.epoch || message.generation!==current.current?.generation) rawMailbox.current=null;
-            if(message.generation!==current.current?.generation || message.ticket?.epoch!==current.current?.ticket?.epoch
-              || !["ready","waiting_input","running","terminal"].includes(message.phase)) {
+            const sameTrial=message.generation===current.current?.generation && message.ticket?.epoch===current.current?.ticket?.epoch;
+            const stoppedTrial=mayRetainStoppedDisplay(current.current,message,stopping.current);
+            if((!sameTrial && !stoppedTrial) || (!["ready","waiting_input","running","terminal"].includes(message.phase) && !stoppedTrial)) {
               telemetryInvalidation.current++;identityMailbox.current=null;rawMailbox.current=null;r.invalidateWorkbench(); readyEpoch.current=null; preparing.current=null; failedEpoch.current=null; setReady(null);
             }
+            if(!sameTrial && !stoppedTrial || message.phase==="faulted" || message.phase==="recording_failed") {
+              stopping.current=false;stoppedDisplayIdentity.current=null;pendingStopId.current=null;setStopPending(false);
+            }
+            if(message.phase==="terminal")setStopPending(false);
             if(editorPending.current && !conditionReadIsCurrent(editorPending.current.socket,editorPending.current.status,ws,message)) clearEditor();
             current.current=message;setStatus(message);
             if(message.initial_condition && !initialized.current) {
               initialized.current=true;setEdited(message.initial_condition);setDescriptors(message.initial_descriptors);
+              setSelected(message.initial_condition.preset_id);setSourceFilter(message.initial_condition.configuration.input.provider);
             }
-            if(message.preselected_profile) setSelected(old=>old||message.preselected_profile);
             if(message.ticket?.epoch!==readyEpoch.current) setReady(null);
           }
           if(message.type==="accepted" && current.current) {
+            if(message.id===pendingStopId.current){pendingStopId.current=null;r.invalidateWorkbench();}
             current.current={...current.current,revision:message.revision};
             setStatus(current.current);
           }
           if(message.type==="frame") {
+            if(stopping.current) return;
             const s=current.current;
             if(!s || !s.ticket || s.busy || message.generation!==s.generation || message.ticket.epoch!==s.ticket.epoch) return;
             receivedAt.current=messageReceivedAtMs;setFrameStale(false);
@@ -184,7 +229,7 @@ export function WorkbenchApp() {
     const gamepad=createWorkbenchGamepadLifecycle({window,document,getGamepads:()=>navigator.getGamepads(),
       nowSeconds:()=>performance.now()/1000,
       context:()=>{const s=current.current;return s?.ticket?{epoch:s.ticket.epoch,
-        enabled:!disposed&&!s.busy&&claimed.current&&!s.fixture_mode&&s.input_provider==="gamepad/v1"&&["waiting_input","running"].includes(s.phase)}:null;},
+        enabled:!disposed&&!stopping.current&&!s.busy&&claimed.current&&!s.fixture_mode&&s.input_provider==="gamepad/v1"&&["waiting_input","running"].includes(s.phase)}:null;},
       publish:(message,pads)=>{
         const s=current.current;if(!s?.ticket) return;
         const observed=browserGamepadDisplay(pads,performance.now());
@@ -203,8 +248,25 @@ export function WorkbenchApp() {
       socket.current?.close();socket.current=null;r.dispose();delete (window as any).__workbenchCounters;};
   },[]);
   const active=!!status && ["waiting_input","running","finalizing"].includes(status.phase);
-  const notice=workbenchNotice(status,error);
+  const rawNotice=error||workbenchNotice(status,"");
+  const notice=rawNotice==="operator_abort"&&!error?"":rawNotice;
+  useEffect(()=>{if(notice)errorRegion.current?.focus();},[notice]);
   const busy=!!status?.busy;
+  const sourceName=(provider:string|null|undefined)=>provider==="selfrionette-device/v1"?"Selfrionette":provider==="gamepad/v1"?"Gamepad":"未適用";
+  const sameCondition=(a:unknown,b:unknown):boolean=>{
+    const canonical=(v:any):any=>Array.isArray(v)?v.map(canonical):v&&typeof v==="object"?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    return !!a&&!!b&&JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+  };
+  const pendingSelection=!selected||selected!==status?.profile_id||sourceFilter!==status?.input_provider||nextMode!==status?.session_mode||!sameCondition(edited,status?.applied_condition);
+  const phaseLabel=status?.session_mode==="demo"&&["terminal","finalizing"].includes(status.phase)?"デモ停止・実験記録なし":phases[status?.phase??"unselected"]??status?.phase;
+  useEffect(()=>{const dialog=settingsDialog.current;if(!dialog)return;
+    if(screen!=="operate"&&!dialog.open)dialog.showModal();
+    if(screen==="operate"&&dialog.open)dialog.close();},[screen]);
+  useEffect(()=>{if(screen==="advanced")advancedBack.current?.focus();if(screen==="setup"&&previousScreen.current==="advanced")advancedButton.current?.focus();previousScreen.current=screen;},[screen]);
+  useEffect(()=>{if(status?.phase!=="ready"||status.busy)return;
+    setToast(status.session_mode==="demo"?"デモの準備ができました。実験記録は保存しません。":"実験の準備ができました。");
+    const timer=window.setTimeout(()=>setToast(""),4000);return ()=>window.clearTimeout(timer);
+  },[status?.ticket?.epoch,status?.phase,status?.busy]);
   return <main className="workbench operation-shell" data-screen={screen}>
     <header><h1>Xpotato-Sim 実験Workbench</h1><p>有限試行 · simulation-only · ロボット出力なし</p>
       <span>{connected?"接続中":"未接続"} / {owned?"操作権あり":"閲覧のみ"}</span>
@@ -213,37 +275,69 @@ export function WorkbenchApp() {
     </header>
     <nav className="operation-controls" aria-label="試行操作">
       <div className="operation-controls__actions">
-      <button disabled={active||busy} onClick={()=>setScreen("setup")} aria-pressed={screen==="setup"}>設定・準備</button>
-      <button disabled={screen==="setup"&&(!ready||!["ready","terminal"].includes(status?.phase??""))} onClick={()=>setScreen("operate")} aria-pressed={screen==="operate"}>操作画面へ</button>
-      <button className="primary-control" disabled={screen!=="operate"||!owned||busy||editingBusy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch||!!status.device_input&&!status.device_input.ready} onClick={()=>command("start")}>開始</button>
-      <button disabled={!owned||busy||editingBusy||status?.phase!=="terminal"} onClick={()=>{setReady(null);command("retry");}}>同じ条件で再試行</button>
-      <button aria-pressed={layout==="single"} onClick={()=>setLayout("single")}>Single</button>
-      <button aria-pressed={layout==="assist"} onClick={()=>setLayout("assist")}>Assist</button>
-      <span>{status?.busy_operation==="stop"?"停止要求中":status?.phase==="finalizing"?"保存中":phases[status?.phase??"unselected"]??status?.phase} · simulation {status?.simulation_time_s?.toFixed(2)??"—"} s</span>
-      <span aria-label="実行速度">{workbenchTimingLabel(status)}</span>
+       <button className={toolbarControl} ref={settingsButton} disabled={active||busy} onClick={()=>setScreen("setup")} aria-haspopup="dialog">入力・条件を設定</button>
+      <button className={`primary-control ${toolbarControl}`} disabled={pendingSelection||!owned||busy||editingBusy||status?.phase!=="ready"||!status.renderer_ready||ready!==status.ticket?.epoch||!!status.device_input&&!status.device_input.ready} onClick={()=>command("start",{requested_condition:edited,requested_session_mode:nextMode})}>開始</button>
+      <button className={toolbarControl} disabled={!owned||busy||editingBusy||status?.phase!=="terminal"} onClick={()=>{setReady(null);command("retry");}}>同じ条件で再試行</button>
+        <label>表示<select className={toolbarControl} aria-label="補助ビュー" value={layout} onChange={e=>setLayout(e.target.value as ViewLayout)}><option value="single">主ビュー</option><option value="assist">補助ビューを表示</option></select></label>
+      <span>{status?.busy_operation==="stop"?"停止要求中":phaseLabel} · simulation {status?.simulation_time_s?.toFixed(2)??"—"} s</span>
       </div>
-      <button className="stop-control" disabled={!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
+      <button className={`stop-control ${toolbarControl}`} disabled={stopPending||!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button>
     </nav>
-    {notice && <p className="operation-warning" role="alert">{notice}</p>}
-    {error && error!==notice && <p role="alert">要求・接続の診断: {error}</p>}
-    {screen==="setup" && <section className="workbench-controls">
-      <label>次の条件<select aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;setSelected(e.target.value);setEdited(null);setChanges([]);if(e.target.value) editRequest("clone",{profile_id:e.target.value});}}>
-        <option value="">profileを選択してください</option>
-        {status?.profiles.map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}
+    <div className="workbench-session-status" role="status"><strong>{status?.session_mode==="demo"?"デモ：実験データの取得・保存なし":status?.profile_id?"実験：開始後に記録":"未準備：入力と条件を設定"}</strong><span>適用中: {status?.profile_id??"なし"}</span><span>{formatWorkbenchRtf(status?.phase,status?.execution_timing?.actual_rtf,status?.execution_timing?.rtf_window_s)}</span></div>
+    {toast&&!notice&&<p className="workbench-toast" role="status">{toast}</p>}
+    {notice&&screen==="operate" && <section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+      <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認し、検証・準備からやり直してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
+      <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
+    </section>}
+    <dialog ref={settingsDialog} className={`workbench-settings-dialog${screen==="advanced"?" workbench-settings-dialog--advanced":""}`} aria-label={screen==="advanced"?"詳細設定と診断":"入力と条件の設定"} onCancel={()=>setScreen("operate")} onClose={()=>{setScreen("operate");settingsButton.current?.focus();}}>
+      <header><h2>{screen==="advanced"?"詳細設定・実験条件・診断":"入力と条件の設定"}</h2><div>{screen==="advanced"&&<button ref={advancedBack} onClick={()=>setScreen("setup")}>基本設定へ戻る</button>}<button className="stop-control" disabled={stopPending||!owned||(!active&&!busy&&status?.phase!=="ready")} onClick={()=>command("stop")}>停止を要求</button><button onClick={()=>setScreen("operate")}>閉じる</button></div></header>
+      {screen!=="advanced"?<>
+      <p className="settings-flow">1. モード・入力を選ぶ → 2. 条件を選ぶ → 3. 検証・準備 → 4. 閉じて開始</p>
+      <section className="workbench-controls" aria-label="次の実行の設定">
+      <label>次の実行モード<select className={dialogControl} aria-label="次の実行モード" value={nextMode} disabled={active||busy||!owned}
+        onChange={e=>setNextMode(e.target.value as "experiment"|"demo")}>
+        <option value="demo">デモ（実験データを取得・保存しない）</option><option value="experiment">実験（開始から記録）</option>
       </select></label>
-      <button disabled={!owned||!selected||active||busy||editingBusy} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,...(edited?{condition:edited}:{})});}}>検証・準備</button>
-      <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phases[status?.phase??"unselected"]??status?.phase}</p>
+      <label>入力ソースを選び直す<select className={dialogControl} aria-label="入力ソースを選び直す" value={sourceFilter} disabled={active||busy||editingBusy||!owned}
+        onChange={e=>{const provider=e.target.value;setSourceFilter(provider);if(status?.profiles.find(p=>p.id===selected)?.input_bindings&&edited)editRequest("bind",{condition:edited,input_provider:provider});else {setSelected("");setEdited(null);}}}>
+        <option value="gamepad/v1">Gamepad（接続と新しい中立が必要）</option>
+        <option value="selfrionette-device/v1">Selfrionette（正規profile・接続設定が必要）</option>
+        <option disabled>Keyboard：有限共同runtimeのsession入力に未対応</option>
+      </select></label>
+      <label>タスク・条件<select className={dialogControl} aria-label="次の条件" value={selected} disabled={active||busy||editingBusy||!owned} onChange={e=>{if(editorPending.current)return;const id=e.target.value;const profile=status?.profiles.find(p=>p.id===id);setSelected(id);setEdited(null);setChanges([]);if(!profile?.input_bindings&&profile?.input_provider)setSourceFilter(profile.input_provider);if(id)editRequest("clone",{profile_id:id,...(profile?.input_bindings?{input_provider:sourceFilter}:{})});}}>
+        <option value="">profileを選択してください</option>
+        <optgroup label="共通タスク">{status?.profiles.filter(p=>p.input_bindings).map(p=><option key={p.id} value={p.id} disabled={!p.available}>{p.id==="tasks/research-spring"?"押込ばね操作":p.id==="tasks/dynamic-cube-push"?"キューブ押し":p.id==="tasks/dynamic-cube-drop"?"キューブ落下":"固定面接触"}{p.available?"":` — 利用不可: ${p.reason}`}</option>)}</optgroup>
+        {status?.profiles.filter(p=>!p.input_bindings&&p.id===selected).map(p=><optgroup key={p.id} label="読み込んだ既存profile（入力方式を含む）"><option value={p.id} disabled={!p.available}>{p.id}（{p.input_provider==="gamepad/v1"?"Gamepad":p.input_provider==="selfrionette-device/v1"?"Selfrionette":"入力固定"}）{p.available?"":` — 利用不可: ${p.reason}`}</option></optgroup>)}
+      </select></label>
+      <button className={dialogControl} disabled={!owned||!selected||!edited||edited.configuration.input.provider!==sourceFilter||active||busy||editingBusy||sourceFilter==="selfrionette-device/v1"&&!status?.fixture_mode&&!status?.device_connection?.configured} onClick={()=>{setError("");setReady(null);command("prepare",{profile_id:selected,session_mode:nextMode,...(edited?{condition:edited}:{})});}}>検証・準備</button>
+      </section>
+      <div className="settings-scroll" tabIndex={0} aria-label="接続案内と詳細">
+      {notice&&screen==="setup"&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}>
+        <p>{notice.includes("input_wait_timeout")?`${sourceName(status?.input_provider)}の新しい中立入力を確認できず停止しました。接続と準備を確認してください。`:notice.includes("--device-config")?notice.split(": ").slice(1).join(": "):notice}</p>
+        <details><summary>技術的な診断</summary><pre>{notice}</pre></details>
+      </section>}
+      <p role="status">適用モード: {status?.session_mode==="demo"?"デモ：実験記録なし":status?.profile_id?"実験：開始で記録":"未準備"}。モード変更は停止後の検証・準備で適用します。</p>
+      <p className="source-status" role="status">要求: {sourceName(sourceFilter)} / {nextMode==="demo"?"デモ":"実験"} → 適用: {sourceName(status?.input_provider)} / {status?.profile_id?status.session_mode==="demo"?"デモ":"実験":"未準備"}{pendingSelection?"（未適用：検証・準備が必要）":"（適用済み）"}</p>
+      {!!status?.profiles.find(p=>p.id===selected)?.input_bindings&&<p>入力切替では identity と mapping を登録 binding の初期値に戻します。実機では正規の校正値を再入力・検証し、準備し直してください。</p>}
+      {sourceFilter==="selfrionette-device/v1"&&<section className="device-first-run" aria-label="Selfrionette初回設定">
+        <h3>Selfrionetteを初めて使う場合</h3>
+        <ol><li>Device Managerで個体のsetupと個人校正を完了し、正規の校正profileとstable ID・revisionを確認する。校正fileだけのコピーでは元のsetup recordを代替できません。</li>
+          <li>下のタスク・条件を選び、詳細設定で実測identity・校正revisionを反映して検証し、条件をexportする。すべての共通タスクの同梱 Selfrionette binding は合成 fixture であり、実機に使用しない。</li>
+          <li>接続設定のひな形に、既存のDevice CLIの絶対path、各roleのportと校正profileの絶対pathを記入する。ひな形は空欄で、記入前には起動できません。</li>
+          <li>二つのJSONのpathをroot .envの XPOTATO_CONDITION / XPOTATO_DEVICE_CONFIG に設定し、just runを再起動する。接続・tare・neutral・profile適用は画面で個別に確認する。</li></ol>
+        <button disabled={!edited} onClick={saveConnectionTemplate}>接続設定の未完成ひな形を保存</button>
+        <p>接続設定: {status?.device_connection?.configured?`指定済み（${status.device_connection.roles.join(" / ")}）。接続確認は別途必要です。`:"未指定。上の手順を完了するまで開始できません。"}</p>
+      </section>}
+      <p>適用中: {status?.profile_id??"なし"} / {busy?"処理受付済み・完了待ち":phaseLabel}</p>
+      <details><summary>適用条件・描画の詳細</summary>
       <p>適用condition: {status?.ticket?.condition_sha256??"なし"} / 次の編集条件: {edited?.preset_id??"未選択"}</p>
       <p>描画: {ready?"初期scene・shader準備済み":"準備待ち"} / 入力: {status?.fixture_mode?"明示software検証fixture":status?.input_provider==="selfrionette-device/v1"?"Deviceの個別準備後、開始時に新しい中立入力を確認":"開始後にGamepadの新しい中立入力を確認"}</p>
       <p>simulation時間 {status?.simulation_time_s??0} s · tick {status?.ticks??0} · epoch {status?.ticket?.epoch??"なし"}</p>
-      {notice && <p role="alert">{notice}</p>}
-    </section>}
-    {screen==="setup"&&<DeviceInputPanel value={status?.device_input} enabled={owned&&!busy&&!editingBusy&&status?.phase==="ready"}
-      onAction={(role,action,phase)=>command("device",{role,action,confirmed:true,observed_phase:phase})}/>}
-    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)}
-      connected={connected} ready={ready} frameStale={frameStale} phase={status?.phase} inputProvider={status?.input_provider}
-      canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
-      {screen==="setup" && <aside className="setup-inspector"><ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
+      </details>
+    <DeviceInputPanel value={status?.device_input} enabled={owned&&!busy&&!editingBusy&&status?.phase==="ready"}
+      onAction={(role,action,phase)=>command("device",{role,action,confirmed:true,observed_phase:phase})}/>
+      <button ref={advancedButton} className="advanced-entry" onClick={()=>setScreen("advanced")}>詳細設定・実験条件・診断を開く</button>
+      </div></>:<div className="advanced-scroll" tabIndex={0} aria-label="詳細設定の内容"><p>編集は基本設定へ戻っても保持されます。適用には検証・準備が必要です。</p>{notice&&<section ref={errorRegion} className="operation-warning" role="alert" aria-live="assertive" tabIndex={-1}><p>{notice}</p></section>}<ConditionEditor condition={edited} descriptors={descriptors} onChange={c=>{if(!editorPending.current)setEdited(c);}} disabled={!owned||active||busy||editingBusy||status?.phase==="recording_failed"}
         onError={setError} onValidate={()=>editRequest("edit",{condition:edited})} onImport={async file=>{
           const pending=beginEditor();if(!pending) return;
           const captured=pending.status;const ws=pending.socket;
@@ -261,9 +355,13 @@ export function WorkbenchApp() {
         {changes.length>0 && <ul aria-label="条件差分">{changes.map((d,i)=><li key={i}>{d.path.join(".")}: {JSON.stringify(d.before)} → {JSON.stringify(d.after)}</li>)}</ul>}
         <WorkbenchDetails stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={telemetryIdentity(status,telemetryInvalidation.current)} connected={connected}
           live={connected&&!!ready&&!frameStale&&["waiting_input","running"].includes(status?.phase??"")} status={status}/>
-        <h2>保存結果（最新32件）</h2>{status?.results.map(result=><article key={result.trial_id}>
+        <details><summary>過去の実験保存結果（最新32件・デモとは別）</summary>{status?.results.map(result=><article key={result.trial_id}>
           <strong>{result.runner_stop_reason}</strong><p>{result.trial_id}</p><p>{result.ticks} ticks / 記録 {result.recording}</p>
-        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></aside>}
+        </article>)}<p>結果はresult rootのtrial別記録に保持されます。課題未評価を成功と補完しません。</p></details></div>}
+    </dialog>
+    <div className="workbench-body"><WorkbenchInstruments stateMailbox={stateMailbox} rawMailbox={rawMailbox} identityMailbox={identityMailbox} identity={stopping.current?stoppedDisplayIdentity.current:telemetryIdentity(status,telemetryInvalidation.current)}
+      connected={connected} ready={ready} frameStale={frameStale||stopping.current&&status?.phase!=="terminal"} stopping={stopping.current} phase={status?.phase} inputProvider={status?.input_provider}
+      canvas={canvas} interaction={interaction} renderer={renderer} layout={layout}/>
     </div>
   </main>;
 }
@@ -271,7 +369,7 @@ export function WorkbenchApp() {
 type ViewerState = ReturnType<typeof createInitialProductViewerState>;
 type Telemetry = {identityMailbox:RefObject<string|null>;identity:string|null;stateMailbox:RefObject<ViewerState>;rawMailbox:RefObject<BrowserGamepadDisplay|null>};
 /** 計器だけが10Hzで購読し、setup/editorと入力送信を再描画しない。 */
-function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;phase?:string;inputProvider?:string|null;
+function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|null;frameStale:boolean;stopping:boolean;phase?:string;inputProvider?:string|null;
   canvas:RefObject<HTMLCanvasElement|null>;interaction:RefObject<HTMLDivElement|null>;
   renderer:RefObject<MujocoSceneRenderer|null>;layout:ViewLayout}) {
   const [sample,setSample]=useState(()=>({state:props.stateMailbox.current,raw:props.rawMailbox.current,identity:props.identityMailbox.current}));
@@ -281,13 +379,15 @@ function WorkbenchInstruments(props:Telemetry & {connected:boolean;ready:string|
   const state=valid?sample.state:createInitialProductViewerState(),raw=valid?sample.raw:null;
   const groups=jointRailGroups(state.jointLayout,state.modelContractVersion);
   const left=groups.find(g=>g.id!=="right"),right=groups.find(g=>g.id==="right");
-  const invalid=!valid?"別epoch / 無効":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
+  const invalid=!valid?"別epoch / 無効":!props.connected?"未接続":!props.ready?"別epoch / 準備待ち":props.frameStale&&!props.stopping&&props.phase!=="terminal"?"更新停止":state.qposStatus!=="ready"?"invalid / 未取得":undefined;
   return <div className="operation-workspace" data-left={!!left} data-right={!!right} data-force-comparison={state.forcePresentation.comparison}>
-    {left&&<aside className="joint-rail joint-rail--left" aria-label={left.label}><h2>{left.label}</h2><JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <aside className="joint-rail joint-rail--left" aria-label={left?.label??"左側計器"}><h2>{left?.label??"左側計器"}</h2>{left?<JointInstruments state={state} names={left.names} unavailable={invalid} terminal={props.phase==="terminal"||props.stopping} terminalLabel="最終受信"/>:<p>{props.ready?"対象なし":"準備待ち"}</p>}</aside>
     <SceneViewport canvas={props.canvas} interaction={props.interaction} renderer={props.renderer} layout={props.layout} visible={!!props.ready}/>
-    {right&&<aside className="joint-rail joint-rail--right" aria-label={right.label}><h2>{right.label}</h2><JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"}/></aside>}
+    <aside className="joint-rail joint-rail--right" aria-label={right?.label??"右側計器"}><h2>{right?.label??"右側計器"}</h2>{right?<JointInstruments state={state} names={right.names} unavailable={invalid} terminal={props.phase==="terminal"||props.stopping} terminalLabel="最終受信"/>:<p>{props.ready?"対象なし":"準備待ち"}</p>}</aside>
     <InputStrip state={state} raw={raw} selected={inputKind(props.inputProvider)} live={props.connected&&!!props.ready&&!props.frameStale&&["waiting_input","running"].includes(props.phase??"")}/>
-    <ForceCuePanel value={state.forcePresentation}/>
+    <div className="force-cue-slot" aria-label="力表示領域">
+      {props.stopping?<p>力表示は停止しています。最後の値を現在の力として表示しません。</p>:state.forcePresentation.comparison?<ForceCuePanel value={state.forcePresentation}/>:<p>力表示は条件の準備後に表示します</p>}
+    </div>
   </div>;
 }
 /** 展開中だけ4Hzで詳細を取得する。折り畳み時は詳細JSXも生成しない。 */

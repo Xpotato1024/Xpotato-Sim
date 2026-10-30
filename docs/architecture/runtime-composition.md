@@ -1,7 +1,7 @@
 ---
 status: canonical
 owner: architecture
-last_verified: 2026-10-19
+last_verified: 2026-10-26
 canonical_for:
   - runtime composition root
 related:
@@ -14,6 +14,11 @@ related:
 ---
 
 # runtime composition
+
+一自由度のばね条件・解析的軸力観測は `runtime/scene/spring.py`、既存MJCF投影とhomeは
+`scene/composition.py` と `scene/world_composition.py` が所有する。追加のphysics loopを作らない。
+有限試行内の連続記録は `experiment/continuous_record.py` が所有し、表示projectionとは独立する。
+TrialRunnerはexperimentだけでこのownerを作り、demoでは一時実行状態だけを保持する。
 
 接近速度の独立比較（#632）は、`ModelExecution`が中立による初期化と各commitの直後に
 取得した同一worldのraw接触観測を次commandへ渡す。`runtime/scene/command_mapping.py`が

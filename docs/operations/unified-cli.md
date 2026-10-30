@@ -40,7 +40,7 @@ sourceだけの変更はbuild、依存定義・lock変更や準備不一致はse
 GUI/control serverは`workbench`、構造化editorはWorkbenchへ接続済み。正式な全metric artifactは#584の範囲である。
 
 ```powershell
-uv run xpotato-sim trial --profile dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root <保存先> --ticks 4 --software-revision <実行sourceのrevision>
+uv run xpotato-sim trial --profile tasks/dynamic-cube-drop --fixture tests/fixtures/trial_gamepad/short-movement.json --result-root <保存先> --ticks 4 --software-revision <実行sourceのrevision>
 ```
 
 保存先・fixture・tick予算・software revisionは必須。既存の`profile`、`app`、`viewer`、`replay`の意味は変えない。
@@ -91,13 +91,13 @@ CLI behaviorを維持する。
 ## 起動設定の検査
 
 `uv run xpotato-sim profile`でcheckoutの起動profileを一覧表示し、
-`uv run xpotato-sim profile sim-gamepad`で検証・解決済み設定をJSON表示する。
+`uv run xpotato-sim profile examples/sim-gamepad`で検証・解決済み設定をJSON表示する。
 この操作はSource、model、サーバー、ブラウザを開始しない。
 JSONの仕様とpath解決は`docs/contracts/launch-profile.md`を参照する。
 
 ## 統一起動
 
-`uv run xpotato-sim app --profile sim-gamepad`はprofileからWeb/backendを起動する。
+`uv run xpotato-sim app --profile examples/sim-gamepad`はprofileからWeb/backendを起動する。
 `--check`は依存と設定だけ、`--startup-check`はloopback serverの起動/終了だけを検証する。
 profileにrobotが明記されるので、このsubcommandに別の`--robot`はない。
 既存replay/viewerの選択肢と引数は維持する。手順は`backend-viewer-startup.md`を参照する。
@@ -131,7 +131,7 @@ Workbenchの全option・単位・必須/任意・組合せとcopy/paste初期起
 | `viewer` | `--preset`, `--input-source` | 任意・なし | presetは`sweep_x`。sourceは上記3種と`viewer` |
 
 ```powershell
-uv run xpotato-sim app --profile sim-gamepad --check
+uv run xpotato-sim app --profile examples/sim-gamepad --check
 uv run xpotato-sim replay --robot fast_arm --steps 3 --preset sweep_x
 uv run xpotato-sim viewer --robot fast_arm --host 127.0.0.1 --port 8766 --steps 3
 ```

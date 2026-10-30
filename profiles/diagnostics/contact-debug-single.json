@@ -1,7 +1,7 @@
 {
-  "schema_version": "xpotato-sim-launch-profile/v2",
-  "name": "fast-arm-bimanual-gamepad",
-  "workspace": "..",
+  "schema_version": "xpotato-sim-launch-profile/v3",
+  "name": "contact-debug-single",
+  "workspace": "../..",
   "mode": "simulation",
   "robot": {
     "name": "fast_arm",
@@ -65,15 +65,36 @@
     "open_browser": true
   },
   "model": {
-    "name": "bimanual",
+    "name": "single_original",
     "version": 1
   },
   "coordination": {
     "side_to_endpoint": {
-      "left": "left",
-      "right": "right"
+      "left": "arm"
     },
-    "epoch": "fast-arm-bimanual-gamepad-1",
+    "epoch": "contact-debug-single-1",
     "max_input_age_s": 0.2
+  },
+  "environment": {
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "parameters": {
+      "preset": "cube_original"
+    },
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "task": {
+    "plugin": {
+      "name": "contact_observation_task",
+      "version": 1
+    },
+    "parameters": {
+      "target_object_ids": [
+        "cube_front"
+      ],
+      "duration_s": 60.0
+    }
   }
 }

@@ -8,6 +8,13 @@ export function telemetryIdentity(status:{ticket:{epoch:string}|null;generation:
 export function telemetryIsCurrent(sample:string|null,mailbox:string|null,current:string|null,connected:boolean):boolean {
   return connected&&current!==null&&sample===current&&mailbox===current;
 }
+/** A stop increments backend generation while keeping the trial ticket. Only a
+ * locally requested stop may retain the last displayed frame; a new epoch never may. */
+export function mayRetainStoppedDisplay(previous:{ticket:{epoch:string}|null}|null,
+  next:{ticket:{epoch:string}|null;phase:string},stopping:boolean):boolean {
+  return stopping && !!next.ticket && next.ticket.epoch===previous?.ticket?.epoch
+    && ["running","finalizing","terminal"].includes(next.phase);
+}
 
 /** socket/sceneの同一性を非同期処理の開始時に固定する。 */
 export type Preparation = {socket: object; epoch: string; generation: number};

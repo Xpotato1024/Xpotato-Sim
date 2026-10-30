@@ -1,0 +1,50 @@
+{
+  "schema_version": "xpotato-sim-task-template/v1",
+  "robot": {
+    "name": "fast_arm",
+    "version": 1
+  },
+  "model": {
+    "name": "bimanual",
+    "version": 1
+  },
+  "execution": {
+    "steps": 18000,
+    "dt_s": 0.016666666666666666,
+    "interval_s": 0.016666666666666666,
+    "grace_period_s": 60,
+    "dynamics": {
+      "schema_version": "dynamics-settings/v1",
+      "semantics": "coordinated_actuator_servo_dynamic/v1",
+      "physics_dt_s": 0.0016666666666666668,
+      "integrator": "implicitfast",
+      "solver": "Newton",
+      "iterations": 50,
+      "tolerance": 1e-10,
+      "max_joint_speed_rad_s": 10.0,
+      "max_tracking_error_rad": 0.75
+    }
+  },
+  "environment": {
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "parameters": {
+      "preset": "cube_push"
+    },
+    "robot_collision_profile": "tool_sphere_10mm/v1"
+  },
+  "task": {
+    "plugin": {
+      "name": "contact_observation_task",
+      "version": 1
+    },
+    "parameters": {
+      "target_object_ids": [
+        "cube"
+      ],
+      "duration_s": 60.0
+    }
+  }
+}

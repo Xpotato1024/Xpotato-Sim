@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,5 +31,5 @@ export default defineConfig({
       input: resolve(appRoot, "index.html"),
     },
   },
-  plugins: [createViewerPackageResourcePlugin(repoRoot), react(), buildIdentity(appRoot)],
+  plugins: [createViewerPackageResourcePlugin(repoRoot), react(), tailwindcss(), buildIdentity(appRoot)],
 });
