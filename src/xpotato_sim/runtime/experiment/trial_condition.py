@@ -41,8 +41,14 @@ def _selection(value):
 
 def resolve_trial_profile(profile: LaunchProfile) -> LaunchProfile:
     """実効fieldを既存decoderで再検証する。元JSONは来歴以外の正本にしない。"""
+    from xpotato_sim.runtime.composition.scene_only_profile import SceneOnlyProfile, decode_scene_only_profile
+    if type(profile) is SceneOnlyProfile:
+        parsed=decode_scene_only_profile(json.loads(profile.document_json), source_path=profile.source_path)
+        if parsed.scene_plan.manifest.digest != profile.scene_plan.manifest.digest or parsed.scene_plan.dynamics != profile.scene_plan.dynamics:
+            raise ValueError("scene-only effective conditions differ from their saved profile")
+        return parsed
     if type(profile) is not LaunchProfile or profile.model is None:
-        raise ValueError("finite trial requires a named-model LaunchProfile v2/v3/v4; v1 unsupported")
+        raise ValueError("finite trial requires a named-model LaunchProfile v2/v3/v4; v1 unsupported (or a scene-only v5)")
     origin = json.loads(profile.document_json)
     # scene providerのidentityだけはcatalogで照合し、任意objectへ差替えさせない。
     scene = profile.scene_plan
@@ -91,6 +97,16 @@ def semantic_parameters(profile, limits):
     if type(limits) is not TrialLimits or not isfinite(limits.max_ticks * profile.dt_s):
         raise ValueError("finite trial limits required")
     scene = profile.scene_plan
+    from xpotato_sim.runtime.composition.scene_only_profile import SceneOnlyProfile
+    if type(profile) is SceneOnlyProfile:
+        return {"schema_version":"trial-condition/v2", "robot":None, "model":None,
+                "input":None, "mapping":None, "task":None, "evaluation":None,
+                "route":profile.route.canonical_id, "environment":json.loads(profile.document_json)["environment"]["plugin"],
+                "scene":scene.manifest.to_document(), "scene_digest":scene.manifest.digest,
+                "physics":scene.dynamics.to_document(), "dt_s":profile.dt_s,
+                "limits":asdict(limits), "simulation_budget_s":limits.max_ticks*profile.dt_s,
+                "physical_output":"disabled", "display_comparison":None,
+                "command_mapping":None, "force_signal":None}
     registration = profile.model_registration()
     return {
         "schema_version": "trial-condition/v1",

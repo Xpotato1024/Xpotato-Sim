@@ -1,0 +1,26 @@
+{
+  "definition_id": "simulation_ball_10mm",
+  "version": 1,
+  "geometry": {
+    "type": "sphere",
+    "radius_m": 0.01
+  },
+  "inertia": {
+    "mode": "uniform_sphere",
+    "mass_kg": 0.05
+  },
+  "surface": {
+    "sliding_friction": 0.8,
+    "torsional_friction_m": 0.0,
+    "rolling_friction_m": 0.0
+  },
+  "appearance": {
+    "rgba": [
+      0.18,
+      0.65,
+      0.88,
+      1
+    ]
+  },
+  "provenance": "simulation example, not an identified material"
+}

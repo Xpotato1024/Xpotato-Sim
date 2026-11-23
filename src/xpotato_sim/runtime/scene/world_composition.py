@@ -4,6 +4,7 @@ import mujoco
 import numpy as np
 from .objects import ObjectSceneManifest
 from xpotato_sim.runtime.execution.physics import DynamicsSettings
+from xpotato_sim.runtime.execution.scene_physics import ScenePhysicsSettings
 
 
 def values(seq):
@@ -12,7 +13,7 @@ def values(seq):
 
 def configure_world(tree, manifest: ObjectSceneManifest, settings: DynamicsSettings | None):
     """新worldにはRobot所有floorを混入せず、global optionを一回だけ確定する。"""
-    if manifest.world is None or (settings is not None and type(settings) is not DynamicsSettings):
+    if manifest.world is None or (settings is not None and type(settings) not in (DynamicsSettings, ScenePhysicsSettings)):
         raise ValueError("explicit world and typed integration settings required")
     if tree.find("option") is not None:
         raise ValueError("world/Execution cannot silently override a Robot global option")
@@ -20,7 +21,9 @@ def configure_world(tree, manifest: ObjectSceneManifest, settings: DynamicsSetti
     if settings is not None:
         options.update(timestep=str(settings.physics_dt_s),integrator=settings.integrator,
             solver=settings.solver,iterations=str(settings.iterations),tolerance=str(settings.tolerance),cone="elliptic")
-    ET.SubElement(tree,"option",options)
+    option=ET.SubElement(tree,"option",options)
+    if type(settings) is ScenePhysicsSettings:
+        ET.SubElement(option,"flag",{"speculative":"enable" if settings.speculative else "disable"})
     cp=manifest.contact
     world=tree.find("worldbody")
     if world is None:
@@ -40,9 +43,10 @@ def finalize_home(tree, source_xml, assets, manifest):
     source=mujoco.MjModel.from_xml_string(source_xml.decode(),dict(assets))
     data=mujoco.MjData(source)
     key=mujoco.mj_name2id(source,mujoco.mjtObj.mjOBJ_KEY,"home")
-    if key<0:
+    if key < 0 and (source.njnt != 0 or source.nu != 0):
         raise ValueError("Robot source home keyframe required")
-    mujoco.mj_resetDataKeyframe(source,data,key)
+    if key >= 0:
+        mujoco.mj_resetDataKeyframe(source,data,key)
     # 新worldのRobotはbare MJCF。includeに別keyframeを残して黙って上書きしない。
     if tree.findall("include"):
         raise ValueError("explicit world requires composed Robot XML, not an implicit base scene")

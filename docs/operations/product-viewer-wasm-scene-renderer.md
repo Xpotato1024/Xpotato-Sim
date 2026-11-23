@@ -375,3 +375,14 @@ Python nativeの`mujoco`とViewerの`@mujoco/mujoco`を4.0.0に固定する。pa
 WASMだけの更新でnativeの物理計算が速くなったとは扱わず、描画専用の境界を維持する。
 実installed WASMのversion、`mj_fwdKinematics`、model/pose/scene同期の既存テストで4.0.0を検証する。
 過去のfixture生成元3.9.0などの来歴は、実行版へ機械的に書き換えない。
+
+## Scene単独trialのraw video出力（2026-11-11）
+
+`scripts/viewer/export_trial_video.py» は検証済み試行のcondition versionにより
+Robotつきv1は従来WASM/Three.js raw-videoへ、Scene単独v2はnative MuJoCo描画へ接続する。
+後者は `mj_setState» で塑性を含む記録済みintegration stateを復元し、
+描画用 `mj_forward» のみを実施、`mj_step» は呼ばない。
+共通CLIからMP4、明示 `--gif» のGIF、明示 `--webm» のWebMを
+同一フレーム列から作り、model/condition/source/媒体hashをsidecarに保存する。
+物理再実行・frame補間・既存ファイル上書きを行わない。
+native成功をブラウザWASMのRobotなし対応完了とは呼ばない。

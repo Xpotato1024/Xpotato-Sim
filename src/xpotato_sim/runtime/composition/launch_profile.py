@@ -225,6 +225,9 @@ def decode_launch_profile(document: bytes, *, source_path: Path) -> LaunchProfil
     if type(raw) is not dict:
         raise ValueError("profile must be a JSON object")
     schema = raw.get("schema_version")
+    if schema == "xpotato-sim-launch-profile/v5":
+        from .scene_only_profile import decode_scene_only_profile
+        return decode_scene_only_profile(raw, source_path=source_path)
     if schema not in (LAUNCH_PROFILE_SCHEMA, MODEL_LAUNCH_PROFILE_SCHEMA, SCENE_LAUNCH_PROFILE_SCHEMA, DYNAMIC_LAUNCH_PROFILE_SCHEMA):
         raise ValueError("unsupported launch profile schema_version")
     model_fields = {"model", "coordination"} if schema in (MODEL_LAUNCH_PROFILE_SCHEMA,SCENE_LAUNCH_PROFILE_SCHEMA,DYNAMIC_LAUNCH_PROFILE_SCHEMA) else set()

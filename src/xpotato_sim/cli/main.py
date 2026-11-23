@@ -137,7 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--startup-check", action="store_true", help="両serverの起動と終了だけを検証")
     trial = commands.add_parser("trial", help="明示Gamepad記録で有限試行を実行・保存する")
     trial.add_argument("--profile", required=True)
-    trial.add_argument("--fixture", type=Path, required=True)
+    trial.add_argument("--fixture", type=Path, help="Robot入力の登録済みfixture。Scene単独profileでは省略する")
     trial.add_argument("--result-root", type=Path, required=True)
     trial.add_argument("--software-revision", required=True, help="実行sourceのrevision（未commit変更も明記）")
     trial.add_argument("--ticks", type=_positive_int, required=True)
@@ -188,8 +188,17 @@ def _run(args: argparse.Namespace) -> int:
         from xpotato_sim.runtime.experiment.trial_fixture import load_trial_fixture
         from xpotato_sim.runtime.runners.finite_trial import run_finite_trial
         limits = TrialLimits(args.ticks, args.input_wait_s, args.wall_s, args.prepare_s)
-        fixture = load_trial_fixture(args.fixture)
-        result = run_finite_trial(load_launch_profile(args.profile), fixture=fixture, limits=limits,
+        profile = load_launch_profile(args.profile)
+        from xpotato_sim.runtime.composition.scene_only_profile import SceneOnlyProfile
+        if type(profile) is SceneOnlyProfile:
+            if args.fixture is not None:
+                raise ValueError("scene-only profile forbids Robot input fixtures")
+            fixture = None
+        else:
+            if args.fixture is None:
+                raise SystemExit("Robot finite trials require an explicit --fixture")
+            fixture = load_trial_fixture(args.fixture)
+        result = run_finite_trial(profile, fixture=fixture, limits=limits,
             result_root=args.result_root, software_revision=args.software_revision).to_document()
         print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
         return 0 if (result["recording"] == "complete"

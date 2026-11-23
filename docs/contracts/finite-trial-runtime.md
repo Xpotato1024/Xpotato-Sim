@@ -257,3 +257,14 @@ workerは`check_freshness=False`でbatch鮮度の最終判断をtickへ委ねる
 空queueでのstale、future、pretrial、clock逆行、不正入力の拒否や旧ticketの境界は維持する。
 STOP/close待ちや64件上限ではtickを延期するが、wall/input-wait監督は先に実行する。
 tick時のstrict freshness、formal Task結果、記録と明示retryの契約は維持する。
+
+## Robotなし有限試行（2026-11-11）
+
+既存 `TrialRunner» のprepare/start/advance/terminal/reset/retry/recordingを共通利用する。
+v5 Scene単独では明示Start後に受動物理tickへ進み、入力・Mapping・Task・Robotはない。
+入力を与えればtechnical_invalid。simulation_budgetをTask successに読み替えない。
+実効条件は `trial-condition/v2»、既存continuous formatに各tickの
+`signals.scene_state_checkpoint_v1» として完全なnative integration stateを保存する。
+解析ではmodel/engine/時刻/qpos/qvel/配列長/条件digestを照合する。
+塑性を含む完全なcheckpointをqposだけで代用しない。
+Robotつき旧condition v1の意味は維持する。

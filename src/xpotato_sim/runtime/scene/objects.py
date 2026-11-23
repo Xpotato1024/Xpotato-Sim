@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .world import WorldPhysics
     from .spring import SpringAxis
+    from .flex import FlexGrid
 
 MAX_OBJECTS = 32
 MAX_SCENE_BYTES = 262144
@@ -86,12 +87,19 @@ class ObjectDefinition:
     friction: tuple[float, float, float]
     rgba: tuple[float, float, float, float]
     provenance: str
+    radius_m: float | None = None
 
     def __post_init__(self):
         identifier(self.definition_id)
         if type(self.version) is not int or self.version < 1:
             raise ValueError("positive definition version required")
-        object.__setattr__(self, "half_extents_m", vector(self.half_extents_m, 3, positive=True))
+        if self.radius_m is not None:
+            radius = number(self.radius_m, positive=True)
+            object.__setattr__(self, "radius_m", radius)
+            # Bounds are retained for legacy geometric consumers; the sphere geom uses radius.
+            object.__setattr__(self, "half_extents_m", (radius, radius, radius))
+        else:
+            object.__setattr__(self, "half_extents_m", vector(self.half_extents_m, 3, positive=True))
         object.__setattr__(self, "mass_kg", number(self.mass_kg, positive=True))
         object.__setattr__(self, "friction", vector(self.friction, 3, nonnegative=True))
         object.__setattr__(self, "rgba", vector(self.rgba, 4, nonnegative=True))
@@ -105,14 +113,19 @@ class ObjectDefinition:
     @property
     def diagonal_inertia_kg_m2(self):
         """均質boxの重心まわり慣性。半寸法を全寸法として誤用しない。"""
+        if self.radius_m is not None:
+            moment = 2 * self.mass_kg * self.radius_m**2 / 5
+            return (moment, moment, moment)
         x, y, z = self.half_extents_m
         return tuple(self.mass_kg / 3 * v for v in (y*y+z*z, x*x+z*z, x*x+y*y))
 
     def to_document(self):
         """意味のある単位名で、質量/外観/表面を別fieldへ保存する。"""
         return {"definition_id": self.definition_id, "version": self.version,
-            "geometry": {"type": "box", "half_extents_m": self.half_extents_m},
-            "inertia": {"mode": "uniform_box", "mass_kg": self.mass_kg},
+            "geometry": ({"type": "sphere", "radius_m": self.radius_m} if self.radius_m is not None else
+                         {"type": "box", "half_extents_m": self.half_extents_m}),
+            "inertia": {"mode": "uniform_sphere" if self.radius_m is not None else "uniform_box",
+                        "mass_kg": self.mass_kg},
             "surface": dict(zip(("sliding_friction", "torsional_friction_m", "rolling_friction_m"), self.friction)),
             "appearance": {"rgba": self.rgba}, "provenance": self.provenance}
 
@@ -120,14 +133,23 @@ class ObjectDefinition:
     def from_document(cls, raw):
         """他の形状・慣性モデルをboxへ暗黙変換しない。"""
         raw = fields(raw, {"definition_id", "version", "geometry", "inertia", "surface", "appearance", "provenance"}, "definition")
-        g = fields(raw["geometry"], {"type", "half_extents_m"}, "geometry")
+        geometry = raw["geometry"]
+        if type(geometry) is not dict:
+            raise ValueError("typed rigid geometry required")
+        kind = geometry.get("type")
+        if kind not in ("box", "sphere"):
+            raise ValueError("only registered box and sphere geometry are supported")
+        g = fields(geometry, {"type", "half_extents_m"} if kind == "box" else {"type", "radius_m"}, "geometry")
         i = fields(raw["inertia"], {"mode", "mass_kg"}, "inertia")
         s = fields(raw["surface"], {"sliding_friction", "torsional_friction_m", "rolling_friction_m"}, "surface")
         a = fields(raw["appearance"], {"rgba"}, "appearance")
-        if g["type"] != "box" or i["mode"] != "uniform_box":
-            raise ValueError("only uniform rigid boxes are supported")
-        return cls(raw["definition_id"], raw["version"], g["half_extents_m"], i["mass_kg"],
-                   tuple(s[k] for k in ("sliding_friction", "torsional_friction_m", "rolling_friction_m")), a["rgba"], raw["provenance"])
+        if i["mode"] != ("uniform_box" if kind == "box" else "uniform_sphere"):
+            raise ValueError("geometry/inertia model mismatch")
+        radius = None if kind == "box" else number(g["radius_m"], positive=True)
+        return cls(raw["definition_id"], raw["version"],
+                   g["half_extents_m"] if kind == "box" else (radius, radius, radius), i["mass_kg"],
+                   tuple(s[k] for k in ("sliding_friction", "torsional_friction_m", "rolling_friction_m")),
+                   a["rgba"], raw["provenance"], radius)
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,10 +257,18 @@ class ObjectSceneManifest:
     objects: tuple[ObjectInstance, ...]
     contact: ContactParameters
     world: WorldPhysics | None = None
+    flexes: tuple[FlexGrid, ...] = ()
 
     def __post_init__(self):
         identifier(self.scene_id)
         from .world import WorldPhysics
+        from .flex import FlexGrid
+        if type(self.flexes) is not tuple or len(self.flexes) > 8 or any(type(f) is not FlexGrid for f in self.flexes):
+            raise ValueError("bounded typed flex components required")
+        if len({f.flex_id for f in self.flexes}) != len(self.flexes):
+            raise ValueError("duplicate flex component identity")
+        if self.flexes and self.world is None:
+            raise ValueError("flex components require an explicit world")
         if self.world is not None and type(self.world) is not WorldPhysics:
             raise TypeError("typed WorldPhysics required")
         if type(self.contact) is not ContactParameters:
@@ -255,6 +285,7 @@ class ObjectSceneManifest:
             raise ValueError("unknown object definition/version")
         object.__setattr__(self, "definitions", tuple(sorted(self.definitions,key=lambda d:(d.definition_id,d.version))))
         object.__setattr__(self, "objects", tuple(sorted(self.objects,key=lambda o:o.instance_id)))
+        object.__setattr__(self, "flexes", tuple(sorted(self.flexes,key=lambda f:f.flex_id)))
 
     def definition_for(self, instance):
         """解決済み参照のみ利用する。"""
@@ -262,10 +293,14 @@ class ObjectSceneManifest:
 
     def to_document(self):
         """instance順序で意味が変わらないcanonical projection。"""
-        return {"schema_version":"object-scene/v1" if self.world is None else "object-scene/v2", "scene_id":self.scene_id,
+        version = ("object-scene/v1" if self.world is None else
+                   "object-scene/v4" if self.flexes else
+                   "object-scene/v3" if any(d.radius_m is not None for d in self.definitions) else "object-scene/v2")
+        return {"schema_version":version, "scene_id":self.scene_id,
                 "definitions":[d.to_document() for d in self.definitions],
                 "objects":[o.to_document() for o in self.objects], "contact":asdict(self.contact),
-                **({} if self.world is None else {"world":self.world.to_document()})}
+                **({} if self.world is None else {"world":self.world.to_document()}),
+                **({"flexes":[f.to_document() for f in self.flexes]} if self.flexes else {})}
 
     @property
     def digest(self):
@@ -273,18 +308,33 @@ class ObjectSceneManifest:
         return sha256(canonical(self.to_document())).hexdigest()
 
 
+def _decode_flexes(values):
+    from .flex import FlexGrid
+    if type(values) is not list or not 1 <= len(values) <= 8:
+        raise ValueError("nonempty bounded flex components required")
+    return tuple(FlexGrid.from_document(v) for v in values)
+
+
 def decode_object_scene(document: bytes) -> ObjectSceneManifest:
     """旧固定scene/v1と明示world/v2の完全展開JSONを区別する。"""
     from .world import WorldPhysics
     raw = strict_json(document)
     version = raw.get("schema_version")
-    if version not in ("object-scene/v1","object-scene/v2"):
+    if version not in ("object-scene/v1","object-scene/v2","object-scene/v3","object-scene/v4"):
         raise ValueError("unsupported object scene schema")
-    fields(raw,{"schema_version","scene_id","definitions","objects","contact"} | ({"world"} if version.endswith("/v2") else set()),"scene")
+    has_world = version != "object-scene/v1"
+    fields(raw,{"schema_version","scene_id","definitions","objects","contact"} |
+           ({"world"} if has_world else set()) |
+           ({"flexes"} if version == "object-scene/v4" else set()),"scene")
+    if version not in ("object-scene/v3","object-scene/v4") and any(type(d) is dict and
+            type(d.get("geometry")) is dict and d["geometry"].get("type") == "sphere"
+            for d in raw["definitions"]):
+        raise ValueError("sphere requires object-scene/v3")
     for key in ("definitions","objects"):
         if type(raw[key]) is not list or len(raw[key])>MAX_OBJECTS:
             raise ValueError("bounded scene array required")
     c=fields(raw["contact"],{"margin_m","condim","solref","solimp","initial_penetration_tolerance_m"},"contact")
     return ObjectSceneManifest(raw["scene_id"],tuple(ObjectDefinition.from_document(d) for d in raw["definitions"]),
-        tuple(ObjectInstance.from_document(o,allow_dynamic=version.endswith("/v2")) for o in raw["objects"]),
-        ContactParameters(**c),None if version.endswith("/v1") else WorldPhysics.from_document(raw["world"]))
+        tuple(ObjectInstance.from_document(o,allow_dynamic=has_world) for o in raw["objects"]),
+        ContactParameters(**c),None if not has_world else WorldPhysics.from_document(raw["world"]),
+        () if version != "object-scene/v4" else _decode_flexes(raw["flexes"]))

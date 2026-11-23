@@ -29,3 +29,8 @@ diagnosticsやdry-runをhardware validationと呼ばない。
 - [hardware safety](../docs/operations/hardware-safety.md)
 
 信号からcontactまでのhardware-free実行は[pre-hardware contract](../docs/contracts/pre-hardware-signal-emulation.md)のCLI手順を参照する。
+
+保存済みtrialの動画出力は既存の `viewer/export_trial_video.py» を使う。
+従来Robot trialはブラウザWASM、RobotなしScene trialは完全native checkpointを復元する
+描画adapterへ委譲する。後者のみ `--gif» / `--webm» と速度を指定できる。
+専用物理loopは追加しない。

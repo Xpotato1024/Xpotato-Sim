@@ -31,3 +31,13 @@ world gravity・支持面・固定/可動boxを同じscene集合で構成する�
 `spring` の剛性・減衰・軸・範囲・初期状態は実機同定値ではない。
 既存のMuJoCo積分・reset・原力観測を共有し、別physics loopや固定面向けcommand gainを使わない。
 解析的ばね力と接触solverのsoftnessは別である。
+
+## 登録済み球体・柔軟体（2026-11-11）
+
+従来のbox・ばねv1/v2の意味は維持する。sphereは半径・質量・一様球慣性・初速度を持つ通常Objectで、
+`object-scene/v3» から構成する。柔軟体は登録済み `resources/flexes/*.json» を
+`flex-grid/v1» として検証し、格子・固定点・Young/Poisson・減衰・降伏を
+`object-scene/v4» のflexとしてMuJoCo flexcompへ渡す。
+高速球や柔軟体のために第二のphysics loopを作らない。
+登録preset `sphere_wall» と `elastic_plastic_sheets» は実材料の同定モデルではない。
+Robotつき既存DynamicsSettingsを柔軟体に合わせて黙って書換えない。

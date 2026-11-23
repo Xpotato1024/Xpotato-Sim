@@ -124,6 +124,13 @@ def export(args):
         raise ValueError("new .mp4 output and sidecar paths required; existing files are never overwritten")
     if output.parent == args.trial.resolve() or args.trial.resolve() in output.parents:
         raise ValueError("output must be outside the immutable trial")
+    from xpotato_sim.runtime.experiment.trial_analysis import load_validated_trial
+    validated = load_validated_trial(args.trial)
+    if validated.analysis()["condition"]["schema_version"] == "trial-condition/v2":
+        from xpotato_sim.runtime.experiment.scene_video_export import export_scene_only_video
+        return export_scene_only_video(args, trial=validated)
+    if getattr(args, "gif", False) or getattr(args, "webm", False) or getattr(args, "speed", 1.0) != 1.0:
+        raise ValueError("GIF/WebM and speed controls require a recorded passive Scene")
     if any(type(v) is not int or not 16 <= v <= 3840 or v % 2 for v in (args.width, args.height)):
         raise ValueError("even image dimensions in [16,3840] required")
     if type(args.fps) is not int or not 1 <= args.fps <= 120:
@@ -253,6 +260,9 @@ def main(argv=None):
     parser.add_argument("--height", type=int, default=1080)
     parser.add_argument("--camera", choices=CAMERAS, default="operator")
     parser.add_argument("--browser", help="Chrome/Edge/Chromium実行file（省略時は既存installを探索）")
+    parser.add_argument("--gif", action="store_true", help="受動Scene試行で同じ記録からGIFも書き出す")
+    parser.add_argument("--webm", action="store_true", help="受動Scene試行でWebMも書き出す")
+    parser.add_argument("--speed", type=float, default=1.0, help="受動Scene動画の再生速度倍率（0.1〜4）")
     export(parser.parse_args(argv))
     return 0
 

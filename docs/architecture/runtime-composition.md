@@ -479,3 +479,12 @@ scene、Task、native physics、表示をimportしない。表示再取得によ
 公式MuJoCoで記録サイトの位置整合を検査し、タスク固有UIを含まないraw描画用姿勢列を出力する。
 入力接続・制御・physics stepは行わない。browserと符号化のprocess所有は`scripts/viewer/export_trial_video.py`、
 描画は既存Viewerの`wasm-scene/offlineVideo.ts`が担当する。
+
+## 受動Scene構成（2026-11-11）
+
+`runtime/composition/scene_only_profile.py» がRobotなし構成を解決し、
+`runtime/execution/scene_physics.py» がRobot servoと独立のphysics条件を所有する。
+`runtime/execution/scene_only.py» は単一MuJoCo model/data/step/resetを既存TrialRunnerへ渡す。
+新しいエンジン・物理ループ・偽Robotは作らない。未対応能力はpreflightで拒否する。
+受動Sceneのrecorded videoは完全integration stateからnative再描画し、stepしない。
+Web Viewer v3のRobotなし表示は未実装で、native出力の成功と混同しない。

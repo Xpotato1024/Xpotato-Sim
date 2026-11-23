@@ -5,6 +5,8 @@ from typing import Protocol, runtime_checkable
 from types import MappingProxyType
 from xpotato_sim.runtime.scene.objects import ObjectSceneManifest, identifier
 from xpotato_sim.runtime.execution.physics import DynamicsSettings
+from xpotato_sim.runtime.execution.scene_physics import ScenePhysicsSettings
+from xpotato_sim.runtime.execution.scene_physics import ScenePhysicsSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +31,8 @@ class ObjectSceneBuildRequest:
     model_assets: Mapping[str, bytes]
     manifest: ObjectSceneManifest
     colliders: tuple[ToolColliderBinding, ...]
-    dynamics: DynamicsSettings | None = None
+    dynamics: DynamicsSettings | ScenePhysicsSettings | None = None
+    scene_only: bool = False
 
     def __post_init__(self):
         """呼出側の可変asset辞書や無効なbindingを保持しない。"""
@@ -37,10 +40,16 @@ class ObjectSceneBuildRequest:
             raise ValueError("UTF-8 model XML bytes required")
         if not isinstance(self.model_assets, Mapping) or any(type(k) is not str or type(v) is not bytes for k,v in self.model_assets.items()):
             raise TypeError("named model asset bytes required")
-        if type(self.manifest) is not ObjectSceneManifest or type(self.colliders) is not tuple or not self.colliders or any(type(c) is not ToolColliderBinding for c in self.colliders):
+        if type(self.manifest) is not ObjectSceneManifest or type(self.colliders) is not tuple or any(type(c) is not ToolColliderBinding for c in self.colliders):
             raise TypeError("typed manifest and collider bindings required")
-        if self.dynamics is not None and type(self.dynamics) is not DynamicsSettings:
+        if type(self.scene_only) is not bool or self.scene_only != (len(self.colliders) == 0):
+            raise ValueError("scene-only must be explicit when no Robot colliders exist")
+        if self.dynamics is not None and type(self.dynamics) not in (DynamicsSettings, ScenePhysicsSettings):
             raise TypeError("typed dynamics settings required")
+        if self.scene_only and type(self.dynamics) is not ScenePhysicsSettings:
+            raise ValueError("passive scene requires scene-only physics settings")
+        if not self.scene_only and type(self.dynamics) is ScenePhysicsSettings:
+            raise ValueError("scene-only settings cannot replace Robot servo dynamics")
         if self.dynamics is not None and self.manifest.world is None:
             raise ValueError("dynamic execution requires explicit world/v2")
         if self.dynamics is None and any(o.motion_type=="dynamic" for o in self.manifest.objects):
@@ -97,7 +106,7 @@ class ModelScenePlan:
     manifest: ObjectSceneManifest
     provider: ObjectSceneProvider
     collision_profile: str
-    dynamics: DynamicsSettings | None = None
+    dynamics: DynamicsSettings | ScenePhysicsSettings | None = None
 
     def __post_init__(self):
         """入口で型とcollision選択を検証し、callback風の任意設定を許可しない。"""
@@ -105,16 +114,16 @@ class ModelScenePlan:
             raise TypeError("typed scene manifest/provider required")
         if type(self.collision_profile) is not str or not self.collision_profile:
             raise ValueError("explicit collision profile required")
-        if self.dynamics is not None and type(self.dynamics) is not DynamicsSettings:
+        if self.dynamics is not None and type(self.dynamics) not in (DynamicsSettings, ScenePhysicsSettings):
             raise TypeError("typed dynamics settings required")
         if self.dynamics is not None and self.manifest.world is None:
             raise ValueError("dynamic execution requires explicit world/v2")
         if self.dynamics is None and any(o.motion_type=="dynamic" for o in self.manifest.objects):
             raise ValueError("dynamic object cannot be silently frozen by kinematic execution")
 
-    def compose(self, model_xml: bytes, model_assets: Mapping[str, bytes], colliders: tuple[ToolColliderBinding, ...]) -> ComposedObjectScene:
+    def compose(self, model_xml: bytes, model_assets: Mapping[str, bytes], colliders: tuple[ToolColliderBinding, ...], *, scene_only: bool = False) -> ComposedObjectScene:
         """trusted Environment entryへtyped requestを渡す。"""
-        result = self.provider.compose_scene({"request":ObjectSceneBuildRequest(model_xml,model_assets,self.manifest,colliders,self.dynamics)})
+        result = self.provider.compose_scene({"request":ObjectSceneBuildRequest(model_xml,model_assets,self.manifest,colliders,self.dynamics,scene_only)})
         if type(result) is not ComposedObjectScene or result.manifest != self.manifest or result.colliders != colliders or result.dynamic_execution != (self.dynamics is not None):
             raise ValueError("Environment returned a different scene binding")
         return result

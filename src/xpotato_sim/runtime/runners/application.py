@@ -60,6 +60,9 @@ def application_url(profile: ApplicationProfile) -> str:
 
 def preflight_application(profile: ApplicationProfile) -> str:
     """設定・checkout・依存fileを検査する。port probeとprocess開始はしない。"""
+    from xpotato_sim.runtime.composition.scene_only_profile import SceneOnlyProfile
+    if type(profile) is SceneOnlyProfile:
+        raise ValueError("scene-only profiles are not supported by app; use xpotato-sim trial")
     decoded = _decode_application_profile(
         profile.document_json.encode("utf-8"),
         source_path=profile.source_path,

@@ -21,8 +21,10 @@ class ConfiguredObjectSceneProvider:
             raise ValueError("unknown object scene preset")
         doc=strict_json(path.read_bytes())
         version=doc.get("schema_version")
-        fields(doc,{"schema_version","scene_id","definition_resources","objects","contact"} | ({"world"} if version=="object-scene-preset/v2" else set()),"scene preset")
-        if doc.pop("schema_version") not in ("object-scene-preset/v1","object-scene-preset/v2"):
+        fields(doc,{"schema_version","scene_id","definition_resources","objects","contact"} |
+               ({"world"} if version in ("object-scene-preset/v2","object-scene-preset/v3","object-scene-preset/v4") else set()) |
+               ({"flex_resources"} if version=="object-scene-preset/v4" else set()),"scene preset")
+        if doc.pop("schema_version") not in ("object-scene-preset/v1","object-scene-preset/v2","object-scene-preset/v3","object-scene-preset/v4"):
             raise ValueError("unsupported scene preset")
         refs=doc.pop("definition_resources")
         if type(refs) is not list or len(refs)>32:
@@ -34,7 +36,20 @@ class ConfiguredObjectSceneProvider:
             if not asset.is_file():
                 raise ValueError("unknown object resource")
             definitions.append(ObjectDefinition.from_document(strict_json(asset.read_bytes())).to_document())
-        doc.update(schema_version="object-scene/v2" if version.endswith("/v2") else "object-scene/v1",definitions=definitions)
+        flexes=[]
+        if version == "object-scene-preset/v4":
+            flex_names=doc.pop("flex_resources")
+            if type(flex_names) is not list or not 1 <= len(flex_names) <= 8:
+                raise ValueError("nonempty bounded flex resource list required")
+            for ref in flex_names:
+                identifier(ref)
+                resource=resource_root.joinpath("flexes",ref+".json")
+                if not resource.is_file():
+                    raise ValueError("unknown flex resource")
+                flexes.append(strict_json(resource.read_bytes()))
+        doc.update(schema_version="object-scene/"+version.rsplit("/",1)[1],definitions=definitions)
+        if flexes:
+            doc["flexes"]=flexes
         return decode_object_scene(canonical(doc))
 
     def compose_scene(self, parameters):

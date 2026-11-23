@@ -122,6 +122,7 @@ OBJECT_GEOM_NAME = "contact_cube_geom"
 TRIAL = ContactTrialIdentity("contact-e2e-417-software-v1")
 TASK_FORCE_BAND_N = (5.0, 15.0)
 DERIVED_FORCE_CLAMP_N = 2.0
+DERIVED_FORCE_ABS_TOL_N = 1e-9
 SAMPLE_TIMES_S = (0.0, 0.01, 0.02, 0.03, 0.04, 0.061)
 TOOL_DISPLACEMENTS_M = (0.0, 0.01, 0.016, 0.016, 0.017, 0.017)
 EXPECTED_PHASE_SEQUENCE = (
@@ -191,6 +192,17 @@ def _is_finite_number(value: object) -> bool:
         and not isinstance(value, bool)
         and math.isfinite(float(value))
     )
+
+
+def _matches_measured_force_clamp(value: object) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value) and math.isclose(
+            value, DERIVED_FORCE_CLAMP_N, rel_tol=0.0, abs_tol=DERIVED_FORCE_ABS_TOL_N
+        )
+    except OverflowError:
+        return False
 
 
 def _validate_software_revision(value: object) -> str:
@@ -446,7 +458,7 @@ def decode_contact_e2e_summary(data: bytes | bytearray | memoryview) -> dict[str
         or valid["task_uses_raw_evidence_only"] is not True
         or valid["derived_force_below_raw_task_minimum"] is not True
         or valid["derived_force_clamp_n"] != DERIVED_FORCE_CLAMP_N
-        or valid["derived_force_peak_magnitude_n"] != DERIVED_FORCE_CLAMP_N
+        or not _matches_measured_force_clamp(valid["derived_force_peak_magnitude_n"])
         or valid["log_artifact"] != contact_task_log_artifact_name(TRIAL)
         or valid["payload_artifact"] != "contact-e2e-payload-v0.json"
         or type(valid["sample_count"]) is not int
@@ -1250,7 +1262,7 @@ def _build_summary(
         "measured force signal was not explicitly clamped",
     )
     _require(
-        all(math.isclose(value, DERIVED_FORCE_CLAMP_N, rel_tol=0.0, abs_tol=1e-9) for value in derived_magnitudes),
+        all(_matches_measured_force_clamp(value) for value in derived_magnitudes),
         "derived force magnitude differs from the configured clamp",
     )
     final_sample = log.samples[-1]

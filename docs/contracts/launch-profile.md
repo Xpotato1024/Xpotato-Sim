@@ -194,3 +194,18 @@ world条件と積分条件の変更を同じ意味に混同せず、試行の条
 
 既定Newton50 iteration/tolerance1e-10、physics_dt=1/600 s、control_dt=1/60 s、速度budget10 rad/s、追従誤差budget0.75 radは
 診断用仮定値で、実機で安全・最適と測定した値ではない。gainとtorque limitはRobot sourceのまま。
+
+## RobotなしのScene単独profile v5（2026-11-11）
+
+保存済みv1〜v4のbytesと意味を維持する。`xpotato-sim-launch-profile/v5» では
+`robot»・`model»・`input»・`mapping»・`task» が明示的にnullで、偽のendpointや
+Gamepad中立入力を作らない。Environmentは登録済みObject Sceneとworldを選び、
+`robot_collision_profile:null» を必須とする。
+
+`execution.physics» の `scene-physics/v1» はphysics_dt、integrator、
+solver、iterations、tolerance、bool speculativeを所有し、Robot servo上限は含まない。
+control dtはphysics dtの整数倍であり、条件はdigestで固定する。
+配布例：`examples/scene-sphere-wall»、`examples/scene-sphere-wall-speculative»、
+`examples/scene-elastic-plastic»。
+Scene単独は既存有限 `trial» CLIでfixtureなし、Robotのあるtrialでは明示fixtureを必須にする。
+現在のWeb AppはRobot宣言を要求するため、v5の映像出力はnative rendererを利用する。

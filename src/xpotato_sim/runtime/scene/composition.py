@@ -13,8 +13,10 @@ def compose_object_scene(request: ObjectSceneBuildRequest) -> ComposedObjectScen
     """Environmentは物体・worldと接触対を一度だけ追加する。base sceneは複製しない。"""
     if type(request) is not ObjectSceneBuildRequest or type(request.manifest) is not ObjectSceneManifest:
         raise TypeError("typed scene request required")
-    if type(request.colliders) is not tuple or not request.colliders or any(type(c) is not ToolColliderBinding for c in request.colliders):
-        raise ValueError("explicit Robot collider bindings required")
+    if type(request.colliders) is not tuple or any(type(c) is not ToolColliderBinding for c in request.colliders):
+        raise ValueError("typed collider bindings required")
+    if not request.colliders and not request.scene_only:
+        raise ValueError("Robot collision bindings cannot be silently omitted")
     if len({c.geom_name for c in request.colliders}) != len(request.colliders) or len({c.endpoint_id for c in request.colliders}) != len(request.colliders):
         raise ValueError("duplicate Robot collider bindings")
     tree = ET.fromstring(request.model_xml.decode("utf-8"))
@@ -54,6 +56,8 @@ def compose_object_scene(request: ObjectSceneBuildRequest) -> ComposedObjectScen
                 raise ValueError("dynamic object requires explicit world")
             ET.SubElement(body,"freejoint",{"name":body_name+"__free","align":"false"})
         if obj.spring is not None:
+            if spec.radius_m is not None:
+                raise ValueError("spring slider requires a rigid box definition")
             if not modern or request.dynamics is None:
                 raise ValueError("spring requires dynamic execution and explicit world")
             s = obj.spring
@@ -67,7 +71,9 @@ def compose_object_scene(request: ObjectSceneBuildRequest) -> ComposedObjectScen
                 "rgba": "0.3 0.3 0.3 0.2", "contype": "0", "conaffinity": "0"})
         # fixedの質量を無限大にしない。worldへの固定はjointを持たないことで表す。
         ET.SubElement(body, "inertial", {"pos":"0 0 0","mass":str(spec.mass_kg),"diaginertia":xml_values(spec.diagonal_inertia_kg_m2)})
-        ET.SubElement(body, "geom", {"name":geom_name,"type":"box","size":xml_values(spec.half_extents_m),
+        ET.SubElement(body, "geom", {"name":geom_name,
+            "type":"sphere" if spec.radius_m is not None else "box",
+            "size":str(spec.radius_m) if spec.radius_m is not None else xml_values(spec.half_extents_m),
             "rgba":xml_values(spec.rgba),"friction":xml_values(spec.friction),"contype":"1" if modern else "0","conaffinity":"1" if modern else "0","group":"0",
             **({} if not modern else {"condim":str(request.manifest.contact.condim),
                 "solref":xml_values(request.manifest.contact.solref),"solimp":xml_values(request.manifest.contact.solimp),
@@ -81,6 +87,12 @@ def compose_object_scene(request: ObjectSceneBuildRequest) -> ComposedObjectScen
                 "geom1":collider.geom_name,"geom2":geom_name,"condim":str(cp.condim),
                 "friction":xml_values((friction[0],friction[0],friction[1],friction[2],friction[2])),
                 "solref":xml_values(cp.solref),"solimp":xml_values(cp.solimp),"margin":str(cp.margin_m),"gap":"0"})
+    if request.manifest.flexes:
+        for flex in request.manifest.flexes:
+            if "flex__"+flex.flex_id in names:
+                raise ValueError("flex identity collides with model")
+            names.add("flex__"+flex.flex_id)
+            flex.add_to(world)
     if modern:
         from .world_composition import finalize_home
         tree=finalize_home(tree,request.model_xml,request.model_assets,request.manifest)

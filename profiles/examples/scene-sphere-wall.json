@@ -1,0 +1,42 @@
+{
+  "schema_version": "xpotato-sim-launch-profile/v5",
+  "name": "scene-sphere-wall",
+  "workspace": "../..",
+  "mode": "simulation",
+  "robot": null,
+  "model": null,
+  "input": null,
+  "mapping": null,
+  "task": null,
+  "environment": {
+    "plugin": {
+      "name": "object_scene_environment",
+      "version": 1
+    },
+    "parameters": {
+      "preset": "sphere_wall"
+    },
+    "robot_collision_profile": null
+  },
+  "execution": {
+    "steps": 180,
+    "dt_s": 0.02,
+    "interval_s": 0.02,
+    "grace_period_s": 60,
+    "physics": {
+      "schema_version": "scene-physics/v1",
+      "physics_dt_s": 0.02,
+      "integrator": "Euler",
+      "solver": "CG",
+      "iterations": 150,
+      "tolerance": 1e-05,
+      "speculative": false
+    }
+  },
+  "web": {
+    "host": "127.0.0.1",
+    "port": 5173,
+    "websocket_port": 8766,
+    "open_browser": false
+  }
+}

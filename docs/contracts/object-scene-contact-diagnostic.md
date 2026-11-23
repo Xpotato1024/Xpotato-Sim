@@ -178,3 +178,13 @@ Robotモデルの高さやsupport planeで台を代用しない。床はz=0に�
 旧`compression_spring` / `tasks/research-spring`は過去の条件・保存ログ用に保持する。
 新条件のinstance IDは`plate`、Task対象も`plate`であり、scene/model/condition digestは旧条件と異なる。
 現行の4条件例は可動板へ揃える。過去ログの立方体を新しい板へ読み替えない。
+
+## sphere/flexのversioned Scene資源（2026-11-11）
+
+既存 `object-scene/v1»・`v2» のboxとばねの意味・保存byteを維持する。
+一様球の `object-scene/v3» は `geometry={type:sphere,radius_m}» と
+`inertia={mode:uniform_sphere,mass_kg}» を持ち、慣性は2mr²/5。
+柔軟体は登録済み `flex-grid/v1» を内包する `object-scene/v4» として、
+格子、固定点、弾性・降伏を明示してnative MuJoCoへ投影する。
+任意XML/import、無界の格子、未知schemaは受理しない。
+接触flagはScene内でなくExecutionの物理設定が所有する。

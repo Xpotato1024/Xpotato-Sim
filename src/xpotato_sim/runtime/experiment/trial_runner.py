@@ -11,6 +11,7 @@ from time import monotonic
 from uuid import uuid4
 
 from xpotato_sim.runtime.execution.model_execution import ModelExecution
+from xpotato_sim.runtime.execution.scene_only import SceneOnlyExecution
 from xpotato_sim.runtime.experiment.contracts import TaskTerminalClassification
 from xpotato_sim.runtime.experiment.trial_condition import (
     TrialLimits, resolve_trial_profile, semantic_parameters, freeze_condition,
@@ -126,7 +127,7 @@ class TrialRunner:
                 "streams": {stream: {"sequence": item[1], "source_timestamp_s": item[2], "received_at_s": item[3], "ordering_receipt_s": item[4]}
                             for stream, item in self._input_streams.items()},
                 "last_receipt_gap_s": None if self._execution is None else
-                    self._execution.runtime.runtime.last_receipt_gap_s}
+                    (None if getattr(self._execution,"passive",False) else self._execution.runtime.runtime.last_receipt_gap_s)}
 
     @property
     def viewer_resources(self):
@@ -196,7 +197,9 @@ class TrialRunner:
                             == canonical({k: v for k, v in parameters.items() if k not in nonphysical}))
                     instance = self._execution.instance if same_execution else None
                     self._execution = None
-                    execution = ModelExecution(validated, clock=self._source_clock, instance=instance)
+                    from xpotato_sim.runtime.composition.scene_only_profile import SceneOnlyProfile
+                    execution_cls = SceneOnlyExecution if type(validated) is SceneOnlyProfile else ModelExecution
+                    execution = execution_cls(validated, clock=self._source_clock, instance=instance)
                     self._model_build_count += int(instance is None)
                     condition = freeze_condition(parameters, execution.instance)
                     self._execution = execution
@@ -266,8 +269,11 @@ class TrialRunner:
                     if self._async_terminal_recording:
                         self._record_job = TerminalRecordingJob(self._recorder)
                 self._input_accepting = self._now()
-                self._execution.runtime.runtime.accept_inputs_after(self._input_accepting)
-                self._status = "waiting_input"
+                if getattr(self._execution,"passive",False):
+                    self._status = "running"
+                else:
+                    self._execution.runtime.runtime.accept_inputs_after(self._input_accepting)
+                    self._status = "waiting_input"
             except Exception as exc:
                 self._recording_failed(exc)
                 raise
@@ -305,6 +311,8 @@ class TrialRunner:
                              f"received_at_s={self._last_input[3]:.6f}; now_s={self._last_now:.6f}")
 
     def _ingest_received(self, ticket, message, *, received_at_s, now):
+        if getattr(self._execution,"passive",False):
+            raise ValueError("passive scene does not accept Robot input")
         self._committed_projection = None
         self._check_ticket(ticket)
         if self._status not in {"waiting_input", "running"}:
@@ -385,7 +393,7 @@ class TrialRunner:
                     return self._finish("wall_timeout")
                 if self._status == "waiting_input" and now - self._input_accepting >= self._limits.input_wait_s:
                     return self._finish("input_wait_timeout")
-                if pending_input is not None:
+                if pending_input is not None and not getattr(self._execution,"passive",False):
                     samples = pending_input()
                     if samples is None:
                         return None
@@ -402,7 +410,7 @@ class TrialRunner:
                         return False
                     self._consume_batch(ticket, samples, check_freshness=False)
                     return True
-                self._execution.tick(freshness_barrier=None if pending_input is None else freshness_barrier)
+                self._execution.tick(freshness_barrier=None if pending_input is None or getattr(self._execution,"passive",False) else freshness_barrier)
                 if self._execution.state == "faulted":
                     return self._finish("technical_invalid", error=self._execution.reason)
                 if self._execution.state == "running":
@@ -422,7 +430,8 @@ class TrialRunner:
                             geometry=sample.metadata.get("scene_contact_geometry_v1"),
                             signals={key: sample.metadata[key] for key in (
                                 "scene_force_signal_v1", "force_presentation_v1",
-                                "command_mapping_v1", "coordinated_runtime_v1")
+                                "command_mapping_v1", "coordinated_runtime_v1",
+                                "scene_state_checkpoint_v1")
                                 if key in sample.metadata},
                             task=self._execution.task_view)
                     task = self._execution.task_state
@@ -469,7 +478,7 @@ class TrialRunner:
             return self._result
         self._status = "finalizing"
         self._stop()
-        if self._execution.runtime.runtime.state == "faulted":
+        if not getattr(self._execution,"passive",False) and self._execution.runtime.runtime.state == "faulted":
             reason = "technical_invalid"
             error = error or self._execution.runtime.runtime.reason
         try:

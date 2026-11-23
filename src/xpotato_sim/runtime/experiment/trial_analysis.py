@@ -147,7 +147,17 @@ def _analyze(root):
     start = _schema(_reference(root, terminal["start_ref"], "start.json"), "trial-start/v1")
     _same_identity(start, terminal)
     saved = _reference(root, start["condition_ref"], "condition.json")
-    condition = _schema(saved["condition"], "trial-condition/v1")
+    condition = saved["condition"]
+    if type(condition) is not dict or condition.get("schema_version") not in ("trial-condition/v1","trial-condition/v2"):
+        raise ValueError("unsupported trial condition version")
+    passive = condition["schema_version"] == "trial-condition/v2"
+    if passive:
+        if any(condition.get(k) is not None for k in ("robot","model","input","mapping","task","evaluation")):
+            raise ValueError("passive trial must not invent Robot/Source/Task identity")
+        if condition.get("route") != "passive_scene/v1":
+            raise ValueError("passive trial route mismatch")
+        if condition.get("scene_digest") != sha256(canonical(condition["scene"])).hexdigest():
+            raise ValueError("passive scene digest mismatch")
     digest = sha256(canonical(condition)).hexdigest()
     if digest != terminal["condition_sha256"] or digest != saved["condition_sha256"]:
         raise ValueError("condition semantic digest mismatch")
@@ -198,13 +208,15 @@ def _continuous_metrics(data, terminal, condition, initial, final, accepting, st
     kind_times = {}
     sites_previous, site_paths, springs = {}, {}, {}
     scene = condition["scene"]
-    if scene is not None and (type(scene) is not dict or scene.get("schema_version") not in {"object-scene/v1", "object-scene/v2"}):
+    passive = condition["schema_version"] == "trial-condition/v2"
+    if scene is not None and (type(scene) is not dict or scene.get("schema_version") not in {"object-scene/v1", "object-scene/v2", "object-scene/v3", "object-scene/v4"}):
         raise ValueError("unsupported scene artifact schema")
     scene_digest = None if scene is None else sha256(canonical(scene)).hexdigest()
-    settings_digest = None if condition["dynamics"] is None else sha256(canonical(condition["dynamics"])).hexdigest()
-    endpoints = set(condition["side_to_endpoint"].values())
+    settings = condition.get("dynamics")
+    settings_digest = None if settings is None else sha256(canonical(settings)).hexdigest()
+    endpoints = set(condition.get("side_to_endpoint",{}).values())
     objects = set() if scene is None else {obj["instance_id"] for obj in scene["objects"]}
-    dynamic_scene = scene is not None and scene["schema_version"] == "object-scene/v2"
+    dynamic_scene = scene is not None and scene["schema_version"] in ("object-scene/v2","object-scene/v3","object-scene/v4")
     supports = {item["plane_id"] for item in scene["world"]["support_planes"]} if dynamic_scene else set()
     spring_ids = {obj["instance_id"] for obj in scene["objects"] if obj["motion_type"] == "spring"} if dynamic_scene else set()
     targets = set() if condition["force_signal"] is None else set(condition["force_signal"]["target_object_ids"])
@@ -251,6 +263,21 @@ def _continuous_metrics(data, terminal, condition, initial, final, accepting, st
         _same_time(row["simulation_time_s"], initial["time_s"] + ticks * condition["dt_s"], "tick simulation")
         if "signals" in row and type(row["signals"]) is not dict:
             raise ValueError("optional recorded signals must be an object")
+        if passive:
+            checkpoint = row["signals"].get("scene_state_checkpoint_v1")
+            if type(checkpoint) is not dict or checkpoint.get("schema_version") != "model-integration-state/v1":
+                raise ValueError("passive trial requires a complete integration checkpoint")
+            if checkpoint.get("model_sha256") != condition["model_sha256"] or checkpoint.get("mujoco_version") != initial["mujoco_version"]:
+                raise ValueError("passive checkpoint model/engine mismatch")
+            if checkpoint.get("qpos") != row["qpos"] or checkpoint.get("qvel") != row["qvel"]:
+                raise ValueError("passive checkpoint differs from committed state")
+            _same_time(checkpoint["time_s"], row["simulation_time_s"], "passive checkpoint")
+            if checkpoint.get("state_spec") != initial["state_spec"]:
+                raise ValueError("passive checkpoint state specification mismatch")
+            if (type(checkpoint.get("integration_state")) is not list
+                    or len(checkpoint["integration_state"]) != len(initial["integration_state"])):
+                raise ValueError("incomplete passive integration state")
+            vector(checkpoint["integration_state"],len(initial["integration_state"]))
         for name in ("qpos", "qvel"):
             vector(row[name], len(initial[name]))
         names = set()
