@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import math
 import subprocess
 import sys
 from dataclasses import replace
@@ -177,7 +178,30 @@ def test_contact_e2e_generates_bound_deterministic_log_and_viewer_payload(
     assert valid_run["raw_force_range_n"][0] >= 5.0
     assert valid_run["raw_force_range_n"][1] <= 15.0
     assert valid_run["derived_force_clamp_n"] == 2.0
-    assert valid_run["derived_force_peak_magnitude_n"] == 2.0
+    assert math.isclose(
+        valid_run["derived_force_peak_magnitude_n"], 2.0, rel_tol=0.0, abs_tol=1e-9
+    )
+
+    for direction in (-math.inf, math.inf):
+        peak = math.nextafter(2.0, direction)
+        rounded = copy.deepcopy(summary)
+        rounded["valid_run"]["derived_force_peak_magnitude_n"] = peak
+        decoded = generator.decode_contact_e2e_summary(generator._canonical_json(rounded) + b"\n")
+        assert decoded["valid_run"]["derived_force_peak_magnitude_n"] == peak
+
+    for invalid_peak in (2.0 - 2e-9, 2.0 + 2e-9, "2.0", True, None, 10**400):
+        invalid = copy.deepcopy(summary)
+        invalid["valid_run"]["derived_force_peak_magnitude_n"] = invalid_peak
+        with pytest.raises(ValueError, match="valid-run identity or Task outcome"):
+            generator.decode_contact_e2e_summary(generator._canonical_json(invalid) + b"\n")
+
+    for nonfinite in (math.nan, -math.inf, math.inf):
+        assert not generator._matches_measured_force_clamp(nonfinite)
+
+    changed_clamp = copy.deepcopy(summary)
+    changed_clamp["valid_run"]["derived_force_clamp_n"] = math.nextafter(2.0, math.inf)
+    with pytest.raises(ValueError, match="valid-run identity or Task outcome"):
+        generator.decode_contact_e2e_summary(generator._canonical_json(changed_clamp) + b"\n")
     assert valid_run["derived_force_below_raw_task_minimum"] is True
 
     assert summary["determinism"] == {
