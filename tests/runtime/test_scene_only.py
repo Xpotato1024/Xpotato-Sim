@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import csv
 import json
 import mujoco
 import pytest
@@ -127,6 +128,20 @@ def test_scene_only_saved_trial_reanalysis(tmp_path):
     assert len(list(trial.iter_rows(kind="tick")))==8
     runner.close()
 
+    from xpotato_sim.cli.main import main
+    output = tmp_path / "public-analysis"
+    exit_code = main(["experiment", "analyze",
+                      "--result-root", str(tmp_path / ticket.trial_id),
+                      "--output", str(output), "--no-plots"])
+    report = json.loads((output / "analysis.json").read_text(encoding="utf-8"))
+    assert report["verified_count"] == 1, report["invalid_or_incomplete"]
+    assert exit_code == 0
+    assert report["trials"][0]["condition"]["input"] is None
+    assert report["trials"][0]["metrics"]["wall_elapsed_s"] >= 0
+    with (output / "trials.csv").open(encoding="utf-8", newline="") as stream:
+        row, = csv.DictReader(stream)
+    assert row["integrity"] == "verified" and row["input_provider"] == ""
+
 
 def test_flex_impact_sphere_is_registered_and_separate_from_fast_wall_ball():
     flex=load("scene-elastic-plastic").scene_plan.manifest
@@ -139,3 +154,40 @@ def test_flex_impact_sphere_is_registered_and_separate_from_fast_wall_ball():
     sphere=next(d for d in wall.definitions if d.radius_m is not None)
     assert sphere.radius_m == pytest.approx(.01)
     assert sphere.mass_kg == pytest.approx(.05)
+
+
+@pytest.mark.parametrize("flags", [[], ["--check"], ["--startup-check"]])
+def test_scene_only_app_is_rejected_with_cli_guidance(capsys, flags):
+    from xpotato_sim.cli.main import main
+
+    exit_code = main(["app", "--profile", "examples/scene-sphere-wall", *flags])
+    assert exit_code == 1
+    assert "scene-only profiles are not supported by app; use xpotato-sim trial" in (
+        capsys.readouterr().err
+    )
+
+
+def test_passive_video_includes_verified_precontact_frame(tmp_path):
+    from xpotato_sim.runtime.experiment.scene_video_export import _state_frames
+    from xpotato_sim.runtime.experiment.trial_analysis import load_validated_trial
+
+    profile = load("scene-sphere-wall")
+    runner = TrialRunner(result_root=tmp_path, software_revision="video-passive")
+    try:
+        ticket = runner.prepare(profile, TrialLimits(max_ticks=3))
+        runner.start(ticket, input_provenance={"source": "passive"})
+        for _ in range(3):
+            runner.advance(ticket)
+    finally:
+        runner.close()
+    directory = tmp_path / ticket.trial_id
+    trial = load_validated_trial(directory)
+    provider = profile.build_model().provider
+    frames = _state_frames(trial, provider, provider.model, directory)
+    assert [frame[0] for frame in frames] == pytest.approx([0, .02, .04, .06])
+    assert [frame[2][0] for frame in frames[:2]] == pytest.approx([-.12, .12])
+
+    initial = directory / "initial-state.json"
+    initial.write_bytes(initial.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="artifact changed after validation: initial-state.json"):
+        _state_frames(trial, provider, provider.model, directory)

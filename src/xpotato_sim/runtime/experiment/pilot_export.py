@@ -196,13 +196,14 @@ def export_results(*, result_root, output, session_path=None, spring_object=None
             task = analysis["task_outcome"] or {}
             display = analysis["condition"].get("display_comparison")
             metrics = analysis["metrics"]
+            passive = analysis["condition"]["schema_version"] == "trial-condition/v2"
             table_row = {"directory": directory.name, "integrity": "verified", "trial_id": analysis["trial_id"],
                 "participant_id": None if link is None else link["participant_id"],
                 "session_id": None if link is None else link["session_id"],
                 "slot": None if link is None else link["slot"], "attempt": None if link is None else link["attempt"],
                 "condition_id": None if link is None else link["condition_id"],
                 "condition_sha256": analysis["condition_sha256"],
-                "input_provider": analysis["condition"]["input"]["provider"],
+                "input_provider": None if passive else analysis["condition"]["input"]["provider"],
                 "display_mode": None if display is None else display["presentation"]["mode"],
                 "runner_stop_reason": analysis["runner_stop_reason"], "task_classification": task.get("classification"),
                 "task_reason": task.get("reason"), "ticks": metrics["ticks"],

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from hashlib import sha256
+from itertools import chain
 import json
 from math import ceil, isfinite
 from pathlib import Path
@@ -15,7 +16,7 @@ import numpy as np
 from PIL import Image
 
 from xpotato_sim.runtime.composition.launch_profile import decode_launch_profile, repository_workspace
-from xpotato_sim.runtime.experiment.video_bundle import CAMERAS
+from xpotato_sim.runtime.experiment.video_bundle import CAMERAS, _read_referenced
 from xpotato_sim.runtime.scene.objects import canonical
 
 
@@ -23,13 +24,20 @@ def _hash(path):
     return sha256(path.read_bytes()).hexdigest()
 
 
-def _state_frames(trial, provider, model):
+def _state_frames(trial, provider, model, source):
     """検証済みフル積分状態だけを返す。qpos-onlyでplastic stateを作り直さない。"""
-    checkpoints=[]
-    # Initial state is validated by the trial analyzer's hash/reference chain.
-    # The tick records contain complete native integration checkpoints.
-    for row in trial.iter_rows(kind="tick"):
-        checkpoint=row["signals"]["scene_state_checkpoint_v1"]
+    analysis = trial.analysis()
+    terminal = _read_referenced(source, "terminal.json", analysis["terminal_sha256"])
+    start = _read_referenced(source, "start.json", terminal["start_ref"]["sha256"])
+    initial = _read_referenced(source, "initial-state.json", start["initial_state_ref"]["sha256"])
+    tick_states = (
+        (row["simulation_time_s"], row["qpos"], row["qvel"], row["signals"]["scene_state_checkpoint_v1"])
+        for row in trial.iter_rows(kind="tick")
+    )
+    checkpoints = []
+    for timestamp, qpos, qvel, checkpoint in chain(
+        [(initial["time_s"], initial["qpos"], initial["qvel"], initial)], tick_states
+    ):
         if (checkpoint["model_sha256"]!=provider.model_sha256 or
                 checkpoint["mujoco_version"]!=mujoco.__version__ or
                 checkpoint["state_spec"]!=int(mujoco.mjtState.mjSTATE_INTEGRATION)):
@@ -37,7 +45,7 @@ def _state_frames(trial, provider, model):
         values=np.asarray(checkpoint["integration_state"],dtype=np.float64)
         if values.size!=mujoco.mj_stateSize(model,mujoco.mjtState.mjSTATE_INTEGRATION) or not np.isfinite(values).all():
             raise ValueError("recorded native state dimension/finite mismatch")
-        checkpoints.append((float(row["simulation_time_s"]),values,row["qpos"],row["qvel"]))
+        checkpoints.append((float(timestamp), values, qpos, qvel))
     if len(checkpoints)<2:
         raise ValueError("at least two recorded Scene frames required")
     times=[x[0] for x in checkpoints]
@@ -106,8 +114,9 @@ def export_scene_only_video(args, *, trial):
         raise ValueError("recorded model digest differs from current executable model")
     if analysis["condition"]["numerical_condition"]!=provider.numerical_condition():
         raise ValueError("recorded model numerical conditions differ from current runtime")
-    frames=_state_frames(trial,provider,model)
-    duration=(frames[-1][0]-frames[0][0])/args.speed
+    frames = _state_frames(trial, provider, model, source)
+    timestamps = [frame[0] for frame in frames]
+    duration = (timestamps[-1]-timestamps[0])/args.speed
     count=ceil(duration*args.fps-1e-9)
     if not 2<=count<=3600:
         raise ValueError("bounded output frame count required")
@@ -122,8 +131,8 @@ def export_scene_only_video(args, *, trial):
         used=[]
         with mujoco.Renderer(model,height=args.height,width=args.width) as renderer:
             for index in range(count):
-                t=frames[0][0]+index*args.speed/args.fps
-                position=max(0,bisect_right([s[0] for s in frames],t+1e-10)-1)
+                t = timestamps[0] + index*args.speed/args.fps
+                position = max(0, bisect_right(timestamps, t+1e-10)-1)
                 timestamp,values,qpos,qvel=frames[position]
                 mujoco.mj_setState(model,data,values,mujoco.mjtState.mjSTATE_INTEGRATION)
                 mujoco.mj_forward(model,data)
@@ -132,7 +141,7 @@ def export_scene_only_video(args, *, trial):
                 renderer.update_scene(data,camera=camera)
                 pixels=renderer.render()
                 Image.fromarray(pixels).save(directory/f"{index:05d}.png")
-                used.append({"frame":index,"recorded_tick_index":position+1,"recorded_time_s":timestamp})
+                used.append({"frame":index,"recorded_tick_index":position,"recorded_time_s":timestamp})
         src=[ffmpeg,"-hide_banner","-loglevel","error","-nostdin","-n","-framerate",str(args.fps),
              "-i",str(directory/"%05d.png")]
         cmds={".mp4":["-an","-c:v","libx264","-pix_fmt","yuv420p","-crf","23","-movflags","+faststart"],
